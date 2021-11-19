@@ -15,6 +15,8 @@ public class ResourceAllocationAgent extends  Agent {
 
     private ArrayList<ResourceItem> availableResources = new ArrayList<ResourceItem>();
 
+    private ArrayList<AID> otherAgents = new ArrayList<AID>();
+
     SimulationEngine simulationEngine = new SimulationEngine();
 
     @Override
@@ -23,12 +25,28 @@ public class ResourceAllocationAgent extends  Agent {
         // Printout a welcome message
         System.out.println("Hello World. I’m an agent!");
         System.out.println("My local-name is " + getAID().getLocalName());
-        System.out.println("My GUID is " + getAID().getName());
+//        System.out.println("My GUID is " + getAID().getName());
 //        System.out.println("My addresses are:");
 //        Iterator it = getAID().getAllAddresses();
 //        while (it.hasNext()) {
 //            System.out.println("- "+it.next());
 //        }
+
+
+        // Get ids of other agents as arguments
+        Object[] args = getArguments();
+        if (args != null && args.length > 0) {
+
+            int numberOfAgents = (int) args[0];
+            int myId = (int) args[1];
+
+            for (int i = 1; i <= numberOfAgents; i++) {
+                if ( i != myId) {
+                    AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
+                    otherAgents.add(aid);
+                }
+            }
+        }
 
 
 //        addBehaviour(new TickerBehaviour(this, 3000) {
@@ -68,7 +86,12 @@ public class ResourceAllocationAgent extends  Agent {
             public void action() {
 
                 ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-                msg.addReceiver(new AID("Agent2", AID.ISLOCALNAME));
+
+                for (int i = 0; i < otherAgents.size(); i++) {
+                // Send this message to all other agents
+                    msg.addReceiver(otherAgents.get(i));
+                }
+
                 msg.setLanguage("English");
                 msg.setOntology("Weather-forecast-ontology");
                 msg.setContent("Today it’s raining");
@@ -86,7 +109,7 @@ public class ResourceAllocationAgent extends  Agent {
                 if (msg != null) {
                     // Message received. Process it
                     String content = msg.getContent();
-                    System.out.println("Message received by " + myAgent.getLocalName() + " with content: " + content);
+                    System.out.println("Message received by " + myAgent.getLocalName() + " from " + msg.getSender().getLocalName() + " with content: " + content);
                 } else {
                     block();
                 }
