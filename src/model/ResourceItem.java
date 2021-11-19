@@ -21,4 +21,11 @@ public class ResourceItem {
         return expiryDate;
     }
 
+    @Override
+    public String toString() {
+        return "ResourceItem{" +
+                "type=" + type +
+                ", expiryDate=" + expiryDate +
+                '}';
+    }
 }

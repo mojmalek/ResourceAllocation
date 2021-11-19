@@ -16,7 +16,7 @@ public class Main {
         p.setParameter(Profile.MAIN_HOST, "localhost");
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc=rt.createMainContainer(p);
-        for(int i=1;i<2;i++){
+        for(int i=1;i<3;i++){
             AgentController ac;
             try {
                 ac=cc.createNewAgent("Agent"+i, "model.ResourceAllocationAgent", null);
