@@ -8,6 +8,7 @@ import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
 import java.util.*;
+import java.util.logging.Logger;
 
 public class ResourceAllocationAgent extends  Agent {
 
@@ -85,16 +86,21 @@ public class ResourceAllocationAgent extends  Agent {
             @Override
             public void action() {
 
-                ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+                ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
                 for (int i = 0; i < otherAgents.size(); i++) {
                 // Send this message to all other agents
                     msg.addReceiver(otherAgents.get(i));
                 }
 
-                msg.setLanguage("English");
-                msg.setOntology("Weather-forecast-ontology");
-                msg.setContent("Today it’s raining");
+                HashMap<String,String> fields = new HashMap<String,String>();
+                fields.put("quantity", "10");
+
+//                msg.setLanguage("English");
+//                msg.setOntology("Weather-forecast-ontology");
+
+                msg.setContent( fields.toString());
+
                 send(msg);
                 System.out.println("Message sent by " + myAgent.getLocalName());
 
@@ -109,7 +115,45 @@ public class ResourceAllocationAgent extends  Agent {
                 if (msg != null) {
                     // Message received. Process it
                     String content = msg.getContent();
-                    System.out.println("Message received by " + myAgent.getLocalName() + " from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                    switch (msg.getPerformative()) {
+                        case ACLMessage.REQUEST:
+                            System.out.println (myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                            processRequest(myAgent, msg);
+
+                            break;
+
+                        case ACLMessage.PROPOSE:
+                            System.out.println (myAgent.getLocalName() + " received a PROPOSE message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+
+                            break;
+
+                        case ACLMessage.ACCEPT_PROPOSAL:
+                            System.out.println (myAgent.getLocalName() + " received a ACCEPT_PROPOSAL message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+
+                            break;
+
+                        case ACLMessage.REFUSE:
+                            System.out.println (myAgent.getLocalName() + " received a REFUSE message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                            break;
+
+                        case ACLMessage.REJECT_PROPOSAL:
+                            System.out.println (myAgent.getLocalName() + " received a REJECT_PROPOSAL message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+
+                            break;
+
+                        case ACLMessage.INFORM:
+                            System.out.println (myAgent.getLocalName() + " received a INFORM message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+
+                            break;
+                    }
+
                 } else {
                     block();
                 }
@@ -118,4 +162,67 @@ public class ResourceAllocationAgent extends  Agent {
 
 
     }
+
+
+    private void createRequest () {
+
+        System.out.println( "This is a new request");
+    }
+
+
+    private void processRequest (Agent myAgent, ACLMessage msg) {
+
+        String content = msg.getContent();
+
+        HashMap<String,String> fields = parseMessageContent (content);
+
+        String quantity = fields.get("quantity");
+
+/*
+        int quantity = Integer.parseInt(fields.get("quantity"));
+*/
+
+        System.out.println("Requested quantity is " + quantity);
+    }
+
+
+    private void createBid () {
+
+        System.out.println( "This is a new bid");
+    }
+
+
+    private void createConfirm () {
+
+        System.out.println( "This is a new confirmation");
+    }
+
+
+    private HashMap<String,String> parseMessageContent (String content) {
+
+        String mainDelim = ",";
+        String fieldDelim = "=";
+
+        StringBuilder sb = new StringBuilder(content);
+
+        sb.deleteCharAt(0);
+        sb.deleteCharAt(content.length()-2);
+
+//        content = content.replace('{', '');
+
+        content = sb.toString();
+
+        String[] contentList = content.split(mainDelim);
+
+        HashMap<String,String> fields = new HashMap<String,String>();
+
+        for (int i=0;i<contentList.length;i++)
+        {
+            String[] fieldTuple = contentList[i].split(fieldDelim);
+            fields.put(fieldTuple[0], fieldTuple[1]);
+        }
+
+        return fields;
+    }
+
 }
