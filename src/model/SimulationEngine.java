@@ -1,17 +1,50 @@
 package model;
 
-import java.util.Date;
-import java.util.HashMap;
+import java.util.*;
 
 public class SimulationEngine {
 
 
     public Task findTask() {
 
-        HashMap<ResourceType, String> requiredResources = new HashMap<>();
-        requiredResources.put(ResourceType.A, "10 items for tomorrow");
+        HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources = new HashMap<>();
 
-        Task task = new Task( requiredResources);
+        Random random = new Random();
+
+        int low = 1;
+        int high = ResourceType.getSize();
+        int requiredResourceTypesSize = random.nextInt(high) + low;
+
+        EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
+
+        low = 1;
+        high = 1000;
+        int quantity = 0;
+
+        Iterator it = resourceTypes.iterator();
+
+        for (int i=0; i<requiredResourceTypesSize; i++) {
+
+            quantity = random.nextInt(high) + low;
+
+            HashMap<Integer, TimeInterval> quantityTimeInterval = new HashMap<>();
+            quantityTimeInterval.put (quantity, new TimeInterval( new Date(), new Date()));
+
+            ResourceType selectedResourceType = (ResourceType) it.next();
+
+            requiredResources.put (selectedResourceType, quantityTimeInterval);
+
+            resourceTypes.remove(selectedResourceType);
+            it = resourceTypes.iterator();
+        }
+
+
+
+        low = 1;
+        high = 100;
+        int utility = random.nextInt(high) + low;
+
+        Task task = new Task( requiredResources, utility);
 
         return task;
     }

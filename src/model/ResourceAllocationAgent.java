@@ -50,20 +50,17 @@ public class ResourceAllocationAgent extends  Agent {
         }
 
 
-//        addBehaviour(new TickerBehaviour(this, 3000) {
-//
-//            protected void onTick() {
-//
-//                Task newTask = simulationEngine.findTask();
-//                tasks.add(newTask);
-//
-//                System.out.println("My tasks are:");
-//
-//                for (int i = 0; i < tasks.size(); i++) {
-//                    System.out.println(tasks.get(i));
-//                }
-//            }
-//        });
+        addBehaviour(new TickerBehaviour(this, 1000) {
+
+            protected void onTick() {
+
+                Task newTask = simulationEngine.findTask();
+                tasks.add(newTask);
+
+                System.out.println( myAgent.getLocalName() + ": I have a new task to perform: " + newTask);
+
+            }
+        });
 
 
 //        addBehaviour(new TickerBehaviour(this, 5000) {
@@ -94,12 +91,14 @@ public class ResourceAllocationAgent extends  Agent {
                 }
 
                 HashMap<String,String> fields = new HashMap<String,String>();
-                fields.put("quantity", "10");
+                fields.put(Ontology.RESOURCE_REQUESTED_QUANTITY, "10");
 
 //                msg.setLanguage("English");
 //                msg.setOntology("Weather-forecast-ontology");
 
                 msg.setContent( fields.toString());
+
+//                msg.setReplyByDate();
 
                 send(msg);
                 System.out.println("Message sent by " + myAgent.getLocalName());
