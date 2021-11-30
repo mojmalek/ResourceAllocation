@@ -4,6 +4,8 @@ import java.util.Date;
 
 public class ResourceItem {
 
+    private int id;
+
     private ResourceType type;
     private Date expiryDate;
 
@@ -11,6 +13,10 @@ public class ResourceItem {
     public ResourceItem(ResourceType type, Date expiryDate) {
         this.type = type;
         this.expiryDate = expiryDate;
+    }
+
+    public int getId() {
+        return id;
     }
 
     public ResourceType getType() {

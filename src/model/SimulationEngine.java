@@ -7,7 +7,7 @@ public class SimulationEngine {
 
     public Task findTask() {
 
-        HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources = new HashMap<>();
+        HashMap<ResourceType, Integer> requiredResources = new HashMap<>();
 
         Random random = new Random();
 
@@ -27,18 +27,16 @@ public class SimulationEngine {
 
             quantity = random.nextInt(high) + low;
 
-            HashMap<Integer, TimeInterval> quantityTimeInterval = new HashMap<>();
-            quantityTimeInterval.put (quantity, new TimeInterval( new Date(), new Date()));
+//            HashMap<Integer, TimeInterval> quantityTimeInterval = new HashMap<>();
+//            quantityTimeInterval.put (quantity, null);
 
             ResourceType selectedResourceType = (ResourceType) it.next();
 
-            requiredResources.put (selectedResourceType, quantityTimeInterval);
+            requiredResources.put (selectedResourceType, quantity);
 
             resourceTypes.remove(selectedResourceType);
             it = resourceTypes.iterator();
         }
-
-
 
         low = 1;
         high = 100;
@@ -50,19 +48,19 @@ public class SimulationEngine {
     }
 
 
-    public ResourceItem findResourceItem() {
+    public ArrayList<ResourceItem> findResourceItems( ResourceType resourceType, int lifeTime, int quantity) {
 
-//        Params:
-//        year – the year minus 1900.
-//        month – the month between 0-11.
-//        date – the day of the month between 1-31.
-//        hrs – the hours between 0-23.
-//        min – the minutes between 0-59.
-        Date expiryDate = new Date(122, 2, 6, 19, 33);
+        ArrayList<ResourceItem> resourceItems = new ArrayList<>();
 
-        ResourceItem resourceItem = new ResourceItem( ResourceType.A, expiryDate);
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.SECOND, lifeTime);
+        Date expiryDate = calendar.getTime();
 
-        return resourceItem;
+        for (int i=0; i<quantity; i++) {
+            resourceItems.add(new ResourceItem( resourceType, expiryDate));
+        }
+
+        return resourceItems;
     }
 
 

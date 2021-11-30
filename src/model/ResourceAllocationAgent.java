@@ -10,13 +10,14 @@ import jade.lang.acl.ACLMessage;
 import java.util.*;
 import java.util.logging.Logger;
 
-public class ResourceAllocationAgent extends  Agent {
 
-    private ArrayList<Task> tasks = new ArrayList<Task>();
+public class ResourceAllocationAgent extends Agent {
 
-    private ArrayList<ResourceItem> availableResources = new ArrayList<ResourceItem>();
+    private ArrayList<Task> tasks = new ArrayList<>();
 
-    private ArrayList<AID> otherAgents = new ArrayList<AID>();
+    private HashMap<ResourceType, ArrayList<ResourceItem>> availableResources = new HashMap<>();
+
+    private ArrayList<AID> otherAgents = new ArrayList<>();
 
     SimulationEngine simulationEngine = new SimulationEngine();
 
@@ -63,6 +64,32 @@ public class ResourceAllocationAgent extends  Agent {
         });
 
 
+        addBehaviour(new TickerBehaviour(this, 5000) {
+
+            protected void onTick() {
+
+                ArrayList<Task> blockedTasks = new ArrayList<>();
+
+                for (Task task : tasks) {
+                    if (hasEnoughResources(task)) {
+                        processTask (task);
+                    }
+                    else {
+                        blockedTasks.add(task);
+                    }
+                }
+
+                createRequest( blockedTasks);
+
+//                System.out.println( myAgent.getLocalName() + ": I have a new task to perform: " + newTask);
+
+            }
+        });
+
+
+        availableResources.put(ResourceType.A, simulationEngine.findResourceItems(ResourceType.A, 5, 100));
+
+
 //        addBehaviour(new TickerBehaviour(this, 5000) {
 //
 //            protected void onTick() {
@@ -79,32 +106,32 @@ public class ResourceAllocationAgent extends  Agent {
 //        });
 
 
-        addBehaviour(new OneShotBehaviour() {
-            @Override
-            public void action() {
-
-                ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
-
-                for (int i = 0; i < otherAgents.size(); i++) {
-                // Send this message to all other agents
-                    msg.addReceiver(otherAgents.get(i));
-                }
-
-                HashMap<String,String> fields = new HashMap<String,String>();
-                fields.put(Ontology.RESOURCE_REQUESTED_QUANTITY, "10");
-
-//                msg.setLanguage("English");
-//                msg.setOntology("Weather-forecast-ontology");
-
-                msg.setContent( fields.toString());
-
-//                msg.setReplyByDate();
-
-                send(msg);
-                System.out.println("Message sent by " + myAgent.getLocalName());
-
-            }
-        });
+//        addBehaviour(new OneShotBehaviour() {
+//            @Override
+//            public void action() {
+//
+//                ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
+//
+//                for (int i = 0; i < otherAgents.size(); i++) {
+//                // Send this message to all other agents
+//                    msg.addReceiver(otherAgents.get(i));
+//                }
+//
+//                HashMap<String,String> fields = new HashMap<String,String>();
+//                fields.put(Ontology.RESOURCE_REQUESTED_QUANTITY, "10");
+//
+////                msg.setLanguage("English");
+////                msg.setOntology("Weather-forecast-ontology");
+//
+//                msg.setContent( fields.toString());
+//
+////                msg.setReplyByDate();
+//
+//                send(msg);
+//                System.out.println("Message sent by " + myAgent.getLocalName());
+//
+//            }
+//        });
 
 
         addBehaviour(new CyclicBehaviour() {
@@ -163,7 +190,9 @@ public class ResourceAllocationAgent extends  Agent {
     }
 
 
-    private void createRequest () {
+    private void createRequest (ArrayList<Task> blockedTasks) {
+
+        // creates a request based on the missing quantity for each resource type
 
         System.out.println( "This is a new request");
     }
@@ -222,6 +251,37 @@ public class ResourceAllocationAgent extends  Agent {
         }
 
         return fields;
+    }
+
+
+    private boolean hasEnoughResources (Task task) {
+        boolean enough = true;
+
+        for (var entry : task.requiredResources.entrySet()) {
+            System.out.println(entry.getKey() + "/" + entry.getValue());
+            if (entry.getValue() > availableResources.get(entry.getKey()).size()) {
+                enough = false;
+                break;
+            }
+        }
+
+        return enough;
+    }
+
+
+    void processTask (Task task) {
+
+        for (var entry : task.requiredResources.entrySet()) {
+            ArrayList<ResourceItem> resourceItems = availableResources.get(entry.getKey());
+            for (int i=0; i<entry.getValue(); i++) {
+                resourceItems.remove(i);
+            }
+
+            availableResources.replace( entry.getKey(), resourceItems);
+
+        }
+
+        tasks.remove(task);
     }
 
 }

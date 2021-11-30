@@ -5,12 +5,14 @@ import java.util.HashMap;
 
 public class Task {
 
+    int id;
 
-    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
+    HashMap<ResourceType, Integer> requiredResources;
+//    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
 
     int utility;
 
-    public Task(HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources, int utility) {
+    public Task(HashMap<ResourceType, Integer> requiredResources, int utility) {
         this.requiredResources = requiredResources;
         this.utility = utility;
     }
