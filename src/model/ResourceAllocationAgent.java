@@ -194,7 +194,58 @@ public class ResourceAllocationAgent extends Agent {
 
         // creates a request based on the missing quantity for each resource type
 
-        System.out.println( "This is a new request");
+        HashMap<ResourceType, Integer> totalRequiredResources = new HashMap();
+
+        for (Task task : blockedTasks) {
+            for (var entry : task.requiredResources.entrySet()) {
+                totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0) + entry.getValue());
+            }
+        }
+
+        for (var entry : totalRequiredResources.entrySet()) {
+            int missingQuantity;
+            if ( availableResources.containsKey( entry.getKey())) {
+                missingQuantity = entry.getValue() - availableResources.get(entry.getKey()).size();
+            } else {
+                missingQuantity = entry.getValue();
+            }
+
+            HashMap<Integer, Integer> utilityFunction = computeUtilityFunction (blockedTasks, entry.getKey(), missingQuantity);
+            sendRequest (entry.getKey(), missingQuantity, utilityFunction);
+        }
+
+//        System.out.println( "This is a new request");
+    }
+
+
+    HashMap<Integer, Integer> computeUtilityFunction (ArrayList<Task> blockedTasks, ResourceType resourceType, int missingQuantity) {
+
+        HashMap<Integer, Integer> utilityFunction = new HashMap<>();
+
+        // sort the tasks by their efficiency=utility/requiredResources
+
+        for (int i=1; i<=missingQuantity; i++) {
+            int q = i;
+            int totalUtility = 0;
+            for (Task task : blockedTasks) {
+                if (task.requiredResources.containsKey(resourceType)) {
+                    if (q >= task.requiredResources.get(resourceType)) {
+                        totalUtility = totalUtility + task.utility;
+                        q = q - task.requiredResources.get(resourceType);
+                    }
+                }
+            }
+            utilityFunction.put(i, totalUtility);
+        }
+
+        return utilityFunction;
+    }
+
+
+    private void sendRequest (ResourceType resourceType, int missingQuantity, HashMap<Integer, Integer> utilityFunction) {
+
+
+
     }
 
 
@@ -258,7 +309,7 @@ public class ResourceAllocationAgent extends Agent {
         boolean enough = true;
 
         for (var entry : task.requiredResources.entrySet()) {
-            System.out.println(entry.getKey() + "/" + entry.getValue());
+//            System.out.println(entry.getKey() + "/" + entry.getValue());
             if (entry.getValue() > availableResources.get(entry.getKey()).size()) {
                 enough = false;
                 break;
