@@ -5,46 +5,55 @@ import java.util.*;
 public class SimulationEngine {
 
 
-    public Task findTask() {
+    public ArrayList<Task> findTasks() {
 
-        HashMap<ResourceType, Integer> requiredResources = new HashMap<>();
+        ArrayList<Task> tasks = new ArrayList<>();
 
-        Random random = new Random();
+        for (int j=0; j<3; j++) {
 
-        int low = 1;
-        int high = ResourceType.getSize();
-        int requiredResourceTypesSize = random.nextInt(high) + low;
+            HashMap<ResourceType, Integer> requiredResources = new HashMap<>();
 
-        EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
+            Random random = new Random();
 
-        low = 1;
-        high = 1000;
-        int quantity = 0;
+            int low = 1;
+            int high = ResourceType.getSize();
+            int requiredResourceTypesSize = random.nextInt(high) + low;
 
-        Iterator it = resourceTypes.iterator();
+            EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
 
-        for (int i=0; i<requiredResourceTypesSize; i++) {
+            low = 1;
+            high = 1000;
+            int quantity = 0;
 
-            quantity = random.nextInt(high) + low;
+            Iterator it = resourceTypes.iterator();
+
+            for (int i = 0; i < requiredResourceTypesSize; i++) {
+
+                quantity = random.nextInt(high) + low;
 
 //            HashMap<Integer, TimeInterval> quantityTimeInterval = new HashMap<>();
 //            quantityTimeInterval.put (quantity, null);
 
-            ResourceType selectedResourceType = (ResourceType) it.next();
+                ResourceType selectedResourceType = (ResourceType) it.next();
 
-            requiredResources.put (selectedResourceType, quantity);
+                requiredResources.put(selectedResourceType, quantity);
 
-            resourceTypes.remove(selectedResourceType);
-            it = resourceTypes.iterator();
+                resourceTypes.remove(selectedResourceType);
+                it = resourceTypes.iterator();
+            }
+
+            low = 1;
+            high = 100;
+            int utility = random.nextInt(high) + low;
+
+            String id = UUID.randomUUID().toString();
+
+            Task newTask = new Task(id, utility, requiredResources);
+
+            tasks.add(newTask);
         }
 
-        low = 1;
-        high = 100;
-        int utility = random.nextInt(high) + low;
-
-        Task task = new Task( requiredResources, utility);
-
-        return task;
+        return tasks;
     }
 
 
@@ -56,8 +65,10 @@ public class SimulationEngine {
         calendar.add(Calendar.SECOND, lifeTime);
         Date expiryDate = calendar.getTime();
 
+        String id;
         for (int i=0; i<quantity; i++) {
-            resourceItems.add(new ResourceItem( resourceType, expiryDate));
+            id = UUID.randomUUID().toString();
+            resourceItems.add(new ResourceItem (id, resourceType, expiryDate));
         }
 
         return resourceItems;

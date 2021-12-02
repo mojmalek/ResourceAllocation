@@ -1,21 +1,22 @@
 package model;
 
 import java.util.Date;
+import java.util.Objects;
 
 public class ResourceItem {
 
-    private int id;
-
+    private String id;
     private ResourceType type;
     private Date expiryDate;
 
 
-    public ResourceItem(ResourceType type, Date expiryDate) {
+    public ResourceItem(String id, ResourceType type, Date expiryDate) {
+        this.id = id;
         this.type = type;
         this.expiryDate = expiryDate;
     }
 
-    public int getId() {
+    public String getId() {
         return id;
     }
 
@@ -30,8 +31,23 @@ public class ResourceItem {
     @Override
     public String toString() {
         return "ResourceItem{" +
-                "type=" + type +
+                "id='" + id + '\'' +
+                ", type=" + type +
                 ", expiryDate=" + expiryDate +
                 '}';
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ResourceItem that = (ResourceItem) o;
+        return id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
 }

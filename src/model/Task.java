@@ -2,21 +2,20 @@ package model;
 
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Objects;
 
 public class Task {
 
-    int id;
-
+    String id;
+    int utility;
     HashMap<ResourceType, Integer> requiredResources;
 //    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
 
-    int utility;
-
-    public Task(HashMap<ResourceType, Integer> requiredResources, int utility) {
-        this.requiredResources = requiredResources;
+    public Task(String id, int utility, HashMap<ResourceType, Integer> requiredResources) {
+        this.id = id;
         this.utility = utility;
+        this.requiredResources = requiredResources;
     }
-
 
 //    int util (Date currentTime) {
 //
@@ -25,11 +24,27 @@ public class Task {
 //        return util;
 //    }
 
+
     @Override
     public String toString() {
-        return "Task with requiredResources=" + requiredResources + " and utility=" + utility;
+        return "Task{" +
+                "id='" + id + '\'' +
+                ", utility=" + utility +
+                ", requiredResources=" + requiredResources +
+                '}';
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Task task = (Task) o;
+        return id.equals(task.id);
+    }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
 
 }
