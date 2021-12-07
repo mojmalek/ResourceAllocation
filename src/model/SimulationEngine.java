@@ -22,7 +22,7 @@ public class SimulationEngine {
             EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
 
             low = 1;
-            high = 1000;
+            high = 100;
             int quantity = 0;
 
             Iterator it = resourceTypes.iterator();

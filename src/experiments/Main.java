@@ -23,7 +23,6 @@ public class Main {
         for(int i=1; i<=numberOfAgents; i++){
             AgentController ac;
             try {
-//                Object[] arguments = new Object[]{numberOfAgents, i};
                 ac=cc.createNewAgent("Agent"+i, "model.ResourceAllocationAgent", new Object[]{numberOfAgents, i});
                 ac.start();
             } catch (StaleProxyException e) {

@@ -8,6 +8,10 @@ import jade.lang.acl.ACLMessage;
 
 import java.util.*;
 
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.*;
+
 
 public class ResourceAllocationAgent extends Agent {
 
@@ -50,16 +54,41 @@ public class ResourceAllocationAgent extends Agent {
             }
         }
 
+//        System.out.println(getAID().getLocalName());
+        if ( getAID().getLocalName().equals("Agent2")) {
+            availableResources.put(ResourceType.A, simulationEngine.findResourceItems(ResourceType.A, 5, 100));
+            availableResources.put(ResourceType.B, simulationEngine.findResourceItems(ResourceType.B, 5, 100));
+            availableResources.put(ResourceType.AB, simulationEngine.findResourceItems(ResourceType.AB, 5, 100));
+            availableResources.put(ResourceType.O, simulationEngine.findResourceItems(ResourceType.O, 5, 100));
+        }
+
+//        addBehaviour(new TickerBehaviour(this, 5000) {
+//
+//            protected void onTick() {
+//
+//                ResourceItem resourceItem = simulationEngine.findResourceItem();
+//                availableResources.add(resourceItem);
+//
+//                System.out.println("My availableResources are:");
+//
+//                for (int i = 0; i < availableResources.size(); i++) {
+//                    System.out.println(availableResources.get(i));
+//                }
+//            }
+//        });
+
 
         addBehaviour(new OneShotBehaviour() {
 
             public void action() {
+//                System.out.println(getAID().getLocalName());
+                if ( getAID().getLocalName().equals("Agent1")) {
 
-                ArrayList<Task> newTasks = simulationEngine.findTasks();
-                toDoTasks.addAll(newTasks);
+                    ArrayList<Task> newTasks = simulationEngine.findTasks();
+                    toDoTasks.addAll(newTasks);
 
 //                System.out.println( myAgent.getLocalName() + ": I have a new task to perform: " + newTask);
-
+                }
             }
         });
 
@@ -88,24 +117,6 @@ public class ResourceAllocationAgent extends Agent {
             }
         });
 
-
-        availableResources.put(ResourceType.A, simulationEngine.findResourceItems(ResourceType.A, 5, 100));
-
-
-//        addBehaviour(new TickerBehaviour(this, 5000) {
-//
-//            protected void onTick() {
-//
-//                ResourceItem resourceItem = simulationEngine.findResourceItem();
-//                availableResources.add(resourceItem);
-//
-//                System.out.println("My availableResources are:");
-//
-//                for (int i = 0; i < availableResources.size(); i++) {
-//                    System.out.println(availableResources.get(i));
-//                }
-//            }
-//        });
 
 
 //        addBehaviour(new OneShotBehaviour() {
@@ -148,7 +159,11 @@ public class ResourceAllocationAgent extends Agent {
                         case ACLMessage.REQUEST:
                             System.out.println (myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName() + " with content: " + content);
 
-                            processRequest(myAgent, msg);
+                            try {
+                                processRequest(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
 
                             break;
 
@@ -205,14 +220,14 @@ public class ResourceAllocationAgent extends Agent {
         }
 
         for (var entry : totalRequiredResources.entrySet()) {
-            Integer missingQuantity;
+            int missingQuantity;
             if ( availableResources.containsKey( entry.getKey())) {
                 missingQuantity = entry.getValue() - availableResources.get(entry.getKey()).size();
             } else {
                 missingQuantity = entry.getValue();
             }
 
-            HashMap<Integer, Integer> utilityFunction = computeUtilityFunction (blockedTasks, entry.getKey(), missingQuantity);
+            Map<Integer, Integer> utilityFunction = computeUtilityFunction (blockedTasks, entry.getKey(), missingQuantity);
             sendRequest (entry.getKey(), missingQuantity, utilityFunction);
         }
 
@@ -220,9 +235,11 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    HashMap<Integer, Integer> computeUtilityFunction (ArrayList<Task> blockedTasks, ResourceType resourceType, int missingQuantity) {
+    Map<Integer, Integer> computeUtilityFunction (ArrayList<Task> blockedTasks, ResourceType resourceType, int missingQuantity) {
 
-        HashMap<Integer, Integer> utilityFunction = new HashMap<>();
+//        HashMap<Integer, Integer> utilityFunction = new HashMap<>();
+
+        Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
 
         //TODO: sort the tasks by their efficiency=utility/requiredResources or emergency
 
@@ -244,7 +261,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void sendRequest (ResourceType resourceType, Integer missingQuantity, HashMap<Integer, Integer> utilityFunction) {
+    private void sendRequest (ResourceType resourceType, int missingQuantity, Map<Integer, Integer> utilityFunction) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
@@ -253,12 +270,12 @@ public class ResourceAllocationAgent extends Agent {
             msg.addReceiver(otherAgents.get(i));
         }
 
-        HashMap<String,String> fields = new HashMap<>();
-        fields.put(Ontology.RESOURCE_REQUESTED_QUANTITY, missingQuantity.toString());
-        fields.put(Ontology.RESOURCE_TYPE, resourceType.toString());
-        fields.put(Ontology.TASKS_UTILITY_FUNCTION, utilityFunction.toString());
+        JSONObject jo = new JSONObject();
+        jo.put(Ontology.RESOURCE_REQUESTED_QUANTITY, missingQuantity);
+        jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
+        jo.put(Ontology.TASKS_UTILITY_FUNCTION, utilityFunction);
 
-        msg.setContent( fields.toString());
+        msg.setContent( jo.toJSONString());
 
 //      msg.setReplyByDate();
 
@@ -267,27 +284,74 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void processRequest (Agent myAgent, ACLMessage msg) {
+    private void processRequest (Agent myAgent, ACLMessage msg) throws ParseException {
+
+        // if agents operate and communicate asynchronously, then a request might be received at any time.
+        // The bidder can wait for other requests before bidding.
+
+        // if the rounds are synchronous, there can be more than one request, then we can consider two approaches:
+
+        // Greedy approach:
+        // sort requests based on their utilities, and while there are available resources,
+        // create bid for request with the highest utility.
+
+        // Optimal:
+        // select the optimal combination of requests to maximize the utility.
+        // max SUM xi Ui(j)
+        // subject to:
+        // xi in (0, 1)
+        //  1 < j < qi
+        // SUM xi <= 1
 
         String content = msg.getContent();
 
-        HashMap<String,String> fields = parseMessageContent (content);
+        Object obj = new JSONParser().parse(content);
+        JSONObject jo = (JSONObject) obj;
 
-        String quantity = fields.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
-        String resourceType = fields.get(Ontology.RESOURCE_TYPE);
-        String utilityFunction = fields.get(Ontology.TASKS_UTILITY_FUNCTION);
+        long requestedQuantity = (long) jo.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
+        System.out.println("Requested quantity is " + requestedQuantity);
 
-/*
-        int quantity = Integer.parseInt(fields.get("quantity"));
-*/
+        String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
+        ResourceType resourceType = ResourceType.valueOf(rt);
+        Map utilityFunction = ((Map) jo.get(Ontology.TASKS_UTILITY_FUNCTION));
+        int exp = 0;
+        if (availableResources.get(resourceType) != null) {
+            int availableQuantity = availableResources.get(resourceType).size();
+            if (availableQuantity > 0) {
+                long bidQuantity = 0;
+                if (availableQuantity < requestedQuantity) {
 
-        System.out.println("Requested quantity is " + quantity);
+                    bidQuantity = availableQuantity;
+                } else {
+                    bidQuantity = requestedQuantity;
+                }
+
+                exp = computeExpectedUtilityOfResources(resourceType, bidQuantity);
+
+                String util = utilityFunction.get(String.valueOf(bidQuantity)).toString();
+
+                if (exp < Integer.valueOf(util)) {
+
+                    createBid(resourceType, bidQuantity);
+                } else {
+                    // discard or cascade the request
+                }
+            } else {
+                // discard or cascade the request
+            }
+        } else {
+            // discard or cascade the request
+        }
     }
 
 
-    private void createBid () {
+    private void createBid (ResourceType resourceType, long bidQuantity) {
 
-        System.out.println( "This is a new bid");
+
+        // compute the cost function
+
+
+        System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
     }
 
 
@@ -345,18 +409,53 @@ public class ResourceAllocationAgent extends Agent {
 
     void processTask (Task task) {
 
-        for (var entry : task.requiredResources.entrySet()) {
-            ArrayList<ResourceItem> resourceItems = availableResources.get(entry.getKey());
-            for (int i=0; i<entry.getValue(); i++) {
-                resourceItems.remove(i);
+        try {
+
+            for (var entry : task.requiredResources.entrySet()) {
+
+                ArrayList<ResourceItem> resourceItems = availableResources.get(entry.getKey());
+
+//                System.out.println("Size: " + resourceItems.size());
+
+                for (int i = 0; i < entry.getValue(); i++) {
+//                    System.out.println("Size: " + resourceItems.size());
+                    resourceItems.remove(0);
+                }
+
+                availableResources.replace(entry.getKey(), resourceItems);
+
             }
-
-            availableResources.replace( entry.getKey(), resourceItems);
-
+        }
+        catch (Exception ex) {
+            ex.printStackTrace();
         }
 
         toDoTasks.remove(task);
         doneTasks.add((task));
     }
+
+
+    int computeExpectedUtilityOfResources ( ResourceType resourceType, long quantity ) {
+
+        int exp = 0;
+        ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
+        int totalUtilityWithThisResourceType = 0;
+        int totalQuantityOfThisResourceType = 0;
+
+        for (Task task : doneTasks) {
+            if (task.requiredResources.containsKey(resourceType)) {
+                doneTasksWithThisResourceType.add( task);
+                totalUtilityWithThisResourceType = totalUtilityWithThisResourceType + task.utility;
+                totalQuantityOfThisResourceType = totalQuantityOfThisResourceType + task.requiredResources.get(resourceType);
+            }
+        }
+
+        if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
+            exp = (int) (quantity * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+        }
+
+        return exp;
+    }
+
 
 }
