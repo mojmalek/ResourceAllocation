@@ -11,7 +11,7 @@ public class SimulationEngine {
 
         for (int j=0; j<3; j++) {
 
-            HashMap<ResourceType, Integer> requiredResources = new HashMap<>();
+            Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
 
             Random random = new Random();
 

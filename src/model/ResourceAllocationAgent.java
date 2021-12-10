@@ -8,7 +8,6 @@ import jade.lang.acl.ACLMessage;
 
 import java.util.*;
 
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.*;
 
@@ -19,9 +18,11 @@ public class ResourceAllocationAgent extends Agent {
 
     private ArrayList<Task> doneTasks = new ArrayList<>();
 
-    private HashMap<ResourceType, ArrayList<ResourceItem>> availableResources = new HashMap<>();
+    private Map<ResourceType, ArrayList<ResourceItem>> availableResources = new LinkedHashMap<>();
 
     private ArrayList<AID> otherAgents = new ArrayList<>();
+
+    private Map<ResourceType, Set<Bid>> receivedBids = new LinkedHashMap<>();
 
     SimulationEngine simulationEngine = new SimulationEngine();
 
@@ -168,8 +169,13 @@ public class ResourceAllocationAgent extends Agent {
                             break;
 
                         case ACLMessage.PROPOSE:
-                            System.out.println (myAgent.getLocalName() + " received a PROPOSE message from " + msg.getSender().getLocalName() + " with content: " + content);
+                            System.out.println (myAgent.getLocalName() + " received a BID message from " + msg.getSender().getLocalName() + " with content: " + content);
 
+                            try {
+                                storeBid(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
 
                             break;
 
@@ -211,7 +217,7 @@ public class ResourceAllocationAgent extends Agent {
 
         // creates a request based on the missing quantity for each resource type
 
-        HashMap<ResourceType, Integer> totalRequiredResources = new HashMap();
+        Map<ResourceType, Integer> totalRequiredResources = new LinkedHashMap<>();
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
@@ -284,10 +290,10 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void processRequest (Agent myAgent, ACLMessage msg) throws ParseException {
+    private void processRequest (Agent myAgent, ACLMessage request) throws ParseException {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
-        // The bidder can wait for other requests before bidding.
+        // the bidder can wait for other requests before bidding.
 
         // if the rounds are synchronous, there can be more than one request, then we can consider two approaches:
 
@@ -303,7 +309,7 @@ public class ResourceAllocationAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-        String content = msg.getContent();
+        String content = request.getContent();
 
         Object obj = new JSONParser().parse(content);
         JSONObject jo = (JSONObject) obj;
@@ -334,24 +340,132 @@ public class ResourceAllocationAgent extends Agent {
 
                     createBid(resourceType, bidQuantity);
                 } else {
-                    // discard or cascade the request
+                    // reject or cascade the request
                 }
             } else {
-                // discard or cascade the request
+                // reject or cascade the request
             }
         } else {
-            // discard or cascade the request
+            // reject or cascade the request
         }
     }
 
 
     private void createBid (ResourceType resourceType, long bidQuantity) {
 
+        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
+        for (int q=1; q<=bidQuantity; q++) {
+            int cost = computeExpectedUtilityOfResources(resourceType, q);
+            costFunction.put(q, cost);
+        }
 
-        // compute the cost function
-
+        sendBid( resourceType, bidQuantity, costFunction);
 
         System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
+    }
+
+
+    private void sendBid (ResourceType resourceType, long bidQuantity, Map<Integer, Integer> costFunction) {
+
+        ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
+
+        for (int i = 0; i < otherAgents.size(); i++) {
+            // Send this message to all other agents
+            msg.addReceiver(otherAgents.get(i));
+        }
+
+        JSONObject jo = new JSONObject();
+        jo.put(Ontology.RESOURCE_BID_QUANTITY, bidQuantity);
+        jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
+        jo.put(Ontology.BID_COST_FUNCTION, costFunction);
+
+        msg.setContent( jo.toJSONString());
+
+//      msg.setReplyByDate();
+
+        send(msg);
+
+    }
+
+
+    private void storeBid (Agent myAgent, ACLMessage msg) throws ParseException {
+
+        // if agents operate and communicate asynchronously, then a bid might be received at any time.
+        // the requester can wait for other bids before confirming.
+
+        String content = msg.getContent();
+
+        Object obj = new JSONParser().parse(content);
+        JSONObject jo = (JSONObject) obj;
+
+        long bidQuantity = (long) jo.get(Ontology.RESOURCE_BID_QUANTITY);
+        System.out.println("Requested quantity is " + bidQuantity);
+
+        String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
+        ResourceType resourceType = ResourceType.valueOf(rt);
+        Map costFunction = ((Map) jo.get(Ontology.BID_COST_FUNCTION));
+
+        String bidId = UUID.randomUUID().toString();
+        Bid bid = new Bid(bidId, bidQuantity, resourceType, costFunction);
+
+        Set<Bid> bids = receivedBids.get(resourceType);
+        if (bids != null) {
+            bids.add( bid);
+        }
+        else {
+            bids = new HashSet<>();
+        }
+
+        receivedBids.put( resourceType, bids);
+
+    }
+
+
+    private void processBids(Request request) {
+
+
+        // the requester selects the combination of bids that maximizes the difference between the utility of request and the total cost of all selected bids.
+        // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
+
+        // brute-force approach:
+
+        Set<Bid> bids = receivedBids.get(request.resourceType);
+
+        Set<Set<Bid>> allSubsets = getSubsets(bids);
+
+        int netBenefit = 0;
+        for (Set<Bid> subset : allSubsets) {
+
+            Map<Bid, Integer> selectedBids = new LinkedHashMap<>();
+
+
+
+
+
+
+        }
+
+
+    }
+
+
+    public Set<Set<Bid>> getSubsets(Set<Bid> set) {
+        if (set.isEmpty()) {
+            return Collections.singleton(Collections.emptySet());
+        }
+
+        Set<Set<Bid>> subSets = set.stream().map(item -> {
+                    Set<Bid> clone = new HashSet<>(set);
+                    clone.remove(item);
+                    return clone;
+                }).map(group -> getSubsets(group))
+                .reduce(new HashSet<>(), (x, y) -> {
+                    x.addAll(y);
+                    return x;
+                });
+
+        subSets.add(set);
+        return subSets;
     }
 
 
@@ -361,32 +475,32 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private HashMap<String,String> parseMessageContent (String content) {
-
-        String mainDelim = ",";
-        String fieldDelim = "=";
-
-        StringBuilder sb = new StringBuilder(content);
-
-        sb.deleteCharAt(0);
-        sb.deleteCharAt(content.length()-2);
-
-//        content = content.replace('{', '');
-
-        content = sb.toString();
-
-        String[] contentList = content.split(mainDelim);
-
-        HashMap<String,String> fields = new HashMap<>();
-
-        for (int i=0;i<contentList.length;i++)
-        {
-            String[] fieldTuple = contentList[i].split(fieldDelim);
-            fields.put(fieldTuple[0], fieldTuple[1]);
-        }
-
-        return fields;
-    }
+//    private HashMap<String,String> parseMessageContent (String content) {
+//
+//        String mainDelim = ",";
+//        String fieldDelim = "=";
+//
+//        StringBuilder sb = new StringBuilder(content);
+//
+//        sb.deleteCharAt(0);
+//        sb.deleteCharAt(content.length()-2);
+//
+////        content = content.replace('{', '');
+//
+//        content = sb.toString();
+//
+//        String[] contentList = content.split(mainDelim);
+//
+//        HashMap<String,String> fields = new HashMap<>();
+//
+//        for (int i=0;i<contentList.length;i++)
+//        {
+//            String[] fieldTuple = contentList[i].split(fieldDelim);
+//            fields.put(fieldTuple[0], fieldTuple[1]);
+//        }
+//
+//        return fields;
+//    }
 
 
     private boolean hasEnoughResources (Task task) {
@@ -410,23 +524,14 @@ public class ResourceAllocationAgent extends Agent {
     void processTask (Task task) {
 
         try {
-
             for (var entry : task.requiredResources.entrySet()) {
-
                 ArrayList<ResourceItem> resourceItems = availableResources.get(entry.getKey());
-
-//                System.out.println("Size: " + resourceItems.size());
-
                 for (int i = 0; i < entry.getValue(); i++) {
-//                    System.out.println("Size: " + resourceItems.size());
                     resourceItems.remove(0);
                 }
-
                 availableResources.replace(entry.getKey(), resourceItems);
-
             }
-        }
-        catch (Exception ex) {
+        } catch (Exception ex) {
             ex.printStackTrace();
         }
 

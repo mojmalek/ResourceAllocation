@@ -1,17 +1,15 @@
 package model;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Objects;
+import java.util.*;
 
 public class Task {
 
     String id;
     int utility;
-    HashMap<ResourceType, Integer> requiredResources;
+    Map<ResourceType, Integer> requiredResources;
 //    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
 
-    public Task(String id, int utility, HashMap<ResourceType, Integer> requiredResources) {
+    public Task(String id, int utility, Map<ResourceType, Integer> requiredResources) {
         this.id = id;
         this.utility = utility;
         this.requiredResources = requiredResources;
