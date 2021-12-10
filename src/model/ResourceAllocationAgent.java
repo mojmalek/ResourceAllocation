@@ -22,7 +22,7 @@ public class ResourceAllocationAgent extends Agent {
 
     private ArrayList<AID> otherAgents = new ArrayList<>();
 
-    private Map<ResourceType, Set<Bid>> receivedBids = new LinkedHashMap<>();
+    public Map<ResourceType, Set<Bid>> receivedBids = new LinkedHashMap<>();
 
     SimulationEngine simulationEngine = new SimulationEngine();
 
@@ -421,31 +421,82 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void processBids(Request request) {
-
+    public Map<Bid, Integer> processBids(Request request) {
 
         // the requester selects the combination of bids that maximizes the difference between the utility of request and the total cost of all selected bids.
         // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
 
-        // brute-force approach:
+        // a greedy approach: we add 1 item from one bid in a loop up to the requested amount, without backtracking.
 
         Set<Bid> bids = receivedBids.get(request.resourceType);
 
-        Set<Set<Bid>> allSubsets = getSubsets(bids);
-
         int netBenefit = 0;
-        for (Set<Bid> subset : allSubsets) {
+        int totalCosts = 0;
+        Map<Bid, Integer> selectedBids = new LinkedHashMap<>();
 
-            Map<Bid, Integer> selectedBids = new LinkedHashMap<>();
+        for (int q=1; q<=request.quantity; q++) {
 
+            Bid lowCostBid = null;
 
+            for (Bid bid : bids) {
+                if (hasExtraItem(bid, selectedBids)) {
+                    totalCosts = totalCosts(bid, selectedBids);
+                    if (request.utilityFunction.get(q) - totalCosts > netBenefit) {
+                        netBenefit = request.utilityFunction.get(q) - totalCosts;
+                        lowCostBid = bid;
+                    }
+                }
+            }
 
-
-
-
+            if (lowCostBid != null) {
+                if (selectedBids.containsKey(lowCostBid)) {
+                    selectedBids.put(lowCostBid, selectedBids.get(lowCostBid) + 1);
+                } else {
+                    selectedBids.put(lowCostBid, 1);
+                }
+            } else {
+                break;
+            }
         }
 
+        return selectedBids;
+    }
 
+
+    private boolean hasExtraItem (Bid bid, Map<Bid, Integer> selectedBids) {
+
+        if ( selectedBids.containsKey(bid)) {
+            if (selectedBids.get(bid) < bid.quantity) {
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return true;
+        }
+    }
+
+
+    private int totalCosts (Bid bid, Map<Bid, Integer> selectedBids) {
+
+        int totalCosts = 0;
+
+        Map<Bid, Integer> tempBids =  new LinkedHashMap<>();
+        for (var entry : selectedBids.entrySet()) {
+            tempBids.put(entry.getKey(), entry.getValue());
+        }
+
+        if (tempBids.containsKey(bid)) {
+            tempBids.put(bid, tempBids.get(bid) + 1);
+        } else {
+            tempBids.put(bid, 1);
+        }
+
+        for (var entry : tempBids.entrySet()) {
+            totalCosts = totalCosts + entry.getKey().costFunction.get(entry.getValue());
+        }
+
+        return totalCosts;
     }
 
 
