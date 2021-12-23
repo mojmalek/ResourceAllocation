@@ -1,20 +1,31 @@
 package model;
 
+import jade.lang.acl.ACLMessage;
+
 import java.util.Map;
 import java.util.Objects;
+import java.util.PriorityQueue;
 
 public class Bid {
 
     String id;
+    String reqId;
     long quantity;
     ResourceType resourceType;
     Map<Integer, Integer> costFunction;
+    Map<String, Integer> offeredItems;
+    String sender;
+    String receiver;
 
-    public Bid(String id, long quantity, ResourceType resourceType, Map<Integer, Integer> costFunction) {
+    public Bid(String id, String reqId, long quantity, ResourceType resourceType, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems, String sender, String receiver) {
         this.id = id;
+        this.reqId = reqId;
         this.quantity = quantity;
         this.resourceType = resourceType;
         this.costFunction = costFunction;
+        this.offeredItems = offeredItems;
+        this.sender = sender;
+        this.receiver = receiver;
     }
 
     @Override

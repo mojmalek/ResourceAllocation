@@ -61,14 +61,14 @@ public class SimulationEngine {
 
         ArrayList<ResourceItem> resourceItems = new ArrayList<>();
 
-        Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.SECOND, lifeTime);
-        Date expiryDate = calendar.getTime();
+//        Calendar calendar = Calendar.getInstance();
+//        calendar.add(Calendar.SECOND, lifeTime);
+//        Date expiryDate = calendar.getTime();
 
         String id;
         for (int i=0; i<quantity; i++) {
             id = UUID.randomUUID().toString();
-            resourceItems.add(new ResourceItem (id, resourceType, expiryDate));
+            resourceItems.add(new ResourceItem (id, resourceType, lifeTime));
         }
 
         return resourceItems;

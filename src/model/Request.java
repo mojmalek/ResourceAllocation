@@ -1,5 +1,7 @@
 package model;
 
+import jade.core.AID;
+
 import java.util.Map;
 import java.util.Objects;
 
@@ -9,12 +11,14 @@ public class Request {
     long quantity;
     ResourceType resourceType;
     Map<Integer, Integer> utilityFunction;
+    String sender;
 
-    public Request(String id, long quantity, ResourceType resourceType, Map<Integer, Integer> utilityFunction) {
+    public Request(String id, long quantity, ResourceType resourceType, Map<Integer, Integer> utilityFunction, String sender) {
         this.id = id;
         this.quantity = quantity;
         this.resourceType = resourceType;
         this.utilityFunction = utilityFunction;
+        this.sender = sender;
     }
 
     @Override
