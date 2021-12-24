@@ -1,5 +1,6 @@
 package model;
 
+import jade.core.AID;
 import jade.lang.acl.ACLMessage;
 
 import java.util.Map;
@@ -14,10 +15,10 @@ public class Bid {
     ResourceType resourceType;
     Map<Integer, Integer> costFunction;
     Map<String, Integer> offeredItems;
-    String sender;
-    String receiver;
+    AID sender;
+    AID receiver;
 
-    public Bid(String id, String reqId, long quantity, ResourceType resourceType, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems, String sender, String receiver) {
+    public Bid(String id, String reqId, long quantity, ResourceType resourceType, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
         this.id = id;
         this.reqId = reqId;
         this.quantity = quantity;

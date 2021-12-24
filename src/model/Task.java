@@ -45,4 +45,14 @@ public class Task {
         return Objects.hash(id);
     }
 
+
+    public static class taskComparator implements Comparator<Task> {
+        public int compare(Task task1, Task task2)
+        {
+            Integer utility1 = task1.utility;
+            Integer utility2 = task2.utility;
+            return utility1.compareTo(utility2);
+        }
+    }
+
 }

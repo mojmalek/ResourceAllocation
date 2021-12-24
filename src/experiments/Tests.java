@@ -1,5 +1,6 @@
 package experiments;
 
+import jade.core.AID;
 import model.Bid;
 import model.Request;
 import model.ResourceAllocationAgent;
@@ -19,6 +20,11 @@ public class Tests {
 
     public static void processBids() throws Exception {
 
+        AID agent1 = new AID("Agent1", false);
+        AID agent2 = new AID("Agent2", false);
+        AID agent3 = new AID("Agent3", false);
+        AID agent4 = new AID("Agent4", false);
+
         ResourceAllocationAgent agent = new ResourceAllocationAgent();
 
         String reqId = UUID.randomUUID().toString();
@@ -28,7 +34,7 @@ public class Tests {
             utilityFunction.put(i, i*3);
         }
 
-        Request request = new Request (reqId, 10, ResourceType.A, utilityFunction, "Agent1");
+        Request request = new Request (reqId, 10, ResourceType.A, utilityFunction, agent1);
 
         Map<String, Set<Bid>> receivedBids = new LinkedHashMap<>();
 
@@ -44,7 +50,7 @@ public class Tests {
         offeredItems.put ("res2", 10);
         offeredItems.put ("res3", 10);
 
-        Bid bid1 = new Bid(bidId, reqId,3, ResourceType.A, costFunction, offeredItems,"Agent2", "Agent1");
+        Bid bid1 = new Bid (bidId, reqId,3, ResourceType.A, costFunction, offeredItems, agent2, agent1);
 
         bidId = UUID.randomUUID().toString();
 
@@ -62,7 +68,7 @@ public class Tests {
         offeredItems.put ("res4", 10);
         offeredItems.put ("res5", 10);
 
-        Bid bid2 = new Bid(bidId, reqId,5, ResourceType.A, costFunction, offeredItems, "Agent3", "Agent1");
+        Bid bid2 = new Bid(bidId, reqId,5, ResourceType.A, costFunction, offeredItems, agent3, agent1);
 
         bidId = UUID.randomUUID().toString();
 
@@ -78,7 +84,7 @@ public class Tests {
         offeredItems.put ("res3", 10);
         offeredItems.put ("res4", 10);
 
-        Bid bid3 = new Bid(bidId, reqId,4, ResourceType.A, costFunction, offeredItems,"Agent4", "Agent1");
+        Bid bid3 = new Bid(bidId, reqId,4, ResourceType.A, costFunction, offeredItems, agent4, agent1);
 
         Set<Bid> bids = new HashSet<>();
         bids.add(bid1);

@@ -14,15 +14,13 @@ import org.json.simple.parser.*;
 
 public class ResourceAllocationAgent extends Agent {
 
-    private ArrayList<Task> toDoTasks = new ArrayList<>();
-
-    private ArrayList<Task> doneTasks = new ArrayList<>();
-
-    private ArrayList<Task> blockedTasks = new ArrayList<>();
-
-    private Map<ResourceType, PriorityQueue<ResourceItem>> availableResources = new LinkedHashMap<>();
-
     private ArrayList<AID> otherAgents = new ArrayList<>();
+
+    private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
+
+    private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
+
+    private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
 
     // reqId
     public Map<String, Set<Bid>> receivedBids = new LinkedHashMap<>();
@@ -63,7 +61,7 @@ public class ResourceAllocationAgent extends Agent {
 
 //        System.out.println(getAID().getLocalName());
         if ( getAID().getLocalName().equals("Agent2")) {
-            PriorityQueue<ResourceItem> resourceItems = new PriorityQueue<>(new ResourceItem.resourceItemComparator());;
+            SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
             resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 10, 50));
             resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 9, 30));
             resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 8, 20));
@@ -110,17 +108,10 @@ public class ResourceAllocationAgent extends Agent {
 
             public void action() {
 
-                for (Task task : toDoTasks) {
-                    if (hasEnoughResources(task)) {
-                        processTask (task);
-                    }
-                    else {
-                        blockedTasks.add(task);
-                    }
-                }
+                processToDoTasks();
 
-                if (blockedTasks.size() > 0) {
-                    createRequest( blockedTasks, myAgent);
+                if (toDoTasks.size() > 0) {
+                    createRequest( toDoTasks, myAgent);
                 }
 
 //                System.out.println( myAgent.getLocalName() + ": I have a new task to perform: " + newTask);
@@ -189,9 +180,14 @@ public class ResourceAllocationAgent extends Agent {
 
                             break;
 
-                        case ACLMessage.ACCEPT_PROPOSAL:
-                            System.out.println (myAgent.getLocalName() + " received a ACCEPT_PROPOSAL message from " + msg.getSender().getLocalName() + " with content: " + content);
+                        case ACLMessage.CONFIRM:
+                            System.out.println (myAgent.getLocalName() + " received a CONFIRM message from " + msg.getSender().getLocalName() + " with content: " + content);
 
+                            try {
+                                processConfirmation(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
 
                             break;
 
@@ -218,12 +214,39 @@ public class ResourceAllocationAgent extends Agent {
                 }
             }
         });
-
-
     }
 
 
-    private void createRequest (ArrayList<Task> blockedTasks, Agent myAgent) {
+    private void processToDoTasks() {
+
+        for (Task task : toDoTasks) {
+            if (hasEnoughResources(task, availableResources)) {
+                processTask (task);
+                toDoTasks.remove(task);
+                doneTasks.add((task));
+            }
+        }
+    }
+
+
+    void processTask (Task task) {
+
+        try {
+            for (var entry : task.requiredResources.entrySet()) {
+                SortedSet<ResourceItem> resourceItems = availableResources.get(entry.getKey());
+                for (int i = 0; i < entry.getValue(); i++) {
+                    ResourceItem item = resourceItems.first();
+                    resourceItems.remove(item);
+                }
+                availableResources.replace(entry.getKey(), resourceItems);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+
+    private void createRequest (SortedSet<Task> blockedTasks, Agent myAgent) {
 
         // creates a request based on the missing quantity for each resource type
 
@@ -251,7 +274,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    Map<Integer, Integer> computeUtilityFunction (ArrayList<Task> blockedTasks, ResourceType resourceType, int missingQuantity) {
+    Map<Integer, Integer> computeUtilityFunction (SortedSet<Task> blockedTasks, ResourceType resourceType, int missingQuantity) {
 
 //        HashMap<Integer, Integer> utilityFunction = new HashMap<>();
 
@@ -300,7 +323,7 @@ public class ResourceAllocationAgent extends Agent {
 
         send(msg);
 
-        sentRequests.put (reqId, new Request(reqId, missingQuantity, resourceType, utilityFunction, myAgent.getLocalName()));
+        sentRequests.put (reqId, new Request(reqId, missingQuantity, resourceType, utilityFunction, myAgent.getAID()));
 
     }
 
@@ -323,6 +346,8 @@ public class ResourceAllocationAgent extends Agent {
         // xi in (0, 1)
         //  1 < j < qi
         // SUM xi <= 1
+
+        AID requester = request.getSender();
 
         String content = request.getContent();
 
@@ -355,7 +380,7 @@ public class ResourceAllocationAgent extends Agent {
 
                 if (exp < Integer.valueOf(util)) {
 
-                    createBid(reqId, resourceType, bidQuantity, availableResources.get(resourceType));
+                    createBid(reqId, requester, resourceType, bidQuantity, availableResources.get(resourceType));
                 } else {
                     // reject or cascade the request
                 }
@@ -368,7 +393,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void createBid (String reqId, ResourceType resourceType, long bidQuantity, PriorityQueue<ResourceItem> resourceItems) {
+    private void createBid (String reqId, AID requester, ResourceType resourceType, long bidQuantity, SortedSet<ResourceItem> resourceItems) {
 
         Map<Integer, Integer> costFunction = new LinkedHashMap<>();
         for (int q=1; q<=bidQuantity; q++) {
@@ -377,25 +402,25 @@ public class ResourceAllocationAgent extends Agent {
         }
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
-        for (int q=1; q<=bidQuantity; q++) {
-            ResourceItem item = resourceItems.poll();
+        Iterator<ResourceItem> itr = resourceItems.iterator();
+        int q=1;
+        while (q<=bidQuantity) {
+            ResourceItem item = itr.next();
             offeredItems.put(item.getId(), item.getLifetime());
+            q++;
         }
 
-        sendBid(reqId, resourceType, bidQuantity, costFunction, offeredItems);
+        sendBid(reqId, requester, resourceType, bidQuantity, costFunction, offeredItems);
 
         System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
     }
 
 
-    private void sendBid (String reqId, ResourceType resourceType, long bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
+    private void sendBid (String reqId, AID requester, ResourceType resourceType, long bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
-        for (int i = 0; i < otherAgents.size(); i++) {
-            // Send this message to all other agents
-            msg.addReceiver(otherAgents.get(i));
-        }
+        msg.addReceiver( requester);
 
         JSONObject jo = new JSONObject();
         jo.put("reqId", reqId);
@@ -428,11 +453,11 @@ public class ResourceAllocationAgent extends Agent {
         String reqId = (String) jo.get("reqId");
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-        Map costFunction = ((Map) jo.get(Ontology.BID_COST_FUNCTION));
-        Map offeredItems = ((Map) jo.get(Ontology.BID_OFFERED_ITEMS));
+        Map costFunction = (Map) jo.get(Ontology.BID_COST_FUNCTION);
+        Map offeredItems = (Map) jo.get(Ontology.BID_OFFERED_ITEMS);
 
         String bidId = UUID.randomUUID().toString();
-        Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, msg.getSender().getLocalName(), myAgent.getLocalName());
+        Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
 
         Set<Bid> bids = receivedBids.get(reqId);
         if (bids != null) {
@@ -443,7 +468,6 @@ public class ResourceAllocationAgent extends Agent {
         }
 
         receivedBids.put( reqId, bids);
-
     }
 
 
@@ -458,16 +482,83 @@ public class ResourceAllocationAgent extends Agent {
             }
         }
 
-        Map<ResourceType, PriorityQueue<ResourceItem>> allResources = availableResources;
+//        if (hasEnoughResourcesByConfirmBids( selectedBidsForAllRequests)) {
+            if ( selectedBidsForAllRequests.size() > 0) {
+                createConfirmation(selectedBidsForAllRequests);
+                addResourceItemsInBids(selectedBidsForAllRequests);
+                processToDoTasks();
+            }
+//        }
 
-        for (var selectedBids : selectedBidsForAllRequests.entrySet()) {
-            Map<Bid, Integer> bidQuantities = selectedBids.getValue();
+    }
 
-//            allResources.put( selectedBids.getKey().resourceType, availableResources.get(selectedBids.getKey().resourceType) + );
+
+    void addResourceItemsInBids (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
+
+        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
+            SortedSet<ResourceItem> resourceItems;
+            if (availableResources.containsKey(selectedBidsForReq.getKey().resourceType)) {
+                resourceItems = availableResources.get( selectedBidsForReq.getKey().resourceType);
+            } else {
+                resourceItems = new TreeSet<>();
+            }
+            Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
+            for (var bidQuantity : bidQuantities.entrySet()) {
+                int q=1;
+                for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
+                    if (q<=bidQuantity.getValue()) {
+                        resourceItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
+                        q++;
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+
+            availableResources.put( selectedBidsForReq.getKey().resourceType, resourceItems);
+        }
+    }
+
+
+    boolean hasEnoughResourcesByConfirmBids (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
+
+        Map<ResourceType, SortedSet<ResourceItem>> allResourcesByConfirmBids = new LinkedHashMap<>(availableResources);
+
+        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
+            SortedSet<ResourceItem> resourceItems;
+            if (allResourcesByConfirmBids.containsKey(selectedBidsForReq.getKey().resourceType)) {
+                resourceItems = allResourcesByConfirmBids.get( selectedBidsForReq.getKey().resourceType);
+            } else {
+                resourceItems = new TreeSet<>();
+            }
+            Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
+            for (var bidQuantity : bidQuantities.entrySet()) {
+                int q=1;
+                for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
+                    if (q<=bidQuantity.getValue()) {
+                        resourceItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
+                        q++;
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+
+            allResourcesByConfirmBids.put( selectedBidsForReq.getKey().resourceType, resourceItems);
         }
 
+        // check if there is enough resource to perform at least one task
+        boolean enough = false;
+        for (Task task : toDoTasks) {
+            if (hasEnoughResources( task, allResourcesByConfirmBids)) {
+                enough = true;
+                break;
+            }
+        }
 
-
+        return enough;
     }
 
 
@@ -570,41 +661,45 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void createConfirm () {
+    private void createConfirmation (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
 
-        System.out.println( "This is a new confirmation");
+        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
+            for (var bidQuantity : selectedBidsForReq.getValue().entrySet()) {
+                sendConfirmation ( bidQuantity.getKey().id, bidQuantity.getKey().sender, bidQuantity.getKey().resourceType, bidQuantity.getValue());
+            }
+        }
     }
 
 
-//    private HashMap<String,String> parseMessageContent (String content) {
-//
-//        String mainDelim = ",";
-//        String fieldDelim = "=";
-//
-//        StringBuilder sb = new StringBuilder(content);
-//
-//        sb.deleteCharAt(0);
-//        sb.deleteCharAt(content.length()-2);
-//
-////        content = content.replace('{', '');
-//
-//        content = sb.toString();
-//
-//        String[] contentList = content.split(mainDelim);
-//
-//        HashMap<String,String> fields = new HashMap<>();
-//
-//        for (int i=0;i<contentList.length;i++)
-//        {
-//            String[] fieldTuple = contentList[i].split(fieldDelim);
-//            fields.put(fieldTuple[0], fieldTuple[1]);
-//        }
-//
-//        return fields;
-//    }
+    void sendConfirmation (String bidId, AID bidder, ResourceType resourceType, long confirmQuantity) {
+
+        ACLMessage msg = new ACLMessage(ACLMessage.CONFIRM);
+
+        msg.addReceiver (bidder);
+
+        JSONObject jo = new JSONObject();
+        jo.put("bidId", bidId);
+        jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
+        jo.put(Ontology.RESOURCE_CONFIRM_QUANTITY, confirmQuantity);
+
+        msg.setContent( jo.toJSONString());
+
+//      msg.setReplyByDate();
+
+        send(msg);
+    }
 
 
-    private boolean hasEnoughResources (Task task) {
+    private void processConfirmation (Agent myAgent, ACLMessage msg) throws ParseException {
+
+
+
+
+
+    }
+
+
+    private boolean hasEnoughResources (Task task, Map<ResourceType, SortedSet<ResourceItem>> availableResources) {
         boolean enough = true;
 
         for (var entry : task.requiredResources.entrySet()) {
@@ -622,26 +717,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    void processTask (Task task) {
-
-        try {
-            for (var entry : task.requiredResources.entrySet()) {
-                PriorityQueue<ResourceItem> resourceItems = availableResources.get(entry.getKey());
-                for (int i = 0; i < entry.getValue(); i++) {
-                    resourceItems.poll();
-                }
-                availableResources.replace(entry.getKey(), resourceItems);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-
-        toDoTasks.remove(task);
-        doneTasks.add((task));
-    }
-
-
-    int computeExpectedUtilityOfResources ( ResourceType resourceType, long quantity, PriorityQueue<ResourceItem> resourceItems) {
+    int computeExpectedUtilityOfResources ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
 
         int exp = 0;
         ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
@@ -657,9 +733,12 @@ public class ResourceAllocationAgent extends Agent {
         }
 
         if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
-            for (int q = 1; q <= quantity; q++) {
-                ResourceItem item = resourceItems.poll();
+            Iterator<ResourceItem> itr = resourceItems.iterator();
+            int q=1;
+            while (q <= quantity) {
+                ResourceItem item = itr.next();
                 exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+                q++;
             }
         }
 
@@ -669,6 +748,5 @@ public class ResourceAllocationAgent extends Agent {
 
         return exp;
     }
-
 
 }

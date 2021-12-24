@@ -11,9 +11,9 @@ public class Request {
     long quantity;
     ResourceType resourceType;
     Map<Integer, Integer> utilityFunction;
-    String sender;
+    AID sender;
 
-    public Request(String id, long quantity, ResourceType resourceType, Map<Integer, Integer> utilityFunction, String sender) {
+    public Request(String id, long quantity, ResourceType resourceType, Map<Integer, Integer> utilityFunction, AID sender) {
         this.id = id;
         this.quantity = quantity;
         this.resourceType = resourceType;
