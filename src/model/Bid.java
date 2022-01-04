@@ -14,6 +14,7 @@ public class Bid {
     long quantity;
     ResourceType resourceType;
     Map<Integer, Integer> costFunction;
+    // id, lifetime
     Map<String, Integer> offeredItems;
     AID sender;
     AID receiver;

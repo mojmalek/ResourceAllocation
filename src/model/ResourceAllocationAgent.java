@@ -28,6 +28,9 @@ public class ResourceAllocationAgent extends Agent {
     // reqId
     public Map<String, Request> sentRequests = new LinkedHashMap<>();
 
+    // bidId
+    public Map<String, Bid> sentBids = new LinkedHashMap<>();
+
     SimulationEngine simulationEngine = new SimulationEngine();
 
     @Override
@@ -280,8 +283,6 @@ public class ResourceAllocationAgent extends Agent {
 
         Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
 
-        //TODO: sort the tasks by their efficiency=utility/requiredResources or emergency
-
         for (int i=1; i<=missingQuantity; i++) {
             int q = i;
             int totalUtility = 0;
@@ -380,7 +381,7 @@ public class ResourceAllocationAgent extends Agent {
 
                 if (exp < Integer.valueOf(util)) {
 
-                    createBid(reqId, requester, resourceType, bidQuantity, availableResources.get(resourceType));
+                    createBid(reqId, myAgent.getAID(), requester, resourceType, bidQuantity, availableResources.get(resourceType));
                 } else {
                     // reject or cascade the request
                 }
@@ -393,30 +394,38 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void createBid (String reqId, AID requester, ResourceType resourceType, long bidQuantity, SortedSet<ResourceItem> resourceItems) {
+    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, long bidQuantity, SortedSet<ResourceItem> availableItems) {
 
         Map<Integer, Integer> costFunction = new LinkedHashMap<>();
         for (int q=1; q<=bidQuantity; q++) {
-            int cost = computeExpectedUtilityOfResources(resourceType, q, resourceItems);
+            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
             costFunction.put(q, cost);
         }
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
-        Iterator<ResourceItem> itr = resourceItems.iterator();
+        Iterator<ResourceItem> itr = availableItems.iterator();
         int q=1;
         while (q<=bidQuantity) {
             ResourceItem item = itr.next();
             offeredItems.put(item.getId(), item.getLifetime());
+            availableItems.remove( item);
+            itr = availableItems.iterator();
             q++;
         }
 
-        sendBid(reqId, requester, resourceType, bidQuantity, costFunction, offeredItems);
+        String bidId = UUID.randomUUID().toString();
+        Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, bidder, requester);
+
+        sentBids.put( bidId, bid);
+        availableResources.put( resourceType, availableItems);
+
+        sendBid(reqId, bidId, requester, resourceType, bidQuantity, costFunction, offeredItems);
 
         System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
     }
 
 
-    private void sendBid (String reqId, AID requester, ResourceType resourceType, long bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
+    private void sendBid (String reqId, String bidId, AID requester, ResourceType resourceType, long bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -424,6 +433,7 @@ public class ResourceAllocationAgent extends Agent {
 
         JSONObject jo = new JSONObject();
         jo.put("reqId", reqId);
+        jo.put("bidId", bidId);
         jo.put(Ontology.RESOURCE_BID_QUANTITY, bidQuantity);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.BID_COST_FUNCTION, costFunction);
@@ -448,15 +458,15 @@ public class ResourceAllocationAgent extends Agent {
         JSONObject jo = (JSONObject) obj;
 
         long bidQuantity = (long) jo.get(Ontology.RESOURCE_BID_QUANTITY);
-        System.out.println("Requested quantity is " + bidQuantity);
+        System.out.println("Bid quantity is " + bidQuantity);
 
         String reqId = (String) jo.get("reqId");
+        String bidId = (String) jo.get("bidId");
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
         Map costFunction = (Map) jo.get(Ontology.BID_COST_FUNCTION);
         Map offeredItems = (Map) jo.get(Ontology.BID_OFFERED_ITEMS);
 
-        String bidId = UUID.randomUUID().toString();
         Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
 
         Set<Bid> bids = receivedBids.get(reqId);
@@ -504,15 +514,17 @@ public class ResourceAllocationAgent extends Agent {
             }
             Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
             for (var bidQuantity : bidQuantities.entrySet()) {
-                int q=1;
+                // create a sorted set of offered items
+                SortedSet<ResourceItem> offeredItems = new TreeSet<>();
                 for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
-                    if (q<=bidQuantity.getValue()) {
-                        resourceItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
-                        q++;
-                    }
-                    else {
-                        break;
-                    }
+                    offeredItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
+                }
+                Iterator<ResourceItem> itr = offeredItems.iterator();
+                int q=1;
+                while (q<=bidQuantity.getValue()) {
+                    ResourceItem item = itr.next();
+                    resourceItems.add(item);
+                    q++;
                 }
             }
 
@@ -690,12 +702,56 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void processConfirmation (Agent myAgent, ACLMessage msg) throws ParseException {
+    private void processConfirmation (Agent myAgent, ACLMessage confirmation) throws ParseException {
+
+        String content = confirmation.getContent();
+
+        Object obj = new JSONParser().parse(content);
+        JSONObject jo = (JSONObject) obj;
+
+        String bidId = (String) jo.get("bidId");
+
+        String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
+        ResourceType resourceType = ResourceType.valueOf(rt);
+
+        long confirmedQuantity = (long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
+        System.out.println("Confirmed quantity is " + confirmedQuantity);
+
+        restoreResources(bidId, resourceType, confirmedQuantity);
+
+    }
 
 
+    private void restoreResources(String bidId, ResourceType resourceType, long confirmedQuantity) {
 
+        Bid sentBid = sentBids.get( bidId);
 
+        if (confirmedQuantity < sentBid.quantity) {
+            // create a sorted set of offered items
+            SortedSet<ResourceItem> offeredItems = new TreeSet<>();
+            for (var offeredItem : sentBid.offeredItems.entrySet()) {
+                offeredItems.add(new ResourceItem(offeredItem.getKey(), resourceType, offeredItem.getValue()));
+            }
+            Iterator<ResourceItem> itr = offeredItems.iterator();
+            int q=1;
+            while (q<=confirmedQuantity) {
+                ResourceItem item = itr.next();
+                offeredItems.remove(item);
+                itr = offeredItems.iterator();
+                q++;
+            }
 
+            long unusedQuantity = sentBid.quantity - confirmedQuantity;
+            SortedSet<ResourceItem> resourceItems = availableResources.get( resourceType);
+            itr = offeredItems.iterator();
+            q=1;
+            while (q<=unusedQuantity) {
+                ResourceItem item = itr.next();
+                resourceItems.add(item);
+                q++;
+            }
+            availableResources.put( resourceType, resourceItems);
+        }
     }
 
 
