@@ -470,12 +470,11 @@ public class ResourceAllocationAgent extends Agent {
         Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
 
         Set<Bid> bids = receivedBids.get(reqId);
-        if (bids != null) {
-            bids.add( bid);
-        }
-        else {
+        if (bids == null) {
             bids = new HashSet<>();
         }
+
+        bids.add( bid);
 
         receivedBids.put( reqId, bids);
     }

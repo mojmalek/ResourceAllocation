@@ -57,9 +57,9 @@ public class SimulationEngine {
     }
 
 
-    public ArrayList<ResourceItem> findResourceItems( ResourceType resourceType, int lifeTime, int quantity) {
+    public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, int lifeTime, int quantity) {
 
-        ArrayList<ResourceItem> resourceItems = new ArrayList<>();
+        SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
 
 //        Calendar calendar = Calendar.getInstance();
 //        calendar.add(Calendar.SECOND, lifeTime);
