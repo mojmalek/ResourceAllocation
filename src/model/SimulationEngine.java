@@ -5,9 +5,9 @@ import java.util.*;
 public class SimulationEngine {
 
 
-    public ArrayList<Task> findTasks() {
+    public SortedSet<Task> findTasks() {
 
-        ArrayList<Task> tasks = new ArrayList<>();
+        SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
 
         for (int j=0; j<3; j++) {
 
@@ -22,7 +22,7 @@ public class SimulationEngine {
             EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
 
             low = 1;
-            high = 100;
+            high = 10;
             int quantity = 0;
 
             Iterator it = resourceTypes.iterator();
@@ -57,13 +57,41 @@ public class SimulationEngine {
     }
 
 
+    public Map<ResourceType, SortedSet<ResourceItem>> findResources () {
+
+        Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
+
+        Random random = new Random();
+        int low = 1;
+        int high = ResourceType.getSize();
+        int foundResourceTypesSize = random.nextInt(high) + low;
+
+        EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
+        Iterator it = resourceTypes.iterator();
+
+        int quantity;
+        int lifetime;
+        for (int i = 0; i < foundResourceTypesSize; i++) {
+            low = 5;
+            high = 15;
+            quantity = random.nextInt(high) + low;
+            low = 1;
+            high = 5;
+            lifetime = random.nextInt(high) + low;
+            ResourceType selectedResourceType = (ResourceType) it.next();
+            SortedSet<ResourceItem> items = findResourceItems( selectedResourceType, lifetime, quantity);
+            resources.put(selectedResourceType, items);
+            resourceTypes.remove(selectedResourceType);
+            it = resourceTypes.iterator();
+        }
+
+        return resources;
+    }
+
+
     public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, int lifeTime, int quantity) {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-
-//        Calendar calendar = Calendar.getInstance();
-//        calendar.add(Calendar.SECOND, lifeTime);
-//        Date expiryDate = calendar.getTime();
 
         String id;
         for (int i=0; i<quantity; i++) {

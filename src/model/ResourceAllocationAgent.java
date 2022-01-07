@@ -4,6 +4,7 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
 import java.util.*;
@@ -36,16 +37,7 @@ public class ResourceAllocationAgent extends Agent {
     @Override
     protected void setup() {
 
-        // Printout a welcome message
-        System.out.println("Hello World. I’m an agent!");
-        System.out.println("My local-name is " + getAID().getLocalName());
-//        System.out.println("My GUID is " + getAID().getName());
-//        System.out.println("My addresses are:");
-//        Iterator it = getAID().getAllAddresses();
-//        while (it.hasNext()) {
-//            System.out.println("- "+it.next());
-//        }
-
+        System.out.println("Hello World. I’m an agent! My local-name is " + getAID().getLocalName());
 
         // Get ids of other agents as arguments
         Object[] args = getArguments();
@@ -62,19 +54,36 @@ public class ResourceAllocationAgent extends Agent {
             }
         }
 
+        addBehaviour(new TickerBehaviour(this, 7000) {
+
+            protected void onTick() {
+
+                findTasks (myAgent);
+
+                findResources (myAgent);
+
+                negotiate (myAgent);
+
+                performTasks (myAgent);
+            }
+        });
+
+
 //        System.out.println(getAID().getLocalName());
-        if ( getAID().getLocalName().equals("Agent2")) {
-            SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 10, 50));
-            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 9, 30));
-            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 8, 20));
-            availableResources.put(ResourceType.A, resourceItems);
+//        if ( getAID().getLocalName().equals("Agent2")) {
+//            SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+//            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 10, 50));
+//            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 9, 30));
+//            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 8, 20));
+//            availableResources.put(ResourceType.A, resourceItems);
+//
+//            System.out.println("");
 
 
 //            availableResources.put(ResourceType.B, simulationEngine.findResourceItems(ResourceType.B, 20, 100));
 //            availableResources.put(ResourceType.AB, simulationEngine.findResourceItems(ResourceType.AB, 10, 100));
 //            availableResources.put(ResourceType.O, simulationEngine.findResourceItems(ResourceType.O, 3, 100));
-        }
+//        }
 
 //        addBehaviour(new TickerBehaviour(this, 5000) {
 //
@@ -92,62 +101,27 @@ public class ResourceAllocationAgent extends Agent {
 //        });
 
 
-        addBehaviour(new OneShotBehaviour() {
-
-            public void action() {
-//                System.out.println(getAID().getLocalName());
-                if ( getAID().getLocalName().equals("Agent1")) {
-
-                    ArrayList<Task> newTasks = simulationEngine.findTasks();
-                    toDoTasks.addAll(newTasks);
-
-//                System.out.println( myAgent.getLocalName() + ": I have a new task to perform: " + newTask);
-                }
-            }
-        });
-
-
-        addBehaviour(new OneShotBehaviour() {
-
-            public void action() {
-
-                processToDoTasks();
-
-                if (toDoTasks.size() > 0) {
-                    createRequest( toDoTasks, myAgent);
-                }
-
-//                System.out.println( myAgent.getLocalName() + ": I have a new task to perform: " + newTask);
-
-            }
-        });
-
+//        addBehaviour(new OneShotBehaviour() {
+//
+//            public void action() {
+//                if ( getAID().getLocalName().equals("Agent1")) {
+//
+//                    SortedSet<Task> newTasks = simulationEngine.findTasks();
+//                    toDoTasks.addAll(newTasks);
+//                }
+//            }
+//        });
 
 
 //        addBehaviour(new OneShotBehaviour() {
-//            @Override
+//
 //            public void action() {
 //
-//                ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
+//                performTasks();
 //
-//                for (int i = 0; i < otherAgents.size(); i++) {
-//                // Send this message to all other agents
-//                    msg.addReceiver(otherAgents.get(i));
+//                if (toDoTasks.size() > 0) {
+//                    createRequest( toDoTasks, myAgent);
 //                }
-//
-//                HashMap<String,String> fields = new HashMap<String,String>();
-//                fields.put(Ontology.RESOURCE_REQUESTED_QUANTITY, "10");
-//
-////                msg.setLanguage("English");
-////                msg.setOntology("Weather-forecast-ontology");
-//
-//                msg.setContent( fields.toString());
-//
-////                msg.setReplyByDate();
-//
-//                send(msg);
-//                System.out.println("Message sent by " + myAgent.getLocalName());
-//
 //            }
 //        });
 
@@ -220,15 +194,59 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void processToDoTasks() {
+    private void findTasks(Agent myAgent) {
 
-        for (Task task : toDoTasks) {
-            if (hasEnoughResources(task, availableResources)) {
-                processTask (task);
-                toDoTasks.remove(task);
-                doneTasks.add((task));
+        System.out.println (myAgent.getLocalName() +  " : Step 1");
+
+        SortedSet<Task> newTasks = simulationEngine.findTasks();
+        toDoTasks.addAll(newTasks);
+
+    }
+
+
+    private void findResources(Agent myAgent) {
+
+        System.out.println (myAgent.getLocalName() +  " : Step 2");
+
+        Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources();
+
+        // add to available resources
+        for (var newResource : newResources.entrySet()) {
+            if (availableResources.containsKey(newResource.getKey())) {
+                SortedSet<ResourceItem> availableItems = availableResources.get( newResource.getKey());
+                availableItems.addAll( newResource.getValue());
+                availableResources.put( newResource.getKey(), availableItems);
+            } else {
+                availableResources.put( newResource.getKey(), newResource.getValue());
             }
         }
+
+        System.out.println("");
+    }
+
+
+    private void negotiate (Agent myAgent) {
+
+        System.out.println (myAgent.getLocalName() +  " : Step 3");
+
+//        if (toDoTasks.size() > 0) {
+//            createRequest( toDoTasks, myAgent);
+//        }
+
+    }
+
+
+    private void performTasks(Agent myAgent) {
+
+        System.out.println (myAgent.getLocalName() +  " : Step 4");
+
+//        for (Task task : toDoTasks) {
+//            if (hasEnoughResources(task, availableResources)) {
+//                processTask (task);
+//                toDoTasks.remove(task);
+//                doneTasks.add((task));
+//            }
+//        }
     }
 
 
@@ -495,7 +513,7 @@ public class ResourceAllocationAgent extends Agent {
             if ( selectedBidsForAllRequests.size() > 0) {
                 createConfirmation(selectedBidsForAllRequests);
                 addResourceItemsInBids(selectedBidsForAllRequests);
-                processToDoTasks();
+//                performTasks();
             }
 //        }
 
