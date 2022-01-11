@@ -3,7 +3,6 @@ package model;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
@@ -18,6 +17,8 @@ public class ResourceAllocationAgent extends Agent {
     private ArrayList<AID> otherAgents = new ArrayList<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
+
+    private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
 
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
 
@@ -54,9 +55,11 @@ public class ResourceAllocationAgent extends Agent {
             }
         }
 
-        addBehaviour(new TickerBehaviour(this, 7000) {
+        addBehaviour(new TickerBehaviour(this, 3000) {
 
             protected void onTick() {
+
+                System.out.println( "Round: " + this.getTickCount());
 
                 findTasks (myAgent);
 
@@ -221,7 +224,9 @@ public class ResourceAllocationAgent extends Agent {
             }
         }
 
-        System.out.println("");
+        for (var entry : availableResources.entrySet()) {
+            System.out.println( entry.getKey().name() + " " + entry.getValue().size());
+        }
     }
 
 
@@ -229,9 +234,29 @@ public class ResourceAllocationAgent extends Agent {
 
         System.out.println (myAgent.getLocalName() +  " : Step 3");
 
-//        if (toDoTasks.size() > 0) {
-//            createRequest( toDoTasks, myAgent);
-//        }
+        Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
+
+        for (Task task : toDoTasks) {
+            if (hasEnoughResources(task, remainingResources)) {
+                remainingResources = evaluateTask( task, remainingResources);
+            } else {
+                blockedTasks.add((task));
+            }
+        }
+
+        if (blockedTasks.size() > 0) {
+            createRequest( blockedTasks, remainingResources, myAgent);
+
+            if (receivedBids.size() > 0) {
+                // should wait for all bids
+//                confirmBids();
+            }
+        }
+
+        blockedTasks.clear();
+        sentRequests.clear();
+        receivedBids.clear();
+        sentBids.clear();
 
     }
 
@@ -240,13 +265,38 @@ public class ResourceAllocationAgent extends Agent {
 
         System.out.println (myAgent.getLocalName() +  " : Step 4");
 
-//        for (Task task : toDoTasks) {
-//            if (hasEnoughResources(task, availableResources)) {
-//                processTask (task);
-//                toDoTasks.remove(task);
-//                doneTasks.add((task));
-//            }
-//        }
+        SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+
+        for (Task task : toDoTasks) {
+            if (hasEnoughResources(task, availableResources)) {
+                processTask (task);
+                doneTasksInThisRound.add (task);
+                doneTasks.add (task);
+            }
+        }
+
+        toDoTasks.removeAll (doneTasksInThisRound);
+
+        System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks.");
+    }
+
+
+    Map<ResourceType, SortedSet<ResourceItem>> evaluateTask (Task task, Map<ResourceType, SortedSet<ResourceItem>> remainingResources) {
+
+        try {
+            for (var entry : task.requiredResources.entrySet()) {
+                SortedSet<ResourceItem> resourceItems = remainingResources.get(entry.getKey());
+                for (int i = 0; i < entry.getValue(); i++) {
+                    ResourceItem item = resourceItems.first();
+                    resourceItems.remove(item);
+                }
+                remainingResources.replace(entry.getKey(), resourceItems);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
+        return remainingResources;
     }
 
 
@@ -267,7 +317,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void createRequest (SortedSet<Task> blockedTasks, Agent myAgent) {
+    private void createRequest (SortedSet<Task> blockedTasks, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, Agent myAgent) {
 
         // creates a request based on the missing quantity for each resource type
 
@@ -280,18 +330,20 @@ public class ResourceAllocationAgent extends Agent {
         }
 
         for (var entry : totalRequiredResources.entrySet()) {
-            int missingQuantity;
-            if ( availableResources.containsKey( entry.getKey())) {
-                missingQuantity = entry.getValue() - availableResources.get(entry.getKey()).size();
+            int missingQuantity = 0;
+            if ( remainingResources.containsKey( entry.getKey())) {
+                if (remainingResources.get(entry.getKey()).size() < entry.getValue()) {
+                    missingQuantity = entry.getValue() - remainingResources.get(entry.getKey()).size();
+                }
             } else {
                 missingQuantity = entry.getValue();
             }
 
-            Map<Integer, Integer> utilityFunction = computeUtilityFunction (blockedTasks, entry.getKey(), missingQuantity);
-            sendRequest (entry.getKey(), missingQuantity, utilityFunction, myAgent);
+            if (missingQuantity > 0) {
+                Map<Integer, Integer> utilityFunction = computeUtilityFunction(blockedTasks, entry.getKey(), missingQuantity);
+                sendRequest(entry.getKey(), missingQuantity, utilityFunction, myAgent);
+            }
         }
-
-//        System.out.println( "This is a new request");
     }
 
 
@@ -343,6 +395,8 @@ public class ResourceAllocationAgent extends Agent {
         send(msg);
 
         sentRequests.put (reqId, new Request(reqId, missingQuantity, resourceType, utilityFunction, myAgent.getAID()));
+
+        System.out.println( myAgent.getLocalName() + " sent a request with quantity: " + missingQuantity + " for resourceType: " + resourceType.name());
 
     }
 
@@ -513,7 +567,6 @@ public class ResourceAllocationAgent extends Agent {
             if ( selectedBidsForAllRequests.size() > 0) {
                 createConfirmation(selectedBidsForAllRequests);
                 addResourceItemsInBids(selectedBidsForAllRequests);
-//                performTasks();
             }
 //        }
 
@@ -779,8 +832,7 @@ public class ResourceAllocationAgent extends Agent {
             if (availableResources.containsKey(entry.getKey()) == false) {
                 enough = false;
                 break;
-            }
-            else if (entry.getValue() > availableResources.get(entry.getKey()).size()) {
+            } else if (entry.getValue() > availableResources.get(entry.getKey()).size()) {
                 enough = false;
                 break;
             }
@@ -820,6 +872,15 @@ public class ResourceAllocationAgent extends Agent {
 //        }
 
         return exp;
+    }
+
+
+    public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
+        Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
+        for (var entry : original.entrySet()) {
+            copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
+        }
+        return copy;
     }
 
 }

@@ -19,4 +19,8 @@ public enum ResourceType {
     public static int getSize()  {
         return SIZE;
     }
+
+    public static ResourceType[] getValues() {
+        return values();
+    }
 }

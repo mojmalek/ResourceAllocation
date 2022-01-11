@@ -8,48 +8,23 @@ public class SimulationEngine {
     public SortedSet<Task> findTasks() {
 
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
+        Random random = new Random();
+        ResourceType[] values = ResourceType.getValues();
 
+        int low, high, quantity, utility;
         for (int j=0; j<3; j++) {
-
             Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
-
-            Random random = new Random();
-
-            int low = 1;
-            int high = ResourceType.getSize();
-            int requiredResourceTypesSize = random.nextInt(high) + low;
-
-            EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
-
-            low = 1;
+            low = 10;
             high = 10;
-            int quantity = 0;
-
-            Iterator it = resourceTypes.iterator();
-
-            for (int i = 0; i < requiredResourceTypesSize; i++) {
-
+            for (int i = 0; i < values.length; i++) {
                 quantity = random.nextInt(high) + low;
-
-//            HashMap<Integer, TimeInterval> quantityTimeInterval = new HashMap<>();
-//            quantityTimeInterval.put (quantity, null);
-
-                ResourceType selectedResourceType = (ResourceType) it.next();
-
-                requiredResources.put(selectedResourceType, quantity);
-
-                resourceTypes.remove(selectedResourceType);
-                it = resourceTypes.iterator();
+                requiredResources.put(values[i], quantity);
             }
-
             low = 1;
             high = 100;
-            int utility = random.nextInt(high) + low;
-
+            utility = random.nextInt(high) + low;
             String id = UUID.randomUUID().toString();
-
             Task newTask = new Task(id, utility, requiredResources);
-
             tasks.add(newTask);
         }
 
@@ -60,29 +35,19 @@ public class SimulationEngine {
     public Map<ResourceType, SortedSet<ResourceItem>> findResources () {
 
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
-
         Random random = new Random();
-        int low = 1;
-        int high = ResourceType.getSize();
-        int foundResourceTypesSize = random.nextInt(high) + low;
+        ResourceType[] values = ResourceType.getValues();
 
-        EnumSet<ResourceType> resourceTypes = EnumSet.allOf(ResourceType.class);
-        Iterator it = resourceTypes.iterator();
-
-        int quantity;
-        int lifetime;
-        for (int i = 0; i < foundResourceTypesSize; i++) {
-            low = 5;
-            high = 15;
+        int low, high, quantity, lifetime;
+        for (int i = 0; i < values.length; i++) {
+            low = 1;
+            high = 1;
             quantity = random.nextInt(high) + low;
             low = 1;
             high = 5;
             lifetime = random.nextInt(high) + low;
-            ResourceType selectedResourceType = (ResourceType) it.next();
-            SortedSet<ResourceItem> items = findResourceItems( selectedResourceType, lifetime, quantity);
-            resources.put(selectedResourceType, items);
-            resourceTypes.remove(selectedResourceType);
-            it = resourceTypes.iterator();
+            SortedSet<ResourceItem> items = findResourceItems( values[i], lifetime, quantity);
+            resources.put(values[i], items);
         }
 
         return resources;

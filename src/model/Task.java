@@ -55,9 +55,9 @@ public class Task {
             String id2 = task2.id;
 
             if (utility1 == utility2) {
-                return id1.compareTo(id2);
+                return id2.compareTo(id1);
             } else {
-                return utility1.compareTo(utility2);
+                return utility2.compareTo(utility1);
             }
         }
     }
