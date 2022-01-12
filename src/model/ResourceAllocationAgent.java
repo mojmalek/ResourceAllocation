@@ -24,6 +24,8 @@ public class ResourceAllocationAgent extends Agent {
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
 
+    private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
+
     // reqId
     public Map<String, Set<Bid>> receivedBids = new LinkedHashMap<>();
 
@@ -211,6 +213,9 @@ public class ResourceAllocationAgent extends Agent {
 
         System.out.println (myAgent.getLocalName() +  " : Step 2");
 
+        // decrease lifetime of remaining resources
+        perishResourceItems();
+
         Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources();
 
         // add to available resources
@@ -226,6 +231,33 @@ public class ResourceAllocationAgent extends Agent {
 
         for (var entry : availableResources.entrySet()) {
             System.out.println( entry.getKey().name() + " " + entry.getValue().size());
+        }
+    }
+
+
+    void perishResourceItems() {
+
+        SortedSet<ResourceItem> availableItems;
+        ArrayList<ResourceItem> expiredItems;
+        ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
+        for (var resource : availableResources.entrySet()) {
+            availableItems = availableResources.get( resource.getKey());
+            if (expiredResources.containsKey( resource.getKey())) {
+                expiredItems = expiredResources.get( resource.getKey());
+            } else {
+                expiredItems = new ArrayList<>();
+                expiredResources.put( resource.getKey(), expiredItems);
+            }
+            for (ResourceItem item : availableItems) {
+                item.setLifetime( item.getLifetime() - 1);
+                if (item.getLifetime() == 0) {
+                    expiredItemsInThisRound.add( item);
+                    expiredItems.add( item);
+                }
+            }
+            availableItems.removeAll( expiredItemsInThisRound);
+//            expiredResources.put( resource.getKey(), expiredItems);
+//            availableResources.put( resource.getKey(), availableItems);
         }
     }
 

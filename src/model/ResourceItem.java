@@ -30,6 +30,10 @@ public class ResourceItem {
         return lifetime;
     }
 
+    public void setLifetime(int lifetime) {
+        this.lifetime = lifetime;
+    }
+
     @Override
     public String toString() {
         return "ResourceItem{" +
