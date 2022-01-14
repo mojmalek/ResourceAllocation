@@ -14,28 +14,26 @@ import org.json.simple.parser.*;
 
 public class ResourceAllocationAgent extends Agent {
 
+    SimulationEngine simulationEngine = new SimulationEngine();
+
     private ArrayList<AID> otherAgents = new ArrayList<>();
+    private Map<AID, ProtocolPhase> otherAgentsPhases = new LinkedHashMap<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
-
     private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
-
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
-
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
 
     // reqId
-    public Map<String, Set<Bid>> receivedBids = new LinkedHashMap<>();
-
-    // reqId
     public Map<String, Request> sentRequests = new LinkedHashMap<>();
-
+    public Map<ResourceType, ArrayList<Request>> receivedRequests = new LinkedHashMap<>();
     // bidId
     public Map<String, Bid> sentBids = new LinkedHashMap<>();
+    // reqId
+    public Map<String, Set<Bid>> receivedBids = new LinkedHashMap<>();
 
-    SimulationEngine simulationEngine = new SimulationEngine();
 
     @Override
     protected void setup() {
@@ -53,14 +51,14 @@ public class ResourceAllocationAgent extends Agent {
                 if ( i != myId) {
                     AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
                     otherAgents.add(aid);
+                    otherAgentsPhases.put(aid, ProtocolPhase.REQUESTING);
                 }
             }
         }
 
+
         addBehaviour(new TickerBehaviour(this, 3000) {
-
             protected void onTick() {
-
                 System.out.println( "Round: " + this.getTickCount());
 
                 findTasks (myAgent);
@@ -74,69 +72,11 @@ public class ResourceAllocationAgent extends Agent {
         });
 
 
-//        System.out.println(getAID().getLocalName());
-//        if ( getAID().getLocalName().equals("Agent2")) {
-//            SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-//            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 10, 50));
-//            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 9, 30));
-//            resourceItems.addAll(simulationEngine.findResourceItems(ResourceType.A, 8, 20));
-//            availableResources.put(ResourceType.A, resourceItems);
-//
-//            System.out.println("");
-
-
-//            availableResources.put(ResourceType.B, simulationEngine.findResourceItems(ResourceType.B, 20, 100));
-//            availableResources.put(ResourceType.AB, simulationEngine.findResourceItems(ResourceType.AB, 10, 100));
-//            availableResources.put(ResourceType.O, simulationEngine.findResourceItems(ResourceType.O, 3, 100));
-//        }
-
-//        addBehaviour(new TickerBehaviour(this, 5000) {
-//
-//            protected void onTick() {
-//
-//                ResourceItem resourceItem = simulationEngine.findResourceItem();
-//                availableResources.add(resourceItem);
-//
-//                System.out.println("My availableResources are:");
-//
-//                for (int i = 0; i < availableResources.size(); i++) {
-//                    System.out.println(availableResources.get(i));
-//                }
-//            }
-//        });
-
-
-//        addBehaviour(new OneShotBehaviour() {
-//
-//            public void action() {
-//                if ( getAID().getLocalName().equals("Agent1")) {
-//
-//                    SortedSet<Task> newTasks = simulationEngine.findTasks();
-//                    toDoTasks.addAll(newTasks);
-//                }
-//            }
-//        });
-
-
-//        addBehaviour(new OneShotBehaviour() {
-//
-//            public void action() {
-//
-//                performTasks();
-//
-//                if (toDoTasks.size() > 0) {
-//                    createRequest( toDoTasks, myAgent);
-//                }
-//            }
-//        });
-
-
         addBehaviour(new CyclicBehaviour() {
             @Override
             public void action() {
                 ACLMessage msg = myAgent.receive();
                 if (msg != null) {
-                    // Message received. Process it
                     String content = msg.getContent();
 
                     switch (msg.getPerformative()) {
@@ -144,7 +84,7 @@ public class ResourceAllocationAgent extends Agent {
                             System.out.println (myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName() + " with content: " + content);
 
                             try {
-                                processRequest(myAgent, msg);
+                                storeRequest( myAgent, msg);
                             } catch (ParseException e) {
                                 e.printStackTrace();
                             }
@@ -187,7 +127,11 @@ public class ResourceAllocationAgent extends Agent {
                         case ACLMessage.INFORM:
                             System.out.println (myAgent.getLocalName() + " received a INFORM message from " + msg.getSender().getLocalName() + " with content: " + content);
 
-
+                            try {
+                                processNotification(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
                             break;
                     }
 
@@ -266,6 +210,30 @@ public class ResourceAllocationAgent extends Agent {
 
         System.out.println (myAgent.getLocalName() +  " : Step 3");
 
+        deliberateOnRequesting (myAgent);
+
+        sendNextPhaseNotification (ProtocolPhase.BIDDING);
+
+        waitForRequests();
+
+        if (receivedRequests.size() > 0) {
+            deliberateOnBidding();
+        }
+
+        sendNextPhaseNotification (ProtocolPhase.CONFORMING);
+
+        waitForBids();
+
+        if (receivedBids.size() > 0) {
+            confirmBids();
+        }
+
+        reset();
+    }
+
+
+    void deliberateOnRequesting (Agent myAgent) {
+
         Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
 
         for (Task task : toDoTasks) {
@@ -277,19 +245,94 @@ public class ResourceAllocationAgent extends Agent {
         }
 
         if (blockedTasks.size() > 0) {
-            createRequest( blockedTasks, remainingResources, myAgent);
+            createRequests( blockedTasks, remainingResources, myAgent);
+        }
+    }
 
-            if (receivedBids.size() > 0) {
-                // should wait for all bids
-//                confirmBids();
-            }
+
+    void sendNextPhaseNotification (ProtocolPhase phase) {
+
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+
+        for (int i = 0; i < otherAgents.size(); i++) {
+            // Send this message to all other agents
+            msg.addReceiver(otherAgents.get(i));
         }
 
+        JSONObject jo = new JSONObject();
+        jo.put(Ontology.PROTOCOL_PHASE, phase.name());
+
+        msg.setContent( jo.toJSONString());
+        send(msg);
+
+        System.out.println();
+    }
+
+
+    void waitForRequests() {
+
+        while(inRequestingPhase()) {
+            try {
+                this.wait();
+            } catch (InterruptedException var2) {
+            }
+        }
+    }
+
+
+    void waitForBids() {
+
+        while(inBiddingPhase()) {
+            try {
+                this.wait();
+            } catch (InterruptedException var2) {
+            }
+        }
+    }
+
+
+    boolean inRequestingPhase () {
+
+        boolean requesting = false;
+        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.REQUESTING) {
+                requesting = true;
+                break;
+            }
+        }
+        return requesting;
+    }
+
+
+    boolean inBiddingPhase () {
+
+        boolean bidding = false;
+        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.BIDDING) {
+                bidding = true;
+            }
+        }
+        return bidding;
+    }
+
+
+    void reset() {
+
         blockedTasks.clear();
+        receivedRequests.clear();
         sentRequests.clear();
         receivedBids.clear();
         sentBids.clear();
+        resetOtherAgentPhases();
+    }
 
+
+    void resetOtherAgentPhases() {
+
+        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+            agentPhase.setValue( ProtocolPhase.REQUESTING);
+        }
+        System.out.println();
     }
 
 
@@ -349,7 +392,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void createRequest (SortedSet<Task> blockedTasks, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, Agent myAgent) {
+    private void createRequests (SortedSet<Task> blockedTasks, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, Agent myAgent) {
 
         // creates a request based on the missing quantity for each resource type
 
@@ -418,17 +461,45 @@ public class ResourceAllocationAgent extends Agent {
         jo.put("reqId", reqId);
         jo.put(Ontology.RESOURCE_REQUESTED_QUANTITY, missingQuantity);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
-        jo.put(Ontology.TASKS_UTILITY_FUNCTION, utilityFunction);
+        jo.put(Ontology.REQUEST_UTILITY_FUNCTION, utilityFunction);
 
         msg.setContent( jo.toJSONString());
-
 //      msg.setReplyByDate();
-
         send(msg);
 
         sentRequests.put (reqId, new Request(reqId, missingQuantity, resourceType, utilityFunction, myAgent.getAID()));
 
         System.out.println( myAgent.getLocalName() + " sent a request with quantity: " + missingQuantity + " for resourceType: " + resourceType.name());
+    }
+
+
+    private void storeRequest (Agent myAgent, ACLMessage msg) throws ParseException {
+
+        String content = msg.getContent();
+
+        Object obj = new JSONParser().parse(content);
+        JSONObject jo = (JSONObject) obj;
+
+        String reqId = (String) jo.get("reqId");
+        long requestedQuantity = (long) jo.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
+        String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
+        ResourceType resourceType = ResourceType.valueOf(rt);
+        Map utilityFunction = (Map) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
+
+        Request request = new Request(reqId, requestedQuantity, resourceType, utilityFunction, msg.getSender());
+
+        if ( receivedRequests.containsKey(resourceType) == false) {
+            receivedRequests.put(resourceType, new ArrayList<>());
+        }
+        receivedRequests.get(resourceType).add(request);
+    }
+
+
+    private void deliberateOnBidding() {
+
+
+
+
 
     }
 
@@ -466,7 +537,7 @@ public class ResourceAllocationAgent extends Agent {
 
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-        Map utilityFunction = (Map) jo.get(Ontology.TASKS_UTILITY_FUNCTION);
+        Map utilityFunction = (Map) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
         int exp = 0;
         if (availableResources.get(resourceType) != null) {
             int availableQuantity = availableResources.get(resourceType).size();
@@ -601,7 +672,6 @@ public class ResourceAllocationAgent extends Agent {
                 addResourceItemsInBids(selectedBidsForAllRequests);
             }
 //        }
-
     }
 
 
@@ -797,9 +867,6 @@ public class ResourceAllocationAgent extends Agent {
         jo.put(Ontology.RESOURCE_CONFIRM_QUANTITY, confirmQuantity);
 
         msg.setContent( jo.toJSONString());
-
-//      msg.setReplyByDate();
-
         send(msg);
     }
 
@@ -913,6 +980,22 @@ public class ResourceAllocationAgent extends Agent {
             copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
         }
         return copy;
+    }
+
+
+    private void processNotification (Agent myAgent, ACLMessage msg) throws ParseException {
+
+        String content = msg.getContent();
+
+        Object obj = new JSONParser().parse(content);
+        JSONObject jo = (JSONObject) obj;
+
+        String pp = (String) jo.get(Ontology.PROTOCOL_PHASE);
+        ProtocolPhase protocolPhase = ProtocolPhase.valueOf(pp);
+
+        otherAgentsPhases.put( msg.getSender(), protocolPhase);
+
+        System.out.println("");
     }
 
 }
