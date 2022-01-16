@@ -125,7 +125,7 @@ public class ResourceAllocationAgent extends Agent {
                             break;
 
                         case ACLMessage.INFORM:
-                            System.out.println (myAgent.getLocalName() + " received a INFORM message from " + msg.getSender().getLocalName() + " with content: " + content);
+                            System.out.println (myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName() + " with content: " + content);
 
                             try {
                                 processNotification(myAgent, msg);
@@ -217,7 +217,7 @@ public class ResourceAllocationAgent extends Agent {
         waitForRequests();
 
         if (receivedRequests.size() > 0) {
-            deliberateOnBidding();
+            deliberateOnBidding( myAgent);
         }
 
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
@@ -495,16 +495,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void deliberateOnBidding() {
-
-
-
-
-
-    }
-
-
-    private void processRequest (Agent myAgent, ACLMessage request) throws ParseException {
+    private void deliberateOnBidding( Agent myAgent) {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
         // the bidder can wait for other requests before bidding.
@@ -523,49 +514,69 @@ public class ResourceAllocationAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-        AID requester = request.getSender();
 
-        String content = request.getContent();
-
-        Object obj = new JSONParser().parse(content);
-        JSONObject jo = (JSONObject) obj;
-
-        String reqId = (String) jo.get("reqId");
-
-        long requestedQuantity = (long) jo.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
-        System.out.println("Requested quantity is " + requestedQuantity);
-
-        String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
-        ResourceType resourceType = ResourceType.valueOf(rt);
-        Map utilityFunction = (Map) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
-        int exp = 0;
-        if (availableResources.get(resourceType) != null) {
-            int availableQuantity = availableResources.get(resourceType).size();
-            if (availableQuantity > 0) {
-                long bidQuantity = 0;
-                if (availableQuantity < requestedQuantity) {
-
-                    bidQuantity = availableQuantity;
-                } else {
-                    bidQuantity = requestedQuantity;
-                }
-
-                exp = computeExpectedUtilityOfResources(resourceType, bidQuantity, availableResources.get(resourceType));
-
-                String util = utilityFunction.get(String.valueOf(bidQuantity)).toString();
-
-                if (exp < Integer.valueOf(util)) {
-
-                    createBid(reqId, myAgent.getAID(), requester, resourceType, bidQuantity, availableResources.get(resourceType));
-                } else {
-                    // reject or cascade the request
-                }
-            } else {
-                // reject or cascade the request
+        Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
+        // bid only with remaining resources after performing tasks in this round
+        for (Task task : toDoTasks) {
+            if (hasEnoughResources(task, remainingResources)) {
+                remainingResources = evaluateTask( task, remainingResources);
             }
-        } else {
-            // reject or cascade the request
         }
+
+        long bidQuantity;
+        for (var requestsForType : receivedRequests.entrySet()) {
+            if (remainingResources.get(requestsForType.getKey()) != null) {
+                int remainingQuantity = remainingResources.get(requestsForType.getKey()).size();
+                ArrayList<Request> requests = requestsForType.getValue();
+                while (remainingQuantity > 0 && requests.size() > 0) {
+                    // Greedy approach
+                    Request selectedRequest = selectBestRequest( requests, remainingQuantity);
+
+                    if (remainingQuantity < selectedRequest.quantity) {
+                        bidQuantity = remainingQuantity;
+                    } else {
+                        bidQuantity = selectedRequest.quantity;
+                    }
+
+                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
+                    int util = selectedRequest.utilityFunction.get(bidQuantity);
+                    if (exp < util) {
+                        createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
+                    } else {
+                        // reject or cascade the request
+                    }
+                    remainingQuantity = remainingQuantity - (int) bidQuantity;
+                    requests.remove( selectedRequest);
+                }
+                // reject or cascade the rest of requests
+            } else {
+            // reject or cascade the requests
+            }
+        }
+    }
+
+
+    Request selectBestRequest(ArrayList<Request> requests, int remainingQuantity) {
+
+        Request selectedRequest = requests.get(0);
+        int highestUtility = 0;
+        int bidQuantity;
+
+        for (Request request : requests) {
+            if (remainingQuantity < request.quantity) {
+                bidQuantity = remainingQuantity;
+            } else {
+                bidQuantity = (int) request.quantity;
+            }
+
+            int util = request.utilityFunction.get(bidQuantity);
+            if (util > highestUtility) {
+                highestUtility = util;
+                selectedRequest = request;
+            }
+        }
+
+        return selectedRequest;
     }
 
 
@@ -592,7 +603,7 @@ public class ResourceAllocationAgent extends Agent {
         Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, bidder, requester);
 
         sentBids.put( bidId, bid);
-        availableResources.put( resourceType, availableItems);
+//        availableResources.put( resourceType, availableItems);
 
         sendBid(reqId, bidId, requester, resourceType, bidQuantity, costFunction, offeredItems);
 
