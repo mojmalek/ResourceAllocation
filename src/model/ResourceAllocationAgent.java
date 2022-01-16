@@ -208,27 +208,21 @@ public class ResourceAllocationAgent extends Agent {
 
     private void negotiate (Agent myAgent) {
 
-        System.out.println (myAgent.getLocalName() +  " : Step 3");
-
+        System.out.println (myAgent.getLocalName() +  " : is negotiating.");
+        resetRound();
+        sendNextPhaseNotification (ProtocolPhase.REQUESTING);
+        waitForNextRound();
         deliberateOnRequesting (myAgent);
-
         sendNextPhaseNotification (ProtocolPhase.BIDDING);
-
         waitForRequests();
-
         if (receivedRequests.size() > 0) {
             deliberateOnBidding( myAgent);
         }
-
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
-
         waitForBids();
-
         if (receivedBids.size() > 0) {
-            confirmBids();
+            deliberateOnConfirming();
         }
-
-        reset();
     }
 
 
@@ -266,6 +260,17 @@ public class ResourceAllocationAgent extends Agent {
         send(msg);
 
         System.out.println();
+    }
+
+
+    void waitForNextRound() {
+
+        while(inConfirmingPhase()) {
+            try {
+                this.wait();
+            } catch (InterruptedException var2) {
+            }
+        }
     }
 
 
@@ -316,23 +321,26 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    void reset() {
+    boolean inConfirmingPhase () {
+
+        boolean confirming = false;
+        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CONFORMING) {
+                confirming = true;
+                break;
+            }
+        }
+        return confirming;
+    }
+
+
+    void resetRound() {
 
         blockedTasks.clear();
         receivedRequests.clear();
         sentRequests.clear();
         receivedBids.clear();
         sentBids.clear();
-        resetOtherAgentPhases();
-    }
-
-
-    void resetOtherAgentPhases() {
-
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
-            agentPhase.setValue( ProtocolPhase.REQUESTING);
-        }
-        System.out.println();
     }
 
 
@@ -666,7 +674,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    void confirmBids () {
+    void deliberateOnConfirming() {
 
         Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests = new LinkedHashMap<>();
 
