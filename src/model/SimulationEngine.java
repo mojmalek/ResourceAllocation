@@ -10,19 +10,19 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] values = ResourceType.getValues();
-
-        int low, high, quantity, utility;
-        for (int j=0; j<3; j++) {
+        int numOfTasks = 2;
+        int minQuantity = 5;
+        int maxQuantity = 5;
+        int minUtil = 50;
+        int maxUtil = 100;
+        int quantity, utility;
+        for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
-            low = 10;
-            high = 10;
             for (int i = 0; i < values.length; i++) {
-                quantity = random.nextInt(high) + low;
+                quantity = random.nextInt(maxQuantity) + minQuantity;
                 requiredResources.put(values[i], quantity);
             }
-            low = 1;
-            high = 100;
-            utility = random.nextInt(high) + low;
+            utility = random.nextInt(maxUtil) + minUtil;
             String id = UUID.randomUUID().toString();
             Task newTask = new Task(id, utility, requiredResources);
             tasks.add(newTask);
@@ -37,15 +37,14 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] values = ResourceType.getValues();
-
-        int low, high, quantity, lifetime;
+        int minQuantity = 1;
+        int maxQuantity = 10;
+        int minLifetime = 1;
+        int maxLifetime = 3;
+        int quantity, lifetime;
         for (int i = 0; i < values.length; i++) {
-            low = 1;
-            high = 1;
-            quantity = random.nextInt(high) + low;
-            low = 1;
-            high = 5;
-            lifetime = random.nextInt(high) + low;
+            quantity = random.nextInt(maxQuantity) + minQuantity;
+            lifetime = random.nextInt(maxLifetime) + minLifetime;
             SortedSet<ResourceItem> items = findResourceItems( values[i], lifetime, quantity);
             resources.put(values[i], items);
         }
@@ -57,15 +56,12 @@ public class SimulationEngine {
     public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, int lifeTime, int quantity) {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-
         String id;
         for (int i=0; i<quantity; i++) {
             id = UUID.randomUUID().toString();
             resourceItems.add(new ResourceItem (id, resourceType, lifeTime));
         }
-
         return resourceItems;
     }
-
 
 }

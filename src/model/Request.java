@@ -8,12 +8,12 @@ import java.util.Objects;
 public class Request {
 
     String id;
-    long quantity;
+    int quantity;
     ResourceType resourceType;
     Map<Integer, Integer> utilityFunction;
     AID sender;
 
-    public Request(String id, long quantity, ResourceType resourceType, Map<Integer, Integer> utilityFunction, AID sender) {
+    public Request(String id, int quantity, ResourceType resourceType, Map<Integer, Integer> utilityFunction, AID sender) {
         this.id = id;
         this.quantity = quantity;
         this.resourceType = resourceType;

@@ -2,17 +2,19 @@ package model;
 
 import jade.core.AID;
 import jade.core.Agent;
-import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
 import java.util.*;
 
+import jade.lang.acl.MessageTemplate;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.*;
 
 
 public class ResourceAllocationAgent extends Agent {
+
+//    CyclicBehaviour receiveMessageBehaviour;
 
     SimulationEngine simulationEngine = new SimulationEngine();
 
@@ -57,89 +59,92 @@ public class ResourceAllocationAgent extends Agent {
         }
 
 
-        addBehaviour(new TickerBehaviour(this, 3000) {
+//        ParallelBehaviour parallelBehaviour = new ParallelBehaviour();
+
+        addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
-                System.out.println( "Round: " + this.getTickCount());
+                System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                 findTasks (myAgent);
-
                 findResources (myAgent);
-
                 negotiate (myAgent);
-
                 performTasks (myAgent);
             }
         });
 
 
-        addBehaviour(new CyclicBehaviour() {
-            @Override
-            public void action() {
-                ACLMessage msg = myAgent.receive();
-                if (msg != null) {
-                    String content = msg.getContent();
+//        receiveMessageBehaviour = new CyclicBehaviour() {
+//            @Override
+//            public void action() {
+//                ACLMessage msg = myAgent.receive();
+//                if (msg != null) {
+//                    String content = msg.getContent();
+//
+//                    switch (msg.getPerformative()) {
+//                        case ACLMessage.REQUEST:
+//                            System.out.println (myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName() + " with content: " + content);
+//
+//                            try {
+//                                storeRequest( myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//
+//                            break;
+//
+//                        case ACLMessage.PROPOSE:
+//                            System.out.println (myAgent.getLocalName() + " received a BID message from " + msg.getSender().getLocalName() + " with content: " + content);
+//
+//                            try {
+//                                storeBid(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//
+//                            break;
+//
+//                        case ACLMessage.CONFIRM:
+//                            System.out.println (myAgent.getLocalName() + " received a CONFIRM message from " + msg.getSender().getLocalName() + " with content: " + content);
+//
+//                            try {
+//                                processConfirmation(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//
+//                            break;
+//
+//                        case ACLMessage.REFUSE:
+//                            System.out.println (myAgent.getLocalName() + " received a REFUSE message from " + msg.getSender().getLocalName() + " with content: " + content);
+//
+//                            break;
+//
+//                        case ACLMessage.REJECT_PROPOSAL:
+//                            System.out.println (myAgent.getLocalName() + " received a REJECT_PROPOSAL message from " + msg.getSender().getLocalName() + " with content: " + content);
+//
+//
+//                            break;
+//
+//                        case ACLMessage.INFORM:
+//                            System.out.println (myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName() + " with content: " + content);
+//
+//                            try {
+//                                processNotification(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                    }
+//
+//                } else {
+//                    block();
+//                }
+//            }
+//        };
+//
+//        parallelBehaviour.addSubBehaviour( receiveMessageBehaviour);
 
-                    switch (msg.getPerformative()) {
-                        case ACLMessage.REQUEST:
-                            System.out.println (myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName() + " with content: " + content);
-
-                            try {
-                                storeRequest( myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-
-                            break;
-
-                        case ACLMessage.PROPOSE:
-                            System.out.println (myAgent.getLocalName() + " received a BID message from " + msg.getSender().getLocalName() + " with content: " + content);
-
-                            try {
-                                storeBid(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-
-                            break;
-
-                        case ACLMessage.CONFIRM:
-                            System.out.println (myAgent.getLocalName() + " received a CONFIRM message from " + msg.getSender().getLocalName() + " with content: " + content);
-
-                            try {
-                                processConfirmation(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-
-                            break;
-
-                        case ACLMessage.REFUSE:
-                            System.out.println (myAgent.getLocalName() + " received a REFUSE message from " + msg.getSender().getLocalName() + " with content: " + content);
-
-                            break;
-
-                        case ACLMessage.REJECT_PROPOSAL:
-                            System.out.println (myAgent.getLocalName() + " received a REJECT_PROPOSAL message from " + msg.getSender().getLocalName() + " with content: " + content);
-
-
-                            break;
-
-                        case ACLMessage.INFORM:
-                            System.out.println (myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName() + " with content: " + content);
-
-                            try {
-                                processNotification(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-                            break;
-                    }
-
-                } else {
-                    block();
-                }
-            }
-        });
+//        addBehaviour( parallelBehaviour);
     }
 
 
@@ -211,15 +216,15 @@ public class ResourceAllocationAgent extends Agent {
         System.out.println (myAgent.getLocalName() +  " : is negotiating.");
         resetRound();
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
-        waitForNextRound();
+        waitForNextRound( myAgent);
         deliberateOnRequesting (myAgent);
         sendNextPhaseNotification (ProtocolPhase.BIDDING);
-        waitForRequests();
+        waitForRequests( myAgent);
         if (receivedRequests.size() > 0) {
             deliberateOnBidding( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
-        waitForBids();
+        waitForBids( myAgent);
         if (receivedBids.size() > 0) {
             deliberateOnConfirming();
         }
@@ -258,41 +263,35 @@ public class ResourceAllocationAgent extends Agent {
 
         msg.setContent( jo.toJSONString());
         send(msg);
-
-        System.out.println();
     }
 
 
-    void waitForNextRound() {
+    void waitForNextRound( Agent myAgent) {
 
         while(inConfirmingPhase()) {
-            try {
-                this.wait();
-            } catch (InterruptedException var2) {
-            }
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
         }
     }
 
 
-    void waitForRequests() {
+    void waitForRequests( Agent myAgent) {
 
         while(inRequestingPhase()) {
-            try {
-                this.wait();
-            } catch (InterruptedException var2) {
-            }
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
         }
+        receiveMessages( myAgent, ACLMessage.REQUEST);
     }
 
 
-    void waitForBids() {
+    void waitForBids( Agent myAgent) {
 
         while(inBiddingPhase()) {
-            try {
-                this.wait();
-            } catch (InterruptedException var2) {
-            }
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
         }
+        receiveMessages( myAgent, ACLMessage.REQUEST);
     }
 
 
@@ -489,12 +488,20 @@ public class ResourceAllocationAgent extends Agent {
         JSONObject jo = (JSONObject) obj;
 
         String reqId = (String) jo.get("reqId");
-        long requestedQuantity = (long) jo.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
+        Long requestedQuantity = (Long) jo.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-        Map utilityFunction = (Map) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
+        JSONObject joUtilityFunction = (JSONObject) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
 
-        Request request = new Request(reqId, requestedQuantity, resourceType, utilityFunction, msg.getSender());
+        Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
+        Iterator<String> keysIterator = joUtilityFunction.keySet().iterator();
+        while (keysIterator.hasNext()) {
+            String key = keysIterator.next();
+            Long value = (Long) joUtilityFunction.get(key);
+            utilityFunction.put( Integer.valueOf(key), value.intValue());
+        }
+
+        Request request = new Request(reqId, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender());
 
         if ( receivedRequests.containsKey(resourceType) == false) {
             receivedRequests.put(resourceType, new ArrayList<>());
@@ -531,7 +538,7 @@ public class ResourceAllocationAgent extends Agent {
             }
         }
 
-        long bidQuantity;
+        int bidQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
             if (remainingResources.get(requestsForType.getKey()) != null) {
                 int remainingQuantity = remainingResources.get(requestsForType.getKey()).size();
@@ -574,9 +581,8 @@ public class ResourceAllocationAgent extends Agent {
             if (remainingQuantity < request.quantity) {
                 bidQuantity = remainingQuantity;
             } else {
-                bidQuantity = (int) request.quantity;
+                bidQuantity = request.quantity;
             }
-
             int util = request.utilityFunction.get(bidQuantity);
             if (util > highestUtility) {
                 highestUtility = util;
@@ -1013,8 +1019,79 @@ public class ResourceAllocationAgent extends Agent {
         ProtocolPhase protocolPhase = ProtocolPhase.valueOf(pp);
 
         otherAgentsPhases.put( msg.getSender(), protocolPhase);
-
-        System.out.println("");
     }
+
+
+    void receiveMessages(Agent myAgent, int performative) {
+
+        MessageTemplate mt = MessageTemplate.MatchPerformative( performative);
+
+        ACLMessage msg = myAgent.receive( mt);
+
+        while (msg != null) {
+            String content = msg.getContent();
+
+            switch (performative) {
+                case ACLMessage.REQUEST:
+                    System.out.println(myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                    try {
+                        storeRequest(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+
+                    break;
+
+                case ACLMessage.PROPOSE:
+                    System.out.println(myAgent.getLocalName() + " received a BID message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                    try {
+                        storeBid(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+
+                    break;
+
+                case ACLMessage.CONFIRM:
+                    System.out.println(myAgent.getLocalName() + " received a CONFIRM message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                    try {
+                        processConfirmation(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+
+                    break;
+
+                case ACLMessage.REFUSE:
+                    System.out.println(myAgent.getLocalName() + " received a REFUSE message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                    break;
+
+                case ACLMessage.REJECT_PROPOSAL:
+                    System.out.println(myAgent.getLocalName() + " received a REJECT_PROPOSAL message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+
+                    break;
+
+                case ACLMessage.INFORM:
+                    System.out.println(myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName() + " with content: " + content);
+
+                    try {
+                        processNotification(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+            }
+
+            msg = myAgent.receive( mt);
+        }
+    }
+
+
+
 
 }
