@@ -12,17 +12,17 @@ public class SimulationEngine {
         ResourceType[] values = ResourceType.getValues();
         int numOfTasks = 2;
         int minQuantity = 5;
-        int maxQuantity = 5;
+        int quantityVariation = 6;
         int minUtil = 50;
-        int maxUtil = 100;
+        int utilVariation = 51;
         int quantity, utility;
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
             for (int i = 0; i < values.length; i++) {
-                quantity = random.nextInt(maxQuantity) + minQuantity;
+                quantity = minQuantity + random.nextInt(quantityVariation);
                 requiredResources.put(values[i], quantity);
             }
-            utility = random.nextInt(maxUtil) + minUtil;
+            utility = minUtil + random.nextInt(utilVariation);
             String id = UUID.randomUUID().toString();
             Task newTask = new Task(id, utility, requiredResources);
             tasks.add(newTask);
@@ -38,13 +38,13 @@ public class SimulationEngine {
         Random random = new Random();
         ResourceType[] values = ResourceType.getValues();
         int minQuantity = 1;
-        int maxQuantity = 10;
+        int quantityVariation = 10;
         int minLifetime = 1;
-        int maxLifetime = 3;
+        int lifetimeVariantion = 5;
         int quantity, lifetime;
         for (int i = 0; i < values.length; i++) {
-            quantity = random.nextInt(maxQuantity) + minQuantity;
-            lifetime = random.nextInt(maxLifetime) + minLifetime;
+            quantity = minQuantity + random.nextInt(quantityVariation);
+            lifetime = minLifetime + random.nextInt(lifetimeVariantion);
             SortedSet<ResourceItem> items = findResourceItems( values[i], lifetime, quantity);
             resources.put(values[i], items);
         }

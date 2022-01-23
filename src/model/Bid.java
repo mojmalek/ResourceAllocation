@@ -11,7 +11,7 @@ public class Bid {
 
     String id;
     String reqId;
-    long quantity;
+    int quantity;
     ResourceType resourceType;
     Map<Integer, Integer> costFunction;
     // id, lifetime
@@ -19,7 +19,7 @@ public class Bid {
     AID sender;
     AID receiver;
 
-    public Bid(String id, String reqId, long quantity, ResourceType resourceType, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
+    public Bid(String id, String reqId, int quantity, ResourceType resourceType, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
         this.id = id;
         this.reqId = reqId;
         this.quantity = quantity;

@@ -8,12 +8,12 @@ public class Confirmation {
 
     String id;
     String bidId;
-    long quantity;
+    int quantity;
     ResourceType resourceType;
     AID sender;
     AID receiver;
 
-    public Confirmation(String id, String bidId, long quantity, ResourceType resourceType, AID sender, AID receiver) {
+    public Confirmation(String id, String bidId, int quantity, ResourceType resourceType, AID sender, AID receiver) {
         this.id = id;
         this.bidId = bidId;
         this.quantity = quantity;
