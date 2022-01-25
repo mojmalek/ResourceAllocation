@@ -75,7 +75,7 @@ public class ResourceAllocationAgent extends Agent {
 
         System.out.println (myAgent.getLocalName() + " is finding tasks.");
 
-        SortedSet<Task> newTasks = simulationEngine.findTasks();
+        SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
         toDoTasks.addAll(newTasks);
 
         System.out.println (myAgent.getLocalName() + " has " + toDoTasks.size() + " tasks to do.");
@@ -89,7 +89,7 @@ public class ResourceAllocationAgent extends Agent {
         // decrease lifetime of remaining resources
         perishResourceItems( myAgent);
 
-        Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources();
+        Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources( myAgent);
 
         // add to available resources
         for (var newResource : newResources.entrySet()) {
@@ -154,7 +154,7 @@ public class ResourceAllocationAgent extends Agent {
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForBids( myAgent);
         if (receivedBids.size() > 0) {
-            deliberateOnConfirming();
+            deliberateOnConfirming( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
         waitForConfirmations( myAgent);
@@ -623,7 +623,7 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    void deliberateOnConfirming() {
+    void deliberateOnConfirming( Agent myAgent) {
 
         Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests = new LinkedHashMap<>();
 
@@ -638,7 +638,7 @@ public class ResourceAllocationAgent extends Agent {
 
 //        if (hasEnoughResourcesByConfirmBids( selectedBidsForAllRequests)) {
             if ( selectedBidsForAllRequests.size() > 0) {
-                createConfirmation(selectedBidsForAllRequests);
+                createConfirmation( myAgent, selectedBidsForAllRequests);
                 addResourceItemsInBids(selectedBidsForAllRequests);
             }
 //        }
@@ -811,17 +811,17 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private void createConfirmation (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
+    private void createConfirmation (Agent myAgent, Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
 
         for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
             for (var bidQuantity : selectedBidsForReq.getValue().entrySet()) {
-                sendConfirmation ( bidQuantity.getKey().id, bidQuantity.getKey().sender, bidQuantity.getKey().resourceType, bidQuantity.getValue());
+                sendConfirmation (myAgent, bidQuantity.getKey().id, bidQuantity.getKey().sender, bidQuantity.getKey().resourceType, bidQuantity.getValue());
             }
         }
     }
 
 
-    void sendConfirmation (String bidId, AID bidder, ResourceType resourceType, int confirmQuantity) {
+    void sendConfirmation (Agent myAgent, String bidId, AID bidder, ResourceType resourceType, int confirmQuantity) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.CONFIRM);
 
@@ -834,6 +834,8 @@ public class ResourceAllocationAgent extends Agent {
 
         msg.setContent( jo.toJSONString());
         send(msg);
+
+        System.out.println( myAgent.getLocalName() + " sent confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " to bidder " + bidder.getLocalName());
     }
 
 
@@ -849,19 +851,18 @@ public class ResourceAllocationAgent extends Agent {
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
 
-        Long confirmedQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
-        System.out.println( myAgent.getLocalName() + " received confirmation with quantity " + confirmedQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+        Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
+        System.out.println( myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
 
-        restoreResources(bidId, resourceType, confirmedQuantity.intValue());
-
+        restoreResources(bidId, resourceType, confirmQuantity.intValue());
     }
 
 
-    private void restoreResources(String bidId, ResourceType resourceType, int confirmedQuantity) {
+    private void restoreResources(String bidId, ResourceType resourceType, int confirmQuantity) {
 
         Bid sentBid = sentBids.get( bidId);
 
-        if (confirmedQuantity < sentBid.quantity) {
+        if (confirmQuantity < sentBid.quantity) {
             // create a sorted set of offered items
             SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
             for (var offeredItem : sentBid.offeredItems.entrySet()) {
@@ -869,14 +870,14 @@ public class ResourceAllocationAgent extends Agent {
             }
             Iterator<ResourceItem> itr = offeredItems.iterator();
             int q=1;
-            while (q<=confirmedQuantity) {
+            while (q<=confirmQuantity) {
                 ResourceItem item = itr.next();
                 offeredItems.remove(item);
                 itr = offeredItems.iterator();
                 q++;
             }
 
-            int unusedQuantity = sentBid.quantity - confirmedQuantity;
+            int unusedQuantity = sentBid.quantity - confirmQuantity;
             SortedSet<ResourceItem> resourceItems = availableResources.get( resourceType);
             itr = offeredItems.iterator();
             q=1;
@@ -931,10 +932,6 @@ public class ResourceAllocationAgent extends Agent {
                 q++;
             }
         }
-
-//        if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
-//            exp = (int) (quantity * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
-//        }
 
         return exp;
     }

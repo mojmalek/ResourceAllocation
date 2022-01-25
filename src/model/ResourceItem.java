@@ -65,7 +65,7 @@ public class ResourceItem {
             String id1 = item1.id;
             String id2 = item2.id;
 
-            if (lifetime1 == lifetime2) {
+            if (lifetime1.equals(lifetime2)) {
                 return id1.compareTo(id2);
             } else {
                 return lifetime1.compareTo(lifetime2);
