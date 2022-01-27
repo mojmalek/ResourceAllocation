@@ -20,11 +20,17 @@ public class Main {
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc=rt.createMainContainer(p);
         int numberOfAgents = 2;
-        for(int i=1; i<=numberOfAgents; i++){
+        for(int i=0; i<=numberOfAgents; i++) {
             AgentController ac;
             try {
-                ac=cc.createNewAgent("Agent"+i, "model.ResourceAllocationAgent", new Object[]{numberOfAgents, i});
-                ac.start();
+                if (i == 0) {
+                    ac = cc.createNewAgent("Agent0", "model.MasterAgent", new Object[]{numberOfAgents});
+                    ac.start();
+                } else {
+                    ac = cc.createNewAgent("Agent" + i, "model.ResourceAllocationAgent", new Object[]{numberOfAgents, i});
+                    ac.start();
+                }
+//                ac.start();
             } catch (StaleProxyException e) {
                 e.printStackTrace();
             }

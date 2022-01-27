@@ -14,8 +14,6 @@ import org.json.simple.parser.*;
 
 public class ResourceAllocationAgent extends Agent {
 
-//    CyclicBehaviour receiveMessageBehaviour;
-
     SimulationEngine simulationEngine = new SimulationEngine();
 
     private ArrayList<AID> otherAgents = new ArrayList<>();
@@ -45,10 +43,8 @@ public class ResourceAllocationAgent extends Agent {
         // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
-
             int numberOfAgents = (int) args[0];
             int myId = (int) args[1];
-
             for (int i = 1; i <= numberOfAgents; i++) {
                 if ( i != myId) {
                     AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
@@ -78,6 +74,8 @@ public class ResourceAllocationAgent extends Agent {
         SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
         toDoTasks.addAll(newTasks);
 
+        sendNewTasksToMasterAgent (newTasks, myAgent);
+
         System.out.println (myAgent.getLocalName() + " has " + toDoTasks.size() + " tasks to do.");
     }
 
@@ -105,6 +103,8 @@ public class ResourceAllocationAgent extends Agent {
         for (var entry : availableResources.entrySet()) {
             System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " available item of type: " + entry.getKey().name());
         }
+
+        sendNewResourcesToMasterAgent (newResources, myAgent);
     }
 
 
@@ -957,6 +957,61 @@ public class ResourceAllocationAgent extends Agent {
         ProtocolPhase protocolPhase = ProtocolPhase.valueOf(pp);
 
         otherAgentsPhases.put( msg.getSender(), protocolPhase);
+    }
+
+
+    void sendNewTasksToMasterAgent (SortedSet<Task> newTasks, Agent myAgent) {
+
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        msg.addReceiver(aid);
+
+        JSONObject joNewTasks = new JSONObject();
+
+        for (Task task : newTasks) {
+            JSONObject joTask = new JSONObject();
+            joTask.put("utility", task.utility);
+            JSONObject joRequiredResources = new JSONObject();
+            for (var entry : task.requiredResources.entrySet()) {
+                joRequiredResources.put( entry.getKey().name(), entry.getValue());
+            }
+            joTask.put("requiredResources", joRequiredResources);
+            joNewTasks.put( task.id, joTask);
+        }
+
+        JSONObject jo = new JSONObject();
+        jo.put( "newTasks", joNewTasks);
+
+        msg.setContent( jo.toJSONString());
+        send(msg);
+
+        System.out.println( myAgent.getLocalName() + " sent new tasks info to the master agent" );
+    }
+
+
+    void sendNewResourcesToMasterAgent (Map<ResourceType, SortedSet<ResourceItem>> newResources, Agent myAgent) {
+
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        msg.addReceiver(aid);
+
+        JSONObject joNewResources = new JSONObject();
+
+        for (var newResource : newResources.entrySet()) {
+            JSONObject joItems = new JSONObject();
+            for( ResourceItem item : newResource.getValue()) {
+                joItems.put( item.getId(), item.getLifetime());
+            }
+            joNewResources.put( newResource.getKey().name(), joItems);
+        }
+
+        JSONObject jo = new JSONObject();
+        jo.put( "newResources", joNewResources);
+
+        msg.setContent( jo.toJSONString());
+        send(msg);
+
+        System.out.println( myAgent.getLocalName() + " sent new resources info to the master agent" );
     }
 
 
