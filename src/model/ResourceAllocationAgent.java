@@ -56,12 +56,14 @@ public class ResourceAllocationAgent extends Agent {
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
-                System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
+                if (this.getTickCount() < 201) {
+                    System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
 
-                findTasks (myAgent);
-                findResources (myAgent);
-                negotiate (myAgent);
-                performTasks (myAgent);
+                    findTasks(myAgent);
+                    findResources(myAgent);
+                    negotiate(myAgent);
+                    performTasks(myAgent);
+                }
             }
         });
     }

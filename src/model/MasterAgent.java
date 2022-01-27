@@ -4,7 +4,6 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -15,11 +14,13 @@ import java.util.*;
 public class MasterAgent extends Agent {
 
     private ArrayList<AID> otherAgents = new ArrayList<>();
-    private Map<AID, ProtocolPhase> otherAgentsPhases = new LinkedHashMap<>();
+    private Map<AID, Boolean> tasksInfoReceived = new LinkedHashMap<>();
+    private Map<AID, Boolean> resourcesInfoReceived = new LinkedHashMap<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
     private int totalUtil;
+    private int round = 1;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -36,14 +37,16 @@ public class MasterAgent extends Agent {
             for (int i = 1; i <= numberOfAgents; i++) {
                 AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
                 otherAgents.add(aid);
-                otherAgentsPhases.put(aid, ProtocolPhase.REQUESTING);
+                tasksInfoReceived.put(aid, false);
+                resourcesInfoReceived.put(aid, false);
             }
         }
 
-//        addBehaviour(new CyclicBehaviour() {
-//            @Override
-//            public void action() {
-//                receiveMessages( myAgent, ACLMessage.INFORM);
+//        addBehaviour (new TickerBehaviour(this, 1) {
+//            protected void onTick() {
+////                System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
+//
+//                performTasks (myAgent);
 //            }
 //        });
 
@@ -66,9 +69,26 @@ public class MasterAgent extends Agent {
                 } else {
                     block();
                 }
+
+                if (receivedTasksInfoFromAll() && receivedResourcesInfoFromAll()) {
+                    System.out.println( myAgent.getLocalName() + " Round: " + round);
+                    performTasks( myAgent);
+                    perishResourceItems( myAgent);
+                    resetRound();
+                    round += 1;
+                }
             }
         });
     }
+
+
+//    boolean receivedTasksResourcesInfoFromAll() {
+//        boolean result = false;
+//
+//
+//
+//        return result;
+//    }
 
 
     void perishResourceItems( Agent myAgent) {
@@ -112,26 +132,41 @@ public class MasterAgent extends Agent {
 //    }
 
 
-    boolean inRequestingPhase () {
+    boolean receivedTasksInfoFromAll() {
 
-        boolean requesting = false;
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.REQUESTING) {
-                requesting = true;
+        boolean received = true;
+        for (var taskInfo : tasksInfoReceived.entrySet() ) {
+            if (taskInfo.getValue() == false) {
+                received = false;
                 break;
             }
         }
-        return requesting;
+        return received;
+    }
+
+
+    boolean receivedResourcesInfoFromAll() {
+
+        boolean received = true;
+        for (var resourceInfo : resourcesInfoReceived.entrySet() ) {
+            if (resourceInfo.getValue() == false) {
+                received = false;
+                break;
+            }
+        }
+        return received;
     }
 
 
     void resetRound() {
 
-//        blockedTasks.clear();
-//        receivedRequests.clear();
-//        sentRequests.clear();
-//        receivedBids.clear();
-//        sentBids.clear();
+        for (var taskInfo: tasksInfoReceived.entrySet()) {
+            taskInfo.setValue( false);
+        }
+
+        for (var resourceInfo: resourcesInfoReceived.entrySet()) {
+            resourceInfo.setValue( false);
+        }
     }
 
 
@@ -140,7 +175,7 @@ public class MasterAgent extends Agent {
         System.out.println (myAgent.getLocalName() +  " is performing tasks.");
 
         SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
-
+        // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             if (hasEnoughResources(task, availableResources)) {
                 processTask(task);
@@ -156,23 +191,23 @@ public class MasterAgent extends Agent {
     }
 
 
-    Map<ResourceType, SortedSet<ResourceItem>> evaluateTask (Task task, Map<ResourceType, SortedSet<ResourceItem>> remainingResources) {
-
-        try {
-            for (var entry : task.requiredResources.entrySet()) {
-                SortedSet<ResourceItem> resourceItems = remainingResources.get(entry.getKey());
-                for (int i = 0; i < entry.getValue(); i++) {
-                    ResourceItem item = resourceItems.first();
-                    resourceItems.remove(item);
-                }
-//                remainingResources.replace(entry.getKey(), resourceItems);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-
-        return remainingResources;
-    }
+//    Map<ResourceType, SortedSet<ResourceItem>> evaluateTask (Task task, Map<ResourceType, SortedSet<ResourceItem>> remainingResources) {
+//
+//        try {
+//            for (var entry : task.requiredResources.entrySet()) {
+//                SortedSet<ResourceItem> resourceItems = remainingResources.get(entry.getKey());
+//                for (int i = 0; i < entry.getValue(); i++) {
+//                    ResourceItem item = resourceItems.first();
+//                    resourceItems.remove(item);
+//                }
+////                remainingResources.replace(entry.getKey(), resourceItems);
+//            }
+//        } catch (Exception ex) {
+//            ex.printStackTrace();
+//        }
+//
+//        return remainingResources;
+//    }
 
 
     void processTask (Task task) {
@@ -210,13 +245,13 @@ public class MasterAgent extends Agent {
 
 
 
-    public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
-        Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
-        for (var entry : original.entrySet()) {
-            copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
-        }
-        return copy;
-    }
+//    public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
+//        Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
+//        for (var entry : original.entrySet()) {
+//            copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
+//        }
+//        return copy;
+//    }
 
 
     private void processNewTasksResourcesInfo(Agent myAgent, ACLMessage msg) throws ParseException {
@@ -250,6 +285,8 @@ public class MasterAgent extends Agent {
                 Task newTask = new Task(id , utility.intValue(), requiredResources);
                 toDoTasks.add( newTask);
             }
+
+            tasksInfoReceived.put( agentId, true);
         }
 
         if (joNewResources != null) {
@@ -271,15 +308,11 @@ public class MasterAgent extends Agent {
                     availableResources.get(ResourceType.valueOf(resourceType)).add(item);
                 }
             }
+
+            resourcesInfoReceived.put( agentId, true);
         }
 
-        System.out.println("Hello");
-
-
-//        String pp = (String) jo.get(Ontology.PROTOCOL_PHASE);
-//        ProtocolPhase protocolPhase = ProtocolPhase.valueOf(pp);
-//
-//        otherAgentsPhases.put( msg.getSender(), protocolPhase);
+//        System.out.println("Hello");
     }
 
 
