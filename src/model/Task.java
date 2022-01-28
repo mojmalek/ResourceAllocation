@@ -15,6 +15,16 @@ public class Task {
         this.requiredResources = requiredResources;
     }
 
+
+    private double efficiency() {
+        int count = 0;
+        for (var resource: requiredResources.entrySet()) {
+            count += resource.getValue();
+        }
+        return (double) utility / count;
+    }
+
+
 //    int util (Date currentTime) {
 //
 //        int util = 1000;
@@ -49,15 +59,17 @@ public class Task {
     public static class taskComparator implements Comparator<Task> {
         public int compare(Task task1, Task task2)
         {
-            Integer utility1 = task1.utility;
-            Integer utility2 = task2.utility;
+            Double efficiency1 = task1.efficiency();
+            Double efficiency2 = task2.efficiency();
+//            Integer utility1 = task1.utility;
+//            Integer utility2 = task2.utility;
             String id1 = task1.id;
             String id2 = task2.id;
 
-            if (utility1.equals(utility2)) {
+            if (efficiency1.equals(efficiency2)) {
                 return id2.compareTo(id1);
             } else {
-                return utility2.compareTo(utility1);
+                return efficiency2.compareTo(efficiency1);
             }
         }
     }

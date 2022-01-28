@@ -12,16 +12,16 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        int numOfTasks = 10;
+        int numOfTasks = 3;
         int minQuantity = 1;
-        int quantityVariation = 1;
-        int minUtil;
-        if( myAgent.getLocalName().equals("Agent1")) {
-            minUtil = 1;
-        } else {
-            minUtil = 1000;
-        }
-        int utilVariation = 1;
+        int quantityVariation = 10;
+        int minUtil = 1;
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            minUtil = 1;
+//        } else {
+//            minUtil = 1000;
+//        }
+        int utilVariation = 10;
         int quantity, utility;
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
@@ -44,15 +44,15 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        int minQuantity;
-        if( myAgent.getLocalName().equals("Agent1")) {
-            minQuantity = 1000;
-        } else {
-            minQuantity = 1;
-        }
-        int quantityVariation = 1;
+        int minQuantity = 1;
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            minQuantity = 1000;
+//        } else {
+//            minQuantity = 1;
+//        }
+        int quantityVariation = 5;
         int minLifetime = 3;
-        int lifetimeVariantion = 1;
+        int lifetimeVariantion = 3;
         int quantity, lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
             quantity = minQuantity + random.nextInt(quantityVariation);

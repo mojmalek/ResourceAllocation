@@ -294,6 +294,7 @@ public class ResourceAllocationAgent extends Agent {
         toDoTasks.removeAll (doneTasksInThisRound);
 
         System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+        sendTotalUtilToMasterAgent (totalUtil, myAgent);
     }
 
 
@@ -1014,6 +1015,22 @@ public class ResourceAllocationAgent extends Agent {
         send(msg);
 
         System.out.println( myAgent.getLocalName() + " sent new resources info to the master agent" );
+    }
+
+
+    void sendTotalUtilToMasterAgent (int totalUtil, Agent myAgent) {
+
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        msg.addReceiver(aid);
+
+        JSONObject jo = new JSONObject();
+        jo.put( "totalUtil", totalUtil);
+
+        msg.setContent( jo.toJSONString());
+        send(msg);
+
+        System.out.println( myAgent.getLocalName() + " sent total utility: " + totalUtil + " to the master agent" );
     }
 
 

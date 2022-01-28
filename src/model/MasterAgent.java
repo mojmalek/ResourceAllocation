@@ -16,6 +16,8 @@ public class MasterAgent extends Agent {
     private ArrayList<AID> otherAgents = new ArrayList<>();
     private Map<AID, Boolean> tasksInfoReceived = new LinkedHashMap<>();
     private Map<AID, Boolean> resourcesInfoReceived = new LinkedHashMap<>();
+    private Map<AID, Boolean> utilInfoReceived = new LinkedHashMap<>();
+    private Map<AID, ArrayList<Integer>> agentUtilities = new LinkedHashMap<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
@@ -39,6 +41,7 @@ public class MasterAgent extends Agent {
                 otherAgents.add(aid);
                 tasksInfoReceived.put(aid, false);
                 resourcesInfoReceived.put(aid, false);
+                utilInfoReceived.put(aid, false);
             }
         }
 
@@ -76,6 +79,14 @@ public class MasterAgent extends Agent {
                     perishResourceItems( myAgent);
                     resetRound();
                     round += 1;
+                }
+
+                if (receivedUtilInfoFromAll()) {
+                    System.out.println("Sum of agent utilities: " + agentUtilitiesSum());
+
+                    for (var utilInfo: utilInfoReceived.entrySet()) {
+                        utilInfo.setValue( false);
+                    }
                 }
             }
         });
@@ -150,6 +161,19 @@ public class MasterAgent extends Agent {
         boolean received = true;
         for (var resourceInfo : resourcesInfoReceived.entrySet() ) {
             if (resourceInfo.getValue() == false) {
+                received = false;
+                break;
+            }
+        }
+        return received;
+    }
+
+
+    boolean receivedUtilInfoFromAll() {
+
+        boolean received = true;
+        for (var utilInfo : utilInfoReceived.entrySet() ) {
+            if (utilInfo.getValue() == false) {
                 received = false;
                 break;
             }
@@ -244,7 +268,6 @@ public class MasterAgent extends Agent {
     }
 
 
-
 //    public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
 //        Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
 //        for (var entry : original.entrySet()) {
@@ -264,6 +287,7 @@ public class MasterAgent extends Agent {
         AID agentId = msg.getSender();
         JSONObject joNewTasks = (JSONObject) jo.get("newTasks");
         JSONObject joNewResources = (JSONObject) jo.get("newResources");
+        Long totalUtil = (Long) jo.get("totalUtil");
 
         if (joNewTasks != null) {
             String id, resourceType;
@@ -312,7 +336,25 @@ public class MasterAgent extends Agent {
             resourcesInfoReceived.put( agentId, true);
         }
 
+        if (totalUtil != null) {
+            if (agentUtilities.containsKey(agentId) == false) {
+                agentUtilities.put(agentId, new ArrayList<>());
+            }
+            agentUtilities.get(agentId).add( totalUtil.intValue());
+
+            utilInfoReceived.put( agentId, true);
+        }
+
 //        System.out.println("Hello");
+    }
+
+
+    int agentUtilitiesSum() {
+        int sum = 0;
+        for( var agentUtil: agentUtilities.entrySet()) {
+            sum += agentUtil.getValue().get( agentUtil.getValue().size() - 1);
+        }
+        return sum;
     }
 
 
