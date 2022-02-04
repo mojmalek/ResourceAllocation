@@ -16,7 +16,7 @@ public class AdaptiveExp {
         p.setParameter(Profile.MAIN_HOST, "localhost");
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc=rt.createMainContainer(p);
-        int numberOfAgents = 4;
+        int numberOfAgents = 2;
         for(int i=0; i<=numberOfAgents; i++) {
             AgentController ac;
             try {

@@ -56,7 +56,7 @@ public class AdaptiveAgent extends Agent {
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
-                if (this.getTickCount() < 1001) {
+                if (this.getTickCount() < 501) {
                     System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                     findTasks(myAgent);
@@ -370,14 +370,14 @@ public class AdaptiveAgent extends Agent {
             }
 
             if (missingQuantity > 0) {
-                Map<Integer, Integer> utilityFunction = computeUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
+                Map<Integer, Integer> utilityFunction = computeRequestUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
                 sendRequest(entry.getKey(), missingQuantity, utilityFunction, myAgent);
             }
         }
     }
 
 
-    Map<Integer, Integer> computeUtilityFunction (SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, int missingQuantity) {
+    Map<Integer, Integer> computeRequestUtilityFunction(SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, int missingQuantity) {
 
         Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
         for (int i=1; i<=missingQuantity; i++) {
@@ -394,6 +394,49 @@ public class AdaptiveAgent extends Agent {
             utilityFunction.put(i, totalUtility);
         }
         return utilityFunction;
+    }
+
+
+    Map<Integer, Integer> computeBidCostFunction(ResourceType resourceType, int bidQuantity, Map<Integer, Integer> requestUtilityFunction) {
+
+//        int requiredQuantity = 0;
+//        for (Task task : toDoTasks) {
+//            for (var resTypeQuantity : task.requiredResources.entrySet()) {
+//                if (resTypeQuantity.getKey() == resourceType) {
+//                    requiredQuantity += resTypeQuantity.getValue();
+//                }
+//            }
+//        }
+
+        int availableQuantity = availableResources.get(resourceType).size();
+        int totalUtil = utilityOfResources(resourceType, availableQuantity);
+        int bidCost, requestUtil;
+        Map<Integer, Integer> bidCostFunction = new LinkedHashMap<>();
+        for (int q=1; q<=bidQuantity; q++) {
+//            if( q <= requiredQuantity) {
+                bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - q);
+                requestUtil = requestUtilityFunction.get(q);
+                if (bidCost < requestUtil) {
+                    bidCostFunction.put(q, bidCost);
+                }
+//            }
+        }
+        return bidCostFunction;
+    }
+
+
+    int utilityOfResources (ResourceType resourceType, int quantity) {
+
+        int totalUtility = 0;
+        for (Task task : toDoTasks) {
+            if (task.requiredResources.containsKey(resourceType)) {
+                if (quantity >= task.requiredResources.get(resourceType)) {
+                    totalUtility += task.utility;
+                    quantity = quantity - task.requiredResources.get(resourceType);
+                }
+            }
+        }
+        return totalUtility;
     }
 
 
@@ -475,33 +518,26 @@ public class AdaptiveAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-
-        Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
-        // bid only with remaining resources after performing tasks in this round
-        for (Task task : toDoTasks) {
-            if (hasEnoughResources(task, remainingResources)) {
-                remainingResources = evaluateTask( task, remainingResources);
-            }
-        }
-
         int bidQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
-            if (remainingResources.get(requestsForType.getKey()) != null) {
-                int remainingQuantity = remainingResources.get(requestsForType.getKey()).size();
+            if (availableResources.get(requestsForType.getKey()) != null) {
+                int availableQuantity = availableResources.get(requestsForType.getKey()).size();
                 ArrayList<Request> requests = requestsForType.getValue();
-                while (remainingQuantity > 0 && requests.size() > 0) {
+                while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
-                    Request selectedRequest = selectBestRequest( requests, remainingQuantity);
-                    if (remainingQuantity < selectedRequest.quantity) {
-                        bidQuantity = remainingQuantity;
+                    Request selectedRequest = selectBestRequest( requests, availableQuantity);
+                    if (availableQuantity < selectedRequest.quantity) {
+                        bidQuantity = availableQuantity;
                     } else {
                         bidQuantity = selectedRequest.quantity;
                     }
-                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                    int util = selectedRequest.utilityFunction.get(bidQuantity);
-                    if (exp < util) {
-                        createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                        remainingQuantity = remainingQuantity - bidQuantity;
+                    Map<Integer, Integer> costFunction = computeBidCostFunction(selectedRequest.resourceType, bidQuantity, selectedRequest.utilityFunction);
+//                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
+//                    int util = selectedRequest.utilityFunction.get(bidQuantity);
+                    int actualBidQuantity = getActualBidQuantity ( costFunction.keySet());
+                    if (costFunction.size() > 0) {
+                        createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, actualBidQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+                        availableQuantity = availableQuantity - bidQuantity;
                     } else {
                         // reject or cascade the request
                     }
@@ -512,6 +548,18 @@ public class AdaptiveAgent extends Agent {
             // reject or cascade the requests
             }
         }
+    }
+
+
+    int getActualBidQuantity ( Set<Integer> quantities) {
+        int max = 0;
+        for (int q: quantities) {
+            if (q > max) {
+                max = q;
+            }
+        }
+
+        return max;
     }
 
 
@@ -538,13 +586,13 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, int bidQuantity, SortedSet<ResourceItem> availableItems) {
+    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, int bidQuantity, Map<Integer, Integer> costFunction, SortedSet<ResourceItem> availableItems) {
 
-        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-        for (int q=1; q<=bidQuantity; q++) {
-            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
-            costFunction.put(q, cost);
-        }
+//        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
+//        for (int q=1; q<=bidQuantity; q++) {
+//            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
+//            costFunction.put(q, cost);
+//        }
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         Iterator<ResourceItem> itr = availableItems.iterator();
@@ -773,13 +821,15 @@ public class AdaptiveAgent extends Agent {
     private boolean hasExtraItem (Bid bid, Map<Bid, Integer> selectedBids) {
 
         if ( selectedBids.containsKey(bid)) {
-            if (selectedBids.get(bid) < bid.quantity) {
+            if (selectedBids.get(bid) < bid.quantity && bid.costFunction.containsKey(selectedBids.get(bid) + 1)) {
                 return true;
             } else {
                 return false;
             }
-        } else {
+        } else if (bid.costFunction.containsKey(1)) {
             return true;
+        } else {
+            return false;
         }
     }
 
@@ -800,6 +850,9 @@ public class AdaptiveAgent extends Agent {
         }
 
         for (var entry : tempBids.entrySet()) {
+            if (entry.getKey().costFunction.get(entry.getValue()) == null) {
+                System.out.println( "ERROR!!");
+            }
             totalCosts = totalCosts + entry.getKey().costFunction.get(entry.getValue());
         }
 

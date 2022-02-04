@@ -56,7 +56,7 @@ public class BasicAgent extends Agent {
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
-                if (this.getTickCount() < 1001) {
+                if (this.getTickCount() < 501) {
                     System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                     findTasks(myAgent);
