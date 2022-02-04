@@ -3,7 +3,7 @@ package experiments;
 import jade.core.AID;
 import model.Bid;
 import model.Request;
-import model.ResourceAllocationAgent;
+import model.AdaptiveAgent;
 import model.ResourceType;
 
 import java.util.*;
@@ -25,7 +25,7 @@ public class Tests {
         AID agent3 = new AID("Agent3", false);
         AID agent4 = new AID("Agent4", false);
 
-        ResourceAllocationAgent agent = new ResourceAllocationAgent();
+        AdaptiveAgent agent = new AdaptiveAgent();
 
         String reqId = UUID.randomUUID().toString();
 

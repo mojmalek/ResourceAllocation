@@ -7,10 +7,7 @@ import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
 
-import java.sql.Array;
-import java.util.ArrayList;
-
-public class Main {
+public class BasicExp {
 
     public static void main(String[] args) {
 
@@ -19,7 +16,7 @@ public class Main {
         p.setParameter(Profile.MAIN_HOST, "localhost");
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc=rt.createMainContainer(p);
-        int numberOfAgents = 2;
+        int numberOfAgents = 4;
         for(int i=0; i<=numberOfAgents; i++) {
             AgentController ac;
             try {
@@ -27,7 +24,7 @@ public class Main {
                     ac = cc.createNewAgent("Agent0", "model.MasterAgent", new Object[]{numberOfAgents});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent("Agent" + i, "model.ResourceAllocationAgent", new Object[]{numberOfAgents, i});
+                    ac = cc.createNewAgent("Agent" + i, "model.BasicAgent", new Object[]{numberOfAgents, i});
                     ac.start();
                 }
 //                ac.start();

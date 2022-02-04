@@ -67,8 +67,10 @@ public class Task {
             String id2 = task2.id;
 
             if (efficiency1.equals(efficiency2)) {
+//                int check = id2.compareTo(id1);
                 return id2.compareTo(id1);
             } else {
+//                int check = efficiency2.compareTo(efficiency1);
                 return efficiency2.compareTo(efficiency1);
             }
         }

@@ -4,15 +4,15 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import java.util.*;
 
-import jade.lang.acl.MessageTemplate;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.*;
 
-
-public class ResourceAllocationAgent extends Agent {
+public class BasicAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
 
@@ -39,7 +39,7 @@ public class ResourceAllocationAgent extends Agent {
     @Override
     protected void setup() {
 
-        System.out.println("Hello World. I’m an agent! My local-name is " + getAID().getLocalName());
+        System.out.println("Hello World. I’m a Basic agent! My local-name is " + getAID().getLocalName());
         // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
@@ -56,7 +56,7 @@ public class ResourceAllocationAgent extends Agent {
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
-                if (this.getTickCount() < 201) {
+                if (this.getTickCount() < 1001) {
                     System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                     findTasks(myAgent);
@@ -71,20 +71,20 @@ public class ResourceAllocationAgent extends Agent {
 
     private void findTasks(Agent myAgent) {
 
-        System.out.println (myAgent.getLocalName() + " is finding tasks.");
+//        System.out.println (myAgent.getLocalName() + " is finding tasks.");
 
         SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
         toDoTasks.addAll(newTasks);
 
         sendNewTasksToMasterAgent (newTasks, myAgent);
 
-        System.out.println (myAgent.getLocalName() + " has " + toDoTasks.size() + " tasks to do.");
+//        System.out.println (myAgent.getLocalName() + " has " + toDoTasks.size() + " tasks to do.");
     }
 
 
     private void findResources(Agent myAgent) {
 
-        System.out.println (myAgent.getLocalName() + " is finding resources.");
+//        System.out.println (myAgent.getLocalName() + " is finding resources.");
 
         // decrease lifetime of remaining resources
         perishResourceItems( myAgent);
@@ -102,9 +102,9 @@ public class ResourceAllocationAgent extends Agent {
             }
         }
 
-        for (var entry : availableResources.entrySet()) {
-            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " available item of type: " + entry.getKey().name());
-        }
+//        for (var entry : availableResources.entrySet()) {
+//            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " available item of type: " + entry.getKey().name());
+//        }
 
         sendNewResourcesToMasterAgent (newResources, myAgent);
     }
@@ -143,10 +143,8 @@ public class ResourceAllocationAgent extends Agent {
 
     private void negotiate (Agent myAgent) {
 
-        System.out.println (myAgent.getLocalName() +  " is negotiating.");
+//        System.out.println (myAgent.getLocalName() +  " is negotiating.");
         resetRound();
-//        sendNextPhaseNotification (ProtocolPhase.REQUESTING);
-//        waitForNextRound( myAgent);
         deliberateOnRequesting (myAgent);
         sendNextPhaseNotification (ProtocolPhase.BIDDING);
         waitForRequests( myAgent);
@@ -278,20 +276,34 @@ public class ResourceAllocationAgent extends Agent {
 
     private void performTasks(Agent myAgent) {
 
-        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
-
+//        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
+        int count = 0;
         SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
-
+        // Greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             if (hasEnoughResources(task, availableResources)) {
                 processTask(task);
                 doneTasksInThisRound.add(task);
-                doneTasks.add(task);
+                boolean check = doneTasks.add(task);
+                if (check == false) {
+                    System.out.println("Error!!");
+                }
                 totalUtil = totalUtil + task.utility;
+                count += 1;
             }
         }
 
-        toDoTasks.removeAll (doneTasksInThisRound);
+        if (doneTasksInThisRound.size() != count) {
+            System.out.println("Error!!");
+        }
+
+        int initialSize = toDoTasks.size();
+
+        toDoTasks.removeAll (doneTasks);
+
+        if ( initialSize - count != toDoTasks.size()) {
+             System.out.println("Error!!");
+        }
 
         System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
         sendTotalUtilToMasterAgent (totalUtil, myAgent);
@@ -407,7 +419,7 @@ public class ResourceAllocationAgent extends Agent {
 
         sentRequests.put (reqId, new Request(reqId, missingQuantity, resourceType, utilityFunction, myAgent.getAID()));
 
-        System.out.println( myAgent.getLocalName() + " sent a request with quantity: " + missingQuantity + " for resourceType: " + resourceType.name());
+//        System.out.println( myAgent.getLocalName() + " sent a request with quantity: " + missingQuantity + " for resourceType: " + resourceType.name());
     }
 
 
@@ -424,7 +436,7 @@ public class ResourceAllocationAgent extends Agent {
         ResourceType resourceType = ResourceType.valueOf(rt);
         JSONObject joUtilityFunction = (JSONObject) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
 
-        System.out.println( myAgent.getLocalName() + " received request with quantity " + requestedQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+//        System.out.println( myAgent.getLocalName() + " received request with quantity " + requestedQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
 
         Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
         Iterator<String> keysIterator = joUtilityFunction.keySet().iterator();
@@ -484,14 +496,14 @@ public class ResourceAllocationAgent extends Agent {
                     } else {
                         bidQuantity = selectedRequest.quantity;
                     }
-                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                    int util = selectedRequest.utilityFunction.get(bidQuantity);
-                    if (exp < util) {
+//                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
+//                    int util = selectedRequest.utilityFunction.get(bidQuantity);
+//                    if (exp < util) {
                         createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
                         remainingQuantity = remainingQuantity - bidQuantity;
-                    } else {
+//                    } else {
                         // reject or cascade the request
-                    }
+//                    }
                     requests.remove( selectedRequest);
                 }
                 // reject or cascade the rest of requests
@@ -527,11 +539,11 @@ public class ResourceAllocationAgent extends Agent {
 
     private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, int bidQuantity, SortedSet<ResourceItem> availableItems) {
 
-        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-        for (int q=1; q<=bidQuantity; q++) {
-            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
-            costFunction.put(q, cost);
-        }
+//        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
+//        for (int q=1; q<=bidQuantity; q++) {
+//            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
+//            costFunction.put(q, cost);
+//        }
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         Iterator<ResourceItem> itr = availableItems.iterator();
@@ -545,14 +557,14 @@ public class ResourceAllocationAgent extends Agent {
         }
 
         String bidId = UUID.randomUUID().toString();
-        Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, bidder, requester);
+        Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, null, offeredItems, bidder, requester);
 
         sentBids.put( bidId, bid);
 //        availableResources.put( resourceType, availableItems);
 
-        sendBid(reqId, bidId, requester, resourceType, bidQuantity, costFunction, offeredItems);
+        sendBid(reqId, bidId, requester, resourceType, bidQuantity, null, offeredItems);
 
-        System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
+//        System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
     }
 
 
@@ -567,7 +579,7 @@ public class ResourceAllocationAgent extends Agent {
         jo.put("bidId", bidId);
         jo.put(Ontology.RESOURCE_BID_QUANTITY, bidQuantity);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
-        jo.put(Ontology.BID_COST_FUNCTION, costFunction);
+//        jo.put(Ontology.BID_COST_FUNCTION, costFunction);
         jo.put(Ontology.BID_OFFERED_ITEMS, offeredItems);
 
         msg.setContent( jo.toJSONString());
@@ -594,18 +606,18 @@ public class ResourceAllocationAgent extends Agent {
         String bidId = (String) jo.get("bidId");
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-        JSONObject joCostFunction = (JSONObject) jo.get(Ontology.BID_COST_FUNCTION);
+//        JSONObject joCostFunction = (JSONObject) jo.get(Ontology.BID_COST_FUNCTION);
         JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.BID_OFFERED_ITEMS);
 
         System.out.println( myAgent.getLocalName() + " received bid with quantity " + bidQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
 
-        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-        Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
-        while (keysIterator1.hasNext()) {
-            String key = keysIterator1.next();
-            Long value = (Long) joCostFunction.get(key);
-            costFunction.put( Integer.valueOf(key), value.intValue());
-        }
+//        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
+//        Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
+//        while (keysIterator1.hasNext()) {
+//            String key = keysIterator1.next();
+//            Long value = (Long) joCostFunction.get(key);
+//            costFunction.put( Integer.valueOf(key), value.intValue());
+//        }
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         Iterator<String> keysIterator2 = joOfferedItems.keySet().iterator();
@@ -615,7 +627,7 @@ public class ResourceAllocationAgent extends Agent {
             offeredItems.put( key, value.intValue());
         }
 
-        Bid bid = new Bid(bidId, reqId, bidQuantity.intValue(), resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
+        Bid bid = new Bid(bidId, reqId, bidQuantity.intValue(), resourceType, null, offeredItems, msg.getSender(), myAgent.getAID());
 
         Set<Bid> bids = receivedBids.get(reqId);
         if (bids == null) {
@@ -721,34 +733,27 @@ public class ResourceAllocationAgent extends Agent {
 
     public Map<Bid, Integer> processBids (Request request) {
 
-        // the requester selects the combination of bids that maximizes the difference between the utility of request and the total cost of all selected bids.
+        // the requester randomly selects a combination of bids
         // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
-
-        // a greedy approach: we add 1 item from one bid in a loop up to the requested amount, without backtracking.
+        // a greedy approach: we randomly add 1 item from one bid in a loop up to the requested amount, without backtracking.
 
         Set<Bid> bids = receivedBids.get(request.id);
-        int netBenefit = 0;
-        int totalCosts = 0;
+
         Map<Bid, Integer> selectedBids = new LinkedHashMap<>();
 
         for (int q=1; q<=request.quantity; q++) {
-            Bid lowCostBid = null;
+            boolean hasExtraItem = false;
             for (Bid bid : bids) {
                 if (hasExtraItem(bid, selectedBids)) {
-                    totalCosts = totalCosts(bid, selectedBids);
-                    if (request.utilityFunction.get(q) - totalCosts >= netBenefit) {
-                        netBenefit = request.utilityFunction.get(q) - totalCosts;
-                        lowCostBid = bid;
+                    hasExtraItem = true;
+                    if (selectedBids.containsKey(bid)) {
+                        selectedBids.put(bid, selectedBids.get(bid) + 1);
+                    } else {
+                        selectedBids.put(bid, 1);
                     }
                 }
             }
-            if (lowCostBid != null) {
-                if (selectedBids.containsKey(lowCostBid)) {
-                    selectedBids.put(lowCostBid, selectedBids.get(lowCostBid) + 1);
-                } else {
-                    selectedBids.put(lowCostBid, 1);
-                }
-            } else {
+            if (hasExtraItem == false) {
                 break;
             }
         }
@@ -771,47 +776,47 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    private int totalCosts (Bid bid, Map<Bid, Integer> selectedBids) {
+//    private int totalCosts (Bid bid, Map<Bid, Integer> selectedBids) {
+//
+//        int totalCosts = 0;
+//
+//        Map<Bid, Integer> tempBids =  new LinkedHashMap<>();
+//        for (var entry : selectedBids.entrySet()) {
+//            tempBids.put(entry.getKey(), entry.getValue());
+//        }
+//
+//        if (tempBids.containsKey(bid)) {
+//            tempBids.put(bid, tempBids.get(bid) + 1);
+//        } else {
+//            tempBids.put(bid, 1);
+//        }
+//
+//        for (var entry : tempBids.entrySet()) {
+//            totalCosts = totalCosts + entry.getKey().costFunction.get(entry.getValue());
+//        }
+//
+//        return totalCosts;
+//    }
 
-        int totalCosts = 0;
 
-        Map<Bid, Integer> tempBids =  new LinkedHashMap<>();
-        for (var entry : selectedBids.entrySet()) {
-            tempBids.put(entry.getKey(), entry.getValue());
-        }
-
-        if (tempBids.containsKey(bid)) {
-            tempBids.put(bid, tempBids.get(bid) + 1);
-        } else {
-            tempBids.put(bid, 1);
-        }
-
-        for (var entry : tempBids.entrySet()) {
-            totalCosts = totalCosts + entry.getKey().costFunction.get(entry.getValue());
-        }
-
-        return totalCosts;
-    }
-
-
-    public Set<Set<Bid>> getSubsets(Set<Bid> set) {
-        if (set.isEmpty()) {
-            return Collections.singleton(Collections.emptySet());
-        }
-
-        Set<Set<Bid>> subSets = set.stream().map(item -> {
-                    Set<Bid> clone = new HashSet<>(set);
-                    clone.remove(item);
-                    return clone;
-                }).map(group -> getSubsets(group))
-                .reduce(new HashSet<>(), (x, y) -> {
-                    x.addAll(y);
-                    return x;
-                });
-
-        subSets.add(set);
-        return subSets;
-    }
+//    public Set<Set<Bid>> getSubsets(Set<Bid> set) {
+//        if (set.isEmpty()) {
+//            return Collections.singleton(Collections.emptySet());
+//        }
+//
+//        Set<Set<Bid>> subSets = set.stream().map(item -> {
+//                    Set<Bid> clone = new HashSet<>(set);
+//                    clone.remove(item);
+//                    return clone;
+//                }).map(group -> getSubsets(group))
+//                .reduce(new HashSet<>(), (x, y) -> {
+//                    x.addAll(y);
+//                    return x;
+//                });
+//
+//        subSets.add(set);
+//        return subSets;
+//    }
 
 
     private void createConfirmation (Agent myAgent, Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
@@ -838,7 +843,7 @@ public class ResourceAllocationAgent extends Agent {
         msg.setContent( jo.toJSONString());
         send(msg);
 
-        System.out.println( myAgent.getLocalName() + " sent confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " to bidder " + bidder.getLocalName());
+//        System.out.println( myAgent.getLocalName() + " sent confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " to bidder " + bidder.getLocalName());
     }
 
 
@@ -911,33 +916,34 @@ public class ResourceAllocationAgent extends Agent {
     }
 
 
-    int computeExpectedUtilityOfResources ( ResourceType resourceType, int quantity, SortedSet<ResourceItem> resourceItems) {
-
-        int exp = 0;
-        ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
-        int totalUtilityWithThisResourceType = 0;
-        int totalQuantityOfThisResourceType = 0;
-
-        for (Task task : doneTasks) {
-            if (task.requiredResources.containsKey(resourceType)) {
-                doneTasksWithThisResourceType.add( task);
-                totalUtilityWithThisResourceType = totalUtilityWithThisResourceType + task.utility;
-                totalQuantityOfThisResourceType = totalQuantityOfThisResourceType + task.requiredResources.get(resourceType);
-            }
-        }
-
-        if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
-            Iterator<ResourceItem> itr = resourceItems.iterator();
-            int q=1;
-            while (q <= quantity) {
-                ResourceItem item = itr.next();
-                exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
-                q++;
-            }
-        }
-
-        return exp;
-    }
+//    int computeExpectedUtilityOfResources ( ResourceType resourceType, int quantity, SortedSet<ResourceItem> resourceItems) {
+//
+//        int exp = 0;
+//        ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
+//        int totalUtilityWithThisResourceType = 0;
+//        int totalQuantityOfThisResourceType = 0;
+//
+//        for (Task task : doneTasks) {
+//            if (task.requiredResources.containsKey(resourceType)) {
+//                doneTasksWithThisResourceType.add( task);
+//                totalUtilityWithThisResourceType = totalUtilityWithThisResourceType + task.utility;
+//                totalQuantityOfThisResourceType = totalQuantityOfThisResourceType + task.requiredResources.get(resourceType);
+//            }
+//        }
+//
+//        if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
+//            Iterator<ResourceItem> itr = resourceItems.iterator();
+//            int q=1;
+//            while (q <= quantity) {
+//                ResourceItem item = itr.next();
+//                exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+////                exp = exp + ((doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+//                q++;
+//            }
+//        }
+//
+//        return exp;
+//    }
 
 
     public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
@@ -988,7 +994,7 @@ public class ResourceAllocationAgent extends Agent {
         msg.setContent( jo.toJSONString());
         send(msg);
 
-        System.out.println( myAgent.getLocalName() + " sent new tasks info to the master agent" );
+//        System.out.println( myAgent.getLocalName() + " sent new tasks info to the master agent" );
     }
 
 
@@ -1014,7 +1020,7 @@ public class ResourceAllocationAgent extends Agent {
         msg.setContent( jo.toJSONString());
         send(msg);
 
-        System.out.println( myAgent.getLocalName() + " sent new resources info to the master agent" );
+//        System.out.println( myAgent.getLocalName() + " sent new resources info to the master agent" );
     }
 
 
@@ -1030,7 +1036,7 @@ public class ResourceAllocationAgent extends Agent {
         msg.setContent( jo.toJSONString());
         send(msg);
 
-        System.out.println( myAgent.getLocalName() + " sent total utility: " + totalUtil + " to the master agent" );
+//        System.out.println( myAgent.getLocalName() + " sent total utility: " + totalUtil + " to the master agent" );
     }
 
 
@@ -1101,6 +1107,8 @@ public class ResourceAllocationAgent extends Agent {
 
             msg = myAgent.receive( mt);
         }
+
+//        System.out.println( "This is the end!");
     }
 
 }

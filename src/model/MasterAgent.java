@@ -45,14 +45,6 @@ public class MasterAgent extends Agent {
             }
         }
 
-//        addBehaviour (new TickerBehaviour(this, 1) {
-//            protected void onTick() {
-////                System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
-//
-//                performTasks (myAgent);
-//            }
-//        });
-
         addBehaviour(new CyclicBehaviour() {
             @Override
             public void action() {
@@ -61,7 +53,7 @@ public class MasterAgent extends Agent {
                     String content = msg.getContent();
                     switch (msg.getPerformative()) {
                         case ACLMessage.INFORM:
-                            System.out.println (myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
+//                            System.out.println (myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
                             try {
                                 processNewTasksResourcesInfo (myAgent, msg);
                             } catch (ParseException e) {
@@ -83,6 +75,7 @@ public class MasterAgent extends Agent {
 
                 if (receivedUtilInfoFromAll()) {
                     System.out.println("Sum of agent utilities: " + agentUtilitiesSum());
+                    System.out.println("Efficiency of the protocol: " + ((double) agentUtilitiesSum() / totalUtil * 100));
 
                     for (var utilInfo: utilInfoReceived.entrySet()) {
                         utilInfo.setValue( false);
@@ -91,15 +84,6 @@ public class MasterAgent extends Agent {
             }
         });
     }
-
-
-//    boolean receivedTasksResourcesInfoFromAll() {
-//        boolean result = false;
-//
-//
-//
-//        return result;
-//    }
 
 
     void perishResourceItems( Agent myAgent) {
@@ -131,16 +115,6 @@ public class MasterAgent extends Agent {
             System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
         }
     }
-
-
-//    void waitForRequests( Agent myAgent) {
-//
-//        while(inRequestingPhase()) {
-//            myAgent.doWait(1);
-//            receiveMessages( myAgent, ACLMessage.INFORM);
-//        }
-//        receiveMessages( myAgent, ACLMessage.REQUEST);
-//    }
 
 
     boolean receivedTasksInfoFromAll() {
@@ -196,42 +170,37 @@ public class MasterAgent extends Agent {
 
     private void performTasks(Agent myAgent) {
 
-        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
-
+//        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
+        int count = 0;
         SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             if (hasEnoughResources(task, availableResources)) {
                 processTask(task);
                 doneTasksInThisRound.add(task);
-                doneTasks.add(task);
+                boolean check = doneTasks.add(task);
+                if (check == false) {
+                    System.out.println("Error!!");
+                }
                 totalUtil = totalUtil + task.utility;
+                count += 1;
             }
         }
 
-        toDoTasks.removeAll (doneTasksInThisRound);
+        if (doneTasksInThisRound.size() != count) {
+            System.out.println("Error!!");
+        }
+
+        int initialSize = toDoTasks.size();
+
+        toDoTasks.removeAll (doneTasks);
+
+        if ( initialSize - count != toDoTasks.size()) {
+            System.out.println("Error!!");
+        }
 
         System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
     }
-
-
-//    Map<ResourceType, SortedSet<ResourceItem>> evaluateTask (Task task, Map<ResourceType, SortedSet<ResourceItem>> remainingResources) {
-//
-//        try {
-//            for (var entry : task.requiredResources.entrySet()) {
-//                SortedSet<ResourceItem> resourceItems = remainingResources.get(entry.getKey());
-//                for (int i = 0; i < entry.getValue(); i++) {
-//                    ResourceItem item = resourceItems.first();
-//                    resourceItems.remove(item);
-//                }
-////                remainingResources.replace(entry.getKey(), resourceItems);
-//            }
-//        } catch (Exception ex) {
-//            ex.printStackTrace();
-//        }
-//
-//        return remainingResources;
-//    }
 
 
     void processTask (Task task) {
@@ -268,15 +237,6 @@ public class MasterAgent extends Agent {
     }
 
 
-//    public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
-//        Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
-//        for (var entry : original.entrySet()) {
-//            copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
-//        }
-//        return copy;
-//    }
-
-
     private void processNewTasksResourcesInfo(Agent myAgent, ACLMessage msg) throws ParseException {
 
         String content = msg.getContent();
@@ -290,6 +250,7 @@ public class MasterAgent extends Agent {
         Long totalUtil = (Long) jo.get("totalUtil");
 
         if (joNewTasks != null) {
+            SortedSet<Task> newTasks = new TreeSet<>(new Task.taskComparator());
             String id, resourceType;
             Long utility, quantity;
             Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
@@ -306,10 +267,10 @@ public class MasterAgent extends Agent {
                     quantity = (Long) joRequiredResources.get(resourceType);
                     requiredResources.put( ResourceType.valueOf(resourceType), quantity.intValue());
                 }
-                Task newTask = new Task(id , utility.intValue(), requiredResources);
-                toDoTasks.add( newTask);
+                Task newTask = new Task(id, utility.intValue(), requiredResources);
+                newTasks.add( newTask);
             }
-
+            toDoTasks.addAll( newTasks);
             tasksInfoReceived.put( agentId, true);
         }
 
@@ -356,32 +317,5 @@ public class MasterAgent extends Agent {
         }
         return sum;
     }
-
-
-//    void receiveMessages(Agent myAgent, int performative) {
-//
-//        MessageTemplate mt = MessageTemplate.MatchPerformative( performative);
-//
-//        ACLMessage msg = myAgent.receive( mt);
-//
-//        while (msg != null) {
-//            String content = msg.getContent();
-//
-//            switch (performative) {
-//
-//                case ACLMessage.INFORM:
-////                    System.out.println(myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
-//
-//                    try {
-//                        processNewTasksResourcesInfo (myAgent, msg);
-//                    } catch (ParseException e) {
-//                        e.printStackTrace();
-//                    }
-//                    break;
-//            }
-//
-//            msg = myAgent.receive( mt);
-//        }
-//    }
 
 }

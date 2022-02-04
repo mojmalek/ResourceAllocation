@@ -12,9 +12,9 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        int numOfTasks = 3;
+        int numOfTasks = 2;
         int minQuantity = 1;
-        int quantityVariation = 10;
+        int quantityVariation = 4;
         int minUtil = 1;
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            minUtil = 1;
@@ -44,15 +44,15 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        int minQuantity = 1;
+        int minQuantity = 2;
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            minQuantity = 1000;
 //        } else {
 //            minQuantity = 1;
 //        }
-        int quantityVariation = 5;
-        int minLifetime = 3;
-        int lifetimeVariantion = 3;
+        int quantityVariation = 6;
+        int minLifetime = 2;
+        int lifetimeVariantion = 6;
         int quantity, lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
             quantity = minQuantity + random.nextInt(quantityVariation);
