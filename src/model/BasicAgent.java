@@ -497,13 +497,14 @@ public class BasicAgent extends Agent {
                         bidQuantity = selectedRequest.quantity;
                     }
 //                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-//                    int util = selectedRequest.utilityFunction.get(bidQuantity);
-//                    if (exp < util) {
+                    int cost = computeBidCost(selectedRequest.resourceType, bidQuantity);
+                    int util = selectedRequest.utilityFunction.get(bidQuantity);
+                    if (cost < util) {
                         createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
                         remainingQuantity = remainingQuantity - bidQuantity;
-//                    } else {
+                    } else {
                         // reject or cascade the request
-//                    }
+                    }
                     requests.remove( selectedRequest);
                 }
                 // reject or cascade the rest of requests
@@ -511,6 +512,31 @@ public class BasicAgent extends Agent {
             // reject or cascade the requests
             }
         }
+    }
+
+
+    int computeBidCost(ResourceType resourceType, int bidQuantity) {
+
+        int availableQuantity = availableResources.get(resourceType).size();
+        int totalUtil = utilityOfResources(resourceType, availableQuantity);
+        int bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - bidQuantity);
+
+        return bidCost;
+    }
+
+
+    int utilityOfResources (ResourceType resourceType, int quantity) {
+
+        int totalUtility = 0;
+        for (Task task : toDoTasks) {
+            if (task.requiredResources.containsKey(resourceType)) {
+                if (quantity >= task.requiredResources.get(resourceType)) {
+                    totalUtility += task.utility;
+                    quantity = quantity - task.requiredResources.get(resourceType);
+                }
+            }
+        }
+        return totalUtility;
     }
 
 
@@ -640,53 +666,54 @@ public class BasicAgent extends Agent {
 
     void deliberateOnConfirming( Agent myAgent) {
 
-        Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests = new LinkedHashMap<>();
-
-        for (var request : sentRequests.entrySet()) {
-            if ( receivedBids.containsKey(request.getKey())) {
-                Map<Bid, Integer> selectedBids = processBids( request.getValue());
-                if (selectedBids.size() > 0) {
-                    selectedBidsForAllRequests.put(request.getValue(), selectedBids);
-                }
+        for (var reqIdRequest : sentRequests.entrySet()) {
+            if ( receivedBids.containsKey(reqIdRequest.getKey())) {
+                Bid selectedBid = selectBestBid( reqIdRequest.getValue());
+                createConfirmation( myAgent, selectedBid);
+                addResourceItemsInBid(selectedBid);
             }
         }
-
-//        if (hasEnoughResourcesByConfirmBids( selectedBidsForAllRequests)) {
-            if ( selectedBidsForAllRequests.size() > 0) {
-                createConfirmation( myAgent, selectedBidsForAllRequests);
-                addResourceItemsInBids(selectedBidsForAllRequests);
-            }
-//        }
     }
 
 
-    void addResourceItemsInBids (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
+    Bid selectBestBid (Request request) {
 
-        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
-            SortedSet<ResourceItem> resourceItems;
-            if (availableResources.containsKey(selectedBidsForReq.getKey().resourceType)) {
-                resourceItems = availableResources.get( selectedBidsForReq.getKey().resourceType);
-            } else {
-                resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-            }
-            Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
-            for (var bidQuantity : bidQuantities.entrySet()) {
-                // create a sorted set of offered items
-                SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-                for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
-                    offeredItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
-                }
-                Iterator<ResourceItem> itr = offeredItems.iterator();
-                int q=1;
-                while (q<=bidQuantity.getValue()) {
-                    ResourceItem item = itr.next();
-                    resourceItems.add(item);
-                    q++;
-                }
+        Set<Bid> bids = receivedBids.get(request.id);
+        int max = 0;
+        Bid bestBid = null;
+        for (Bid bid : bids) {
+            if (bid.quantity > max) {
+                max = bid.quantity;
+                bestBid = bid;
             }
 
-            availableResources.put( selectedBidsForReq.getKey().resourceType, resourceItems);
         }
+        return bestBid;
+    }
+
+
+    void addResourceItemsInBid (Bid selectedBid) {
+
+        SortedSet<ResourceItem> resourceItems;
+        if (availableResources.containsKey(selectedBid.resourceType)) {
+            resourceItems = availableResources.get( selectedBid.resourceType);
+        } else {
+            resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+        }
+        // create a sorted set of offered items
+        SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+        for (var itemIdLifetime : selectedBid.offeredItems.entrySet()) {
+            offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), selectedBid.resourceType, itemIdLifetime.getValue()));
+        }
+        Iterator<ResourceItem> itr = offeredItems.iterator();
+        int q=1;
+        while (q<=selectedBid.quantity) {
+            ResourceItem item = itr.next();
+            resourceItems.add(item);
+            q++;
+        }
+
+        availableResources.put( selectedBid.resourceType, resourceItems);
     }
 
 
@@ -776,56 +803,9 @@ public class BasicAgent extends Agent {
     }
 
 
-//    private int totalCosts (Bid bid, Map<Bid, Integer> selectedBids) {
-//
-//        int totalCosts = 0;
-//
-//        Map<Bid, Integer> tempBids =  new LinkedHashMap<>();
-//        for (var entry : selectedBids.entrySet()) {
-//            tempBids.put(entry.getKey(), entry.getValue());
-//        }
-//
-//        if (tempBids.containsKey(bid)) {
-//            tempBids.put(bid, tempBids.get(bid) + 1);
-//        } else {
-//            tempBids.put(bid, 1);
-//        }
-//
-//        for (var entry : tempBids.entrySet()) {
-//            totalCosts = totalCosts + entry.getKey().costFunction.get(entry.getValue());
-//        }
-//
-//        return totalCosts;
-//    }
+    private void createConfirmation (Agent myAgent, Bid selectedBid) {
 
-
-//    public Set<Set<Bid>> getSubsets(Set<Bid> set) {
-//        if (set.isEmpty()) {
-//            return Collections.singleton(Collections.emptySet());
-//        }
-//
-//        Set<Set<Bid>> subSets = set.stream().map(item -> {
-//                    Set<Bid> clone = new HashSet<>(set);
-//                    clone.remove(item);
-//                    return clone;
-//                }).map(group -> getSubsets(group))
-//                .reduce(new HashSet<>(), (x, y) -> {
-//                    x.addAll(y);
-//                    return x;
-//                });
-//
-//        subSets.add(set);
-//        return subSets;
-//    }
-
-
-    private void createConfirmation (Agent myAgent, Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
-
-        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
-            for (var bidQuantity : selectedBidsForReq.getValue().entrySet()) {
-                sendConfirmation (myAgent, bidQuantity.getKey().id, bidQuantity.getKey().sender, bidQuantity.getKey().resourceType, bidQuantity.getValue());
-            }
-        }
+        sendConfirmation(myAgent, selectedBid.id, selectedBid.sender, selectedBid.resourceType, selectedBid.quantity);
     }
 
 
@@ -914,36 +894,6 @@ public class BasicAgent extends Agent {
 
         return enough;
     }
-
-
-//    int computeExpectedUtilityOfResources ( ResourceType resourceType, int quantity, SortedSet<ResourceItem> resourceItems) {
-//
-//        int exp = 0;
-//        ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
-//        int totalUtilityWithThisResourceType = 0;
-//        int totalQuantityOfThisResourceType = 0;
-//
-//        for (Task task : doneTasks) {
-//            if (task.requiredResources.containsKey(resourceType)) {
-//                doneTasksWithThisResourceType.add( task);
-//                totalUtilityWithThisResourceType = totalUtilityWithThisResourceType + task.utility;
-//                totalQuantityOfThisResourceType = totalQuantityOfThisResourceType + task.requiredResources.get(resourceType);
-//            }
-//        }
-//
-//        if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
-//            Iterator<ResourceItem> itr = resourceItems.iterator();
-//            int q=1;
-//            while (q <= quantity) {
-//                ResourceItem item = itr.next();
-//                exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
-////                exp = exp + ((doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
-//                q++;
-//            }
-//        }
-//
-//        return exp;
-//    }
 
 
     public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {

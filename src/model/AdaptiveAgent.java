@@ -784,7 +784,6 @@ public class AdaptiveAgent extends Agent {
 
         // the requester selects the combination of bids that maximizes the difference between the utility of request and the total cost of all selected bids.
         // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
-
         // a greedy approach: we add 1 item from one bid in a loop up to the requested amount, without backtracking.
 
         Set<Bid> bids = receivedBids.get(request.id);

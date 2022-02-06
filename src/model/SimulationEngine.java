@@ -13,15 +13,15 @@ public class SimulationEngine {
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         int numOfTasks = 2;
-        int minQuantity = 1;
-        int quantityVariation = 4;
+        int minQuantity = 3;
+        int quantityVariation = 3;
         int minUtil = 1;
-        if( myAgent.getLocalName().equals("Agent1")) {
-            minUtil = 100;
-        } else {
-            minUtil = 1;
-        }
-        int utilVariation = 10;
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            minUtil = 1000;
+//        } else {
+//            minUtil = 1;
+//        }
+        int utilVariation = 100;
         int quantity, utility;
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
@@ -50,12 +50,12 @@ public class SimulationEngine {
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         int minQuantity = 2;
-        if( myAgent.getLocalName().equals("Agent1")) {
-            minQuantity = 4;
-        } else {
-            minQuantity = 1;
-        }
-        int quantityVariation = 2;
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            minQuantity = 4;
+//        } else {
+//            minQuantity = 1;
+//        }
+        int quantityVariation = 6;
         int minLifetime = 2;
         int lifetimeVariantion = 3;
         int quantity, lifetime;
