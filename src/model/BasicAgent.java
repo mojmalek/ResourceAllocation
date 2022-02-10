@@ -474,25 +474,16 @@ public class BasicAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-
-        Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
-        // bid only with remaining resources after performing tasks in this round
-        for (Task task : toDoTasks) {
-            if (hasEnoughResources(task, remainingResources)) {
-                remainingResources = evaluateTask( task, remainingResources);
-            }
-        }
-
         int bidQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
-            if (remainingResources.get(requestsForType.getKey()) != null) {
-                int remainingQuantity = remainingResources.get(requestsForType.getKey()).size();
+            if (availableResources.get(requestsForType.getKey()) != null) {
+                int availableQuantity = availableResources.get(requestsForType.getKey()).size();
                 ArrayList<Request> requests = requestsForType.getValue();
-                while (remainingQuantity > 0 && requests.size() > 0) {
+                while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
-                    Request selectedRequest = selectBestRequest( requests, remainingQuantity);
-                    if (remainingQuantity < selectedRequest.quantity) {
-                        bidQuantity = remainingQuantity;
+                    Request selectedRequest = selectBestRequest( requests, availableQuantity);
+                    if (availableQuantity < selectedRequest.quantity) {
+                        bidQuantity = availableQuantity;
                     } else {
                         bidQuantity = selectedRequest.quantity;
                     }
@@ -501,7 +492,7 @@ public class BasicAgent extends Agent {
                     int util = selectedRequest.utilityFunction.get(bidQuantity);
                     if (cost < util) {
                         createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                        remainingQuantity = remainingQuantity - bidQuantity;
+                        availableQuantity = availableQuantity - bidQuantity;
                     } else {
                         // reject or cascade the request
                     }
@@ -667,10 +658,16 @@ public class BasicAgent extends Agent {
     void deliberateOnConfirming( Agent myAgent) {
 
         for (var reqIdRequest : sentRequests.entrySet()) {
-            if ( receivedBids.containsKey(reqIdRequest.getKey())) {
+            if ( receivedBids.containsKey( reqIdRequest.getKey())) {
                 Bid selectedBid = selectBestBid( reqIdRequest.getValue());
                 createConfirmation( myAgent, selectedBid);
                 addResourceItemsInBid(selectedBid);
+                // reject the other bids
+                Set<Bid> bids = receivedBids.get(reqIdRequest.getValue().id);
+                bids.remove(selectedBid);
+                for (Bid bid : bids) {
+                    createRejection( myAgent, bid);
+                }
             }
         }
     }
@@ -717,95 +714,15 @@ public class BasicAgent extends Agent {
     }
 
 
-    boolean hasEnoughResourcesByConfirmBids (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
-
-        Map<ResourceType, SortedSet<ResourceItem>> allResourcesByConfirmBids = new LinkedHashMap<>(availableResources);
-
-        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
-            SortedSet<ResourceItem> resourceItems;
-            if (allResourcesByConfirmBids.containsKey(selectedBidsForReq.getKey().resourceType)) {
-                resourceItems = allResourcesByConfirmBids.get( selectedBidsForReq.getKey().resourceType);
-            } else {
-                resourceItems = new TreeSet<>();
-            }
-            Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
-            for (var bidQuantity : bidQuantities.entrySet()) {
-                int q=1;
-                for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
-                    if (q<=bidQuantity.getValue()) {
-                        resourceItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
-                        q++;
-                    }
-                    else {
-                        break;
-                    }
-                }
-            }
-
-            allResourcesByConfirmBids.put( selectedBidsForReq.getKey().resourceType, resourceItems);
-        }
-
-        // check if there is enough resource to perform at least one task
-        boolean enough = false;
-        for (Task task : toDoTasks) {
-            if (hasEnoughResources( task, allResourcesByConfirmBids)) {
-                enough = true;
-                break;
-            }
-        }
-
-        return enough;
-    }
-
-
-    public Map<Bid, Integer> processBids (Request request) {
-
-        // the requester randomly selects a combination of bids
-        // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
-        // a greedy approach: we randomly add 1 item from one bid in a loop up to the requested amount, without backtracking.
-
-        Set<Bid> bids = receivedBids.get(request.id);
-
-        Map<Bid, Integer> selectedBids = new LinkedHashMap<>();
-
-        for (int q=1; q<=request.quantity; q++) {
-            boolean hasExtraItem = false;
-            for (Bid bid : bids) {
-                if (hasExtraItem(bid, selectedBids)) {
-                    hasExtraItem = true;
-                    if (selectedBids.containsKey(bid)) {
-                        selectedBids.put(bid, selectedBids.get(bid) + 1);
-                    } else {
-                        selectedBids.put(bid, 1);
-                    }
-                }
-            }
-            if (hasExtraItem == false) {
-                break;
-            }
-        }
-
-        return selectedBids;
-    }
-
-
-    private boolean hasExtraItem (Bid bid, Map<Bid, Integer> selectedBids) {
-
-        if ( selectedBids.containsKey(bid)) {
-            if (selectedBids.get(bid) < bid.quantity) {
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            return true;
-        }
-    }
-
-
     private void createConfirmation (Agent myAgent, Bid selectedBid) {
 
         sendConfirmation(myAgent, selectedBid.id, selectedBid.sender, selectedBid.resourceType, selectedBid.quantity);
+    }
+
+
+    private void createRejection (Agent myAgent, Bid bid) {
+
+        sendConfirmation(myAgent, bid.id, bid.sender, bid.resourceType, 0);
     }
 
 
@@ -865,16 +782,18 @@ public class BasicAgent extends Agent {
                 q++;
             }
 
-            int unusedQuantity = sentBid.quantity - confirmQuantity;
-            SortedSet<ResourceItem> resourceItems = availableResources.get( resourceType);
-            itr = offeredItems.iterator();
-            q=1;
-            while (q<=unusedQuantity) {
-                ResourceItem item = itr.next();
-                resourceItems.add(item);
-                q++;
-            }
-            availableResources.put( resourceType, resourceItems);
+            availableResources.get(resourceType).addAll(offeredItems);
+
+//            int unusedQuantity = sentBid.quantity - confirmQuantity;
+//            SortedSet<ResourceItem> resourceItems = availableResources.get( resourceType);
+//            itr = offeredItems.iterator();
+//            q=1;
+//            while (q<=unusedQuantity) {
+//                ResourceItem item = itr.next();
+//                resourceItems.add(item);
+//                q++;
+//            }
+//            availableResources.put( resourceType, resourceItems);
         }
     }
 

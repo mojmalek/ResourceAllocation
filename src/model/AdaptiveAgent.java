@@ -416,9 +416,9 @@ public class AdaptiveAgent extends Agent {
 //            if( q <= requiredQuantity) {
                 bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - q);
                 requestUtil = requestUtilityFunction.get(q);
-                if (bidCost < requestUtil) {
+//                if (bidCost < requestUtil) {
                     bidCostFunction.put(q, bidCost);
-                }
+//                }
 //            }
         }
         return bidCostFunction;
@@ -533,10 +533,10 @@ public class AdaptiveAgent extends Agent {
                     }
                     Map<Integer, Integer> costFunction = computeBidCostFunction(selectedRequest.resourceType, bidQuantity, selectedRequest.utilityFunction);
 //                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-//                    int util = selectedRequest.utilityFunction.get(bidQuantity);
-                    int actualBidQuantity = getActualBidQuantity ( costFunction.keySet());
-                    if (costFunction.size() > 0) {
-                        createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, actualBidQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+                    int cost = costFunction.get(bidQuantity);
+                    int util = selectedRequest.utilityFunction.get(bidQuantity);
+                    if (cost < util) {
+                        createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
                         availableQuantity = availableQuantity - bidQuantity;
                     } else {
                         // reject or cascade the request
@@ -689,41 +689,41 @@ public class AdaptiveAgent extends Agent {
 
     void deliberateOnConfirming( Agent myAgent) {
 
-        Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests = new LinkedHashMap<>();
+        Map<Request, Map<Bid, Integer>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
 
         for (var request : sentRequests.entrySet()) {
             if ( receivedBids.containsKey(request.getKey())) {
-                Map<Bid, Integer> selectedBids = processBids( request.getValue());
-                if (selectedBids.size() > 0) {
-                    selectedBidsForAllRequests.put(request.getValue(), selectedBids);
+                Map<Bid, Integer> confirmQuantities = processBids( request.getValue());
+                if (confirmQuantities.size() == 0) {
+                    System.out.println("Error!!");
                 }
+                confirmQuantitiesForAllRequests.put(request.getValue(), confirmQuantities);
             }
         }
 
-//        if (hasEnoughResourcesByConfirmBids( selectedBidsForAllRequests)) {
-            if ( selectedBidsForAllRequests.size() > 0) {
-                createConfirmation( myAgent, selectedBidsForAllRequests);
-                addResourceItemsInBids(selectedBidsForAllRequests);
+//        if (hasEnoughResourcesByConfirmBids( confirmQuantitiesForAllRequests)) {
+            if ( confirmQuantitiesForAllRequests.size() > 0) {
+                createConfirmation( myAgent, confirmQuantitiesForAllRequests);
+                addResourceItemsInBids(confirmQuantitiesForAllRequests);
             }
 //        }
     }
 
 
-    void addResourceItemsInBids (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
+    void addResourceItemsInBids (Map<Request, Map<Bid, Integer>> confirmQuantitiesForAllRequests) {
 
-        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
+        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             SortedSet<ResourceItem> resourceItems;
-            if (availableResources.containsKey(selectedBidsForReq.getKey().resourceType)) {
-                resourceItems = availableResources.get( selectedBidsForReq.getKey().resourceType);
+            if (availableResources.containsKey(confirmQuantitiesForReq.getKey().resourceType)) {
+                resourceItems = availableResources.get( confirmQuantitiesForReq.getKey().resourceType);
             } else {
                 resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
             }
-            Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
-            for (var bidQuantity : bidQuantities.entrySet()) {
+            for (var bidQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
                 // create a sorted set of offered items
                 SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-                for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
-                    offeredItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
+                for (var itemIdLifetime : bidQuantity.getKey().offeredItems.entrySet()) {
+                    offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), bidQuantity.getKey().resourceType, itemIdLifetime.getValue()));
                 }
                 Iterator<ResourceItem> itr = offeredItems.iterator();
                 int q=1;
@@ -734,7 +734,7 @@ public class AdaptiveAgent extends Agent {
                 }
             }
 
-            availableResources.put( selectedBidsForReq.getKey().resourceType, resourceItems);
+            availableResources.put( confirmQuantitiesForReq.getKey().resourceType, resourceItems);
         }
     }
 
@@ -787,75 +787,75 @@ public class AdaptiveAgent extends Agent {
         // a greedy approach: we add 1 item from one bid in a loop up to the requested amount, without backtracking.
 
         Set<Bid> bids = receivedBids.get(request.id);
-        int netBenefit = 0;
-        int totalCosts = 0;
-        Map<Bid, Integer> selectedBids = new LinkedHashMap<>();
+        int minCost, cost;
+        Bid lowCostBid;
+        Map<Bid, Integer> confirmQuantities = new LinkedHashMap<>();
+        for (Bid bid : bids) {
+            confirmQuantities.put(bid, 0);
+        }
 
         for (int q=1; q<=request.quantity; q++) {
-            Bid lowCostBid = null;
+            minCost = Integer.MAX_VALUE;
+            lowCostBid = null;
             for (Bid bid : bids) {
-                if (hasExtraItem(bid, selectedBids)) {
-                    totalCosts = totalCosts(bid, selectedBids);
-                    if (request.utilityFunction.get(q) - totalCosts >= netBenefit) {
-                        netBenefit = request.utilityFunction.get(q) - totalCosts;
+                if (hasExtraItem(bid, confirmQuantities)) {
+                    cost = totalCost(bid, confirmQuantities);
+                    if (cost < minCost) {
+                        minCost = cost;
                         lowCostBid = bid;
                     }
                 }
             }
             if (lowCostBid != null) {
-                if (selectedBids.containsKey(lowCostBid)) {
-                    selectedBids.put(lowCostBid, selectedBids.get(lowCostBid) + 1);
-                } else {
-                    selectedBids.put(lowCostBid, 1);
-                }
+                    confirmQuantities.put(lowCostBid, confirmQuantities.get(lowCostBid) + 1);
             } else {
                 break;
             }
         }
 
-        return selectedBids;
+        return confirmQuantities;
     }
 
 
-    private boolean hasExtraItem (Bid bid, Map<Bid, Integer> selectedBids) {
+    private boolean hasExtraItem (Bid bid, Map<Bid, Integer> confirmQuantities) {
 
-        if ( selectedBids.containsKey(bid)) {
-            if (selectedBids.get(bid) < bid.quantity && bid.costFunction.containsKey(selectedBids.get(bid) + 1)) {
+//        if ( confirmQuantities.containsKey(bid)) {
+            if (confirmQuantities.get(bid) < bid.quantity) {
                 return true;
             } else {
                 return false;
             }
-        } else if (bid.costFunction.containsKey(1)) {
-            return true;
-        } else {
-            return false;
-        }
+//        } else {
+//            return true;
+//        }
     }
 
 
-    private int totalCosts (Bid bid, Map<Bid, Integer> selectedBids) {
+    private int totalCost(Bid bid, Map<Bid, Integer> confirmQuantities) {
 
-        int totalCosts = 0;
+        int totalCost = 0;
 
-        Map<Bid, Integer> tempBids =  new LinkedHashMap<>();
-        for (var entry : selectedBids.entrySet()) {
-            tempBids.put(entry.getKey(), entry.getValue());
+        Map<Bid, Integer> tempQuantities =  new LinkedHashMap<>();
+        for (var entry : confirmQuantities.entrySet()) {
+            if (entry.getValue() > 0) {
+                tempQuantities.put(entry.getKey(), entry.getValue());
+            }
         }
 
-        if (tempBids.containsKey(bid)) {
-            tempBids.put(bid, tempBids.get(bid) + 1);
+        if (tempQuantities.containsKey(bid)) {
+            tempQuantities.put(bid, tempQuantities.get(bid) + 1);
         } else {
-            tempBids.put(bid, 1);
+            tempQuantities.put(bid, 1);
         }
 
-        for (var entry : tempBids.entrySet()) {
+        for (var entry : tempQuantities.entrySet()) {
             if (entry.getKey().costFunction.get(entry.getValue()) == null) {
                 System.out.println( "ERROR!!");
             }
-            totalCosts = totalCosts + entry.getKey().costFunction.get(entry.getValue());
+            totalCost = totalCost + entry.getKey().costFunction.get(entry.getValue());
         }
 
-        return totalCosts;
+        return totalCost;
     }
 
 
@@ -879,10 +879,10 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private void createConfirmation (Agent myAgent, Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
+    private void createConfirmation (Agent myAgent, Map<Request, Map<Bid, Integer>> confirmQuantitiesForAllRequests) {
 
-        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
-            for (var bidQuantity : selectedBidsForReq.getValue().entrySet()) {
+        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
+            for (var bidQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
                 sendConfirmation (myAgent, bidQuantity.getKey().id, bidQuantity.getKey().sender, bidQuantity.getKey().resourceType, bidQuantity.getValue());
             }
         }
@@ -945,16 +945,18 @@ public class AdaptiveAgent extends Agent {
                 q++;
             }
 
-            int unusedQuantity = sentBid.quantity - confirmQuantity;
-            SortedSet<ResourceItem> resourceItems = availableResources.get( resourceType);
-            itr = offeredItems.iterator();
-            q=1;
-            while (q<=unusedQuantity) {
-                ResourceItem item = itr.next();
-                resourceItems.add(item);
-                q++;
-            }
-            availableResources.put( resourceType, resourceItems);
+            availableResources.get(resourceType).addAll(offeredItems);
+
+//            int unusedQuantity = sentBid.quantity - confirmQuantity;
+//            SortedSet<ResourceItem> resourceItems = availableResources.get( resourceType);
+//            itr = offeredItems.iterator();
+//            q=1;
+//            while (q<=unusedQuantity) {
+//                ResourceItem item = itr.next();
+//                resourceItems.add(item);
+//                q++;
+//            }
+//            availableResources.put( resourceType, resourceItems);
         }
     }
 

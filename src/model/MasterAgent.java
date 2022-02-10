@@ -253,10 +253,10 @@ public class MasterAgent extends Agent {
             SortedSet<Task> newTasks = new TreeSet<>(new Task.taskComparator());
             String id, resourceType;
             Long utility, quantity;
-            Map<ResourceType, Integer> requiredResources = new LinkedHashMap<>();
+            Map<ResourceType, Integer> requiredResources;
             Iterator<String> keysIterator1 = joNewTasks.keySet().iterator();
             while (keysIterator1.hasNext()) {
-                requiredResources.clear();
+                requiredResources = new LinkedHashMap<>();
                 id = keysIterator1.next();
                 JSONObject joTask = (JSONObject) joNewTasks.get(id);
                 utility = (Long) joTask.get("utility");
