@@ -489,10 +489,9 @@ public class BasicAgent extends Agent {
                     } else {
                         bidQuantity = selectedRequest.quantity;
                     }
-//                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                    long cost = computeBidCost(selectedRequest.resourceType, bidQuantity);
-                    long util = selectedRequest.utilityFunction.get(bidQuantity);
-                    if (cost < util) {
+                    long cost = computeBidCost(selectedRequest.resourceType, availableQuantity, bidQuantity);
+                    long benefit = selectedRequest.utilityFunction.get(bidQuantity);
+                    if (cost < benefit) {
                         createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
                         availableQuantity = availableQuantity - bidQuantity;
                     } else {
@@ -508,11 +507,9 @@ public class BasicAgent extends Agent {
     }
 
 
-    long computeBidCost(ResourceType resourceType, long bidQuantity) {
+    long computeBidCost(ResourceType resourceType, long availableQuantity, long bidQuantity) {
 
-        long availableQuantity = availableResources.get(resourceType).size();
-        long totalUtil = utilityOfResources(resourceType, availableQuantity);
-        long bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - bidQuantity);
+        long bidCost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - bidQuantity);
 
         return bidCost;
     }

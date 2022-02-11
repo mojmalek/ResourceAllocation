@@ -413,7 +413,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    Map<Long, Long> computeBidCostFunction(ResourceType resourceType, long bidQuantity, Map<Long, Long> requestUtilityFunction) {
+    Map<Long, Long> computeBidCostFunction(ResourceType resourceType, long availableQuantity, long bidQuantity, Map<Long, Long> requestUtilityFunction) {
 
 //        int requiredQuantity = 0;
 //        for (Task task : toDoTasks) {
@@ -424,19 +424,17 @@ public class AdaptiveAgent extends Agent {
 //            }
 //        }
 
-        long availableQuantity = availableResources.get(resourceType).size();
         long totalUtil = utilityOfResources(resourceType, availableQuantity);
-        long bidCost, requestUtil;
+        long cost, expectedCost;
         Map<Long, Long> bidCostFunction = new LinkedHashMap<>();
         for (long q=1; q<=bidQuantity; q++) {
 //            if( q <= requiredQuantity) {
-                bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - q);
-                requestUtil = requestUtilityFunction.get(q);
-//                if (bidCost < requestUtil) {
-                    bidCostFunction.put(q, bidCost);
-//                }
+                cost = totalUtil - utilityOfResources( resourceType, availableQuantity - q);
+                expectedCost = computeExpectedUtilityOfResources( resourceType, bidQuantity, availableResources.get(resourceType));
+                bidCostFunction.put(q, cost + expectedCost);
 //            }
         }
+
         return bidCostFunction;
     }
 
@@ -551,11 +549,10 @@ public class AdaptiveAgent extends Agent {
                     } else {
                         bidQuantity = selectedRequest.quantity;
                     }
-                    Map<Long, Long> costFunction = computeBidCostFunction(selectedRequest.resourceType, bidQuantity, selectedRequest.utilityFunction);
-//                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
+                    Map<Long, Long> costFunction = computeBidCostFunction(selectedRequest.resourceType, availableQuantity, bidQuantity, selectedRequest.utilityFunction);
                     long cost = costFunction.get(bidQuantity);
-                    long util = selectedRequest.utilityFunction.get(bidQuantity);
-                    if (cost < util) {
+                    long benefit = selectedRequest.utilityFunction.get(bidQuantity);
+                    if (cost < benefit) {
                         createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
                         availableQuantity = availableQuantity - bidQuantity;
                     } else {
