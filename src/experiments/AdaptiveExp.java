@@ -16,15 +16,16 @@ public class AdaptiveExp {
         p.setParameter(Profile.MAIN_HOST, "localhost");
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc=rt.createMainContainer(p);
+        int numberOfRounds = 500;
         int numberOfAgents = 4;
         for(int i=0; i<=numberOfAgents; i++) {
             AgentController ac;
             try {
                 if (i == 0) {
-                    ac = cc.createNewAgent("Agent0", "model.MasterAgent", new Object[]{numberOfAgents});
+                    ac = cc.createNewAgent("Agent0", "model.MasterAgent", new Object[]{numberOfAgents, numberOfRounds});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent("Agent" + i, "model.AdaptiveAgent", new Object[]{numberOfAgents, i});
+                    ac = cc.createNewAgent("Agent" + i, "model.AdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds});
                     ac.start();
                 }
 //                ac.start();

@@ -22,7 +22,8 @@ public class BasicAgent extends Agent {
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
-    private int totalUtil;
+    private long totalUtil;
+    private int numberOfRounds;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -52,11 +53,12 @@ public class BasicAgent extends Agent {
                     otherAgentsPhases.put(aid, ProtocolPhase.REQUESTING);
                 }
             }
+            numberOfRounds = (int) args[2];
         }
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
-                if (this.getTickCount() < 501) {
+                if (this.getTickCount() <= numberOfRounds) {
                     System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                     findTasks(myAgent);
@@ -350,16 +352,16 @@ public class BasicAgent extends Agent {
 
         // creates a request based on the missing quantity for each resource type
 
-        Map<ResourceType, Integer> totalRequiredResources = new LinkedHashMap<>();
+        Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
-                totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0) + entry.getValue());
+                totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0L) + entry.getValue());
             }
         }
 
         for (var entry : totalRequiredResources.entrySet()) {
-            int missingQuantity = 0;
+            long missingQuantity = 0;
             if ( remainingResources.containsKey( entry.getKey())) {
                 if (remainingResources.get(entry.getKey()).size() < entry.getValue()) {
                     missingQuantity = entry.getValue() - remainingResources.get(entry.getKey()).size();
@@ -369,19 +371,19 @@ public class BasicAgent extends Agent {
             }
 
             if (missingQuantity > 0) {
-                Map<Integer, Integer> utilityFunction = computeUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
+                Map<Long, Long> utilityFunction = computeUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
                 sendRequest(entry.getKey(), missingQuantity, utilityFunction, myAgent);
             }
         }
     }
 
 
-    Map<Integer, Integer> computeUtilityFunction (SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, int missingQuantity) {
+    Map<Long, Long> computeUtilityFunction (SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, long missingQuantity) {
 
-        Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
-        for (int i=1; i<=missingQuantity; i++) {
-            int q = remainingResources.get(resourceType).size() + i;
-            int totalUtility = 0;
+        Map<Long, Long> utilityFunction = new LinkedHashMap<>();
+        for (long i=1; i<=missingQuantity; i++) {
+            long q = remainingResources.get(resourceType).size() + i;
+            long totalUtility = 0;
             for (Task task : blockedTasks) {
                 if (task.requiredResources.containsKey(resourceType)) {
                     if (q >= task.requiredResources.get(resourceType)) {
@@ -396,7 +398,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void sendRequest (ResourceType resourceType, int missingQuantity, Map<Integer, Integer> utilityFunction, Agent myAgent) {
+    private void sendRequest (ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
@@ -438,12 +440,12 @@ public class BasicAgent extends Agent {
 
 //        System.out.println( myAgent.getLocalName() + " received request with quantity " + requestedQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
 
-        Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
+        Map<Long, Long> utilityFunction = new LinkedHashMap<>();
         Iterator<String> keysIterator = joUtilityFunction.keySet().iterator();
         while (keysIterator.hasNext()) {
             String key = keysIterator.next();
             Long value = (Long) joUtilityFunction.get(key);
-            utilityFunction.put( Integer.valueOf(key), value.intValue());
+            utilityFunction.put( Long.valueOf(key), value);
         }
 
         Request request = new Request(reqId, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender());
@@ -474,10 +476,10 @@ public class BasicAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-        int bidQuantity;
+        long bidQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
             if (availableResources.get(requestsForType.getKey()) != null) {
-                int availableQuantity = availableResources.get(requestsForType.getKey()).size();
+                long availableQuantity = availableResources.get(requestsForType.getKey()).size();
                 ArrayList<Request> requests = requestsForType.getValue();
                 while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
@@ -488,8 +490,8 @@ public class BasicAgent extends Agent {
                         bidQuantity = selectedRequest.quantity;
                     }
 //                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                    int cost = computeBidCost(selectedRequest.resourceType, bidQuantity);
-                    int util = selectedRequest.utilityFunction.get(bidQuantity);
+                    long cost = computeBidCost(selectedRequest.resourceType, bidQuantity);
+                    long util = selectedRequest.utilityFunction.get(bidQuantity);
                     if (cost < util) {
                         createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
                         availableQuantity = availableQuantity - bidQuantity;
@@ -506,19 +508,19 @@ public class BasicAgent extends Agent {
     }
 
 
-    int computeBidCost(ResourceType resourceType, int bidQuantity) {
+    long computeBidCost(ResourceType resourceType, long bidQuantity) {
 
-        int availableQuantity = availableResources.get(resourceType).size();
-        int totalUtil = utilityOfResources(resourceType, availableQuantity);
-        int bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - bidQuantity);
+        long availableQuantity = availableResources.get(resourceType).size();
+        long totalUtil = utilityOfResources(resourceType, availableQuantity);
+        long bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - bidQuantity);
 
         return bidCost;
     }
 
 
-    int utilityOfResources (ResourceType resourceType, int quantity) {
+    long utilityOfResources (ResourceType resourceType, long quantity) {
 
-        int totalUtility = 0;
+        long totalUtility = 0;
         for (Task task : toDoTasks) {
             if (task.requiredResources.containsKey(resourceType)) {
                 if (quantity >= task.requiredResources.get(resourceType)) {
@@ -531,11 +533,11 @@ public class BasicAgent extends Agent {
     }
 
 
-    Request selectBestRequest(ArrayList<Request> requests, int remainingQuantity) {
+    Request selectBestRequest(ArrayList<Request> requests, long remainingQuantity) {
 
         Request selectedRequest = requests.get(0);
-        int highestUtility = 0;
-        int bidQuantity;
+        long highestUtility = 0;
+        long bidQuantity;
 
         for (Request request : requests) {
             if (remainingQuantity < request.quantity) {
@@ -543,7 +545,7 @@ public class BasicAgent extends Agent {
             } else {
                 bidQuantity = request.quantity;
             }
-            int util = request.utilityFunction.get(bidQuantity);
+            long util = request.utilityFunction.get(bidQuantity);
             if (util > highestUtility) {
                 highestUtility = util;
                 selectedRequest = request;
@@ -554,7 +556,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, int bidQuantity, SortedSet<ResourceItem> availableItems) {
+    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, long bidQuantity, SortedSet<ResourceItem> availableItems) {
 
 //        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
 //        for (int q=1; q<=bidQuantity; q++) {
@@ -564,7 +566,7 @@ public class BasicAgent extends Agent {
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         Iterator<ResourceItem> itr = availableItems.iterator();
-        int q=1;
+        long q=1;
         while (q<=bidQuantity) {
             ResourceItem item = itr.next();
             offeredItems.put(item.getId(), item.getLifetime());
@@ -585,7 +587,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void sendBid (String reqId, String bidId, AID requester, ResourceType resourceType, int bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
+    private void sendBid (String reqId, String bidId, AID requester, ResourceType resourceType, long bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -676,7 +678,7 @@ public class BasicAgent extends Agent {
     Bid selectBestBid (Request request) {
 
         Set<Bid> bids = receivedBids.get(request.id);
-        int max = 0;
+        long max = 0;
         Bid bestBid = null;
         for (Bid bid : bids) {
             if (bid.quantity > max) {
@@ -703,7 +705,7 @@ public class BasicAgent extends Agent {
             offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), selectedBid.resourceType, itemIdLifetime.getValue()));
         }
         Iterator<ResourceItem> itr = offeredItems.iterator();
-        int q=1;
+        long q=1;
         while (q<=selectedBid.quantity) {
             ResourceItem item = itr.next();
             resourceItems.add(item);
@@ -726,7 +728,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    void sendConfirmation (Agent myAgent, String bidId, AID bidder, ResourceType resourceType, int confirmQuantity) {
+    void sendConfirmation (Agent myAgent, String bidId, AID bidder, ResourceType resourceType, long confirmQuantity) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.CONFIRM);
 
@@ -774,7 +776,7 @@ public class BasicAgent extends Agent {
                 offeredItems.add(new ResourceItem(offeredItem.getKey(), resourceType, offeredItem.getValue()));
             }
             Iterator<ResourceItem> itr = offeredItems.iterator();
-            int q=1;
+            long q=1;
             while (q<=confirmQuantity) {
                 ResourceItem item = itr.next();
                 offeredItems.remove(item);
@@ -893,7 +895,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    void sendTotalUtilToMasterAgent (int totalUtil, Agent myAgent) {
+    void sendTotalUtilToMasterAgent (long totalUtil, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
         AID aid = new AID("Agent0", AID.ISLOCALNAME);

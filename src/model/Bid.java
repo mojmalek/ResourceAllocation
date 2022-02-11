@@ -11,15 +11,15 @@ public class Bid {
 
     String id;
     String reqId;
-    int quantity;
+    long quantity;
     ResourceType resourceType;
-    Map<Integer, Integer> costFunction;
+    Map<Long, Long> costFunction;
     // id, lifetime
     Map<String, Integer> offeredItems;
     AID sender;
     AID receiver;
 
-    public Bid(String id, String reqId, int quantity, ResourceType resourceType, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
+    public Bid(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
         this.id = id;
         this.reqId = reqId;
         this.quantity = quantity;

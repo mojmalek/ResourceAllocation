@@ -13,16 +13,21 @@ import java.util.*;
 
 public class MasterAgent extends Agent {
 
-    private ArrayList<AID> otherAgents = new ArrayList<>();
-    private Map<AID, Boolean> tasksInfoReceived = new LinkedHashMap<>();
-    private Map<AID, Boolean> resourcesInfoReceived = new LinkedHashMap<>();
-    private Map<AID, Boolean> utilInfoReceived = new LinkedHashMap<>();
-    private Map<AID, ArrayList<Integer>> agentUtilities = new LinkedHashMap<>();
+//    private ArrayList<AID> otherAgents = new ArrayList<>();
+//    private Map<AID, Boolean> tasksInfoReceived = new LinkedHashMap<>();
+//    private Map<AID, Boolean> resourcesInfoReceived = new LinkedHashMap<>();
+//    private Map<AID, Boolean> utilInfoReceived = new LinkedHashMap<>();
+
+    private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
+    private Map<AID, ArrayList<JSONObject>> resourcesInfo = new LinkedHashMap<>();
+    private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
+
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
-    private int totalUtil;
-    private int round = 1;
+    private long totalUtil;
+    private int numberOfRounds;
+//    private int round = 1;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -38,11 +43,16 @@ public class MasterAgent extends Agent {
             int numberOfAgents = (int) args[0];
             for (int i = 1; i <= numberOfAgents; i++) {
                 AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
-                otherAgents.add(aid);
-                tasksInfoReceived.put(aid, false);
-                resourcesInfoReceived.put(aid, false);
-                utilInfoReceived.put(aid, false);
+//                otherAgents.add(aid);
+//                tasksInfoReceived.put(aid, false);
+//                resourcesInfoReceived.put(aid, false);
+//                utilInfoReceived.put(aid, false);
+
+                tasksInfo.put( aid, new ArrayList<>());
+                resourcesInfo.put( aid, new ArrayList<>());
+                utilitiesInfo.put( aid, new ArrayList<>());
             }
+            numberOfRounds = (int) args[1];
         }
 
         addBehaviour(new CyclicBehaviour() {
@@ -55,7 +65,7 @@ public class MasterAgent extends Agent {
                         case ACLMessage.INFORM:
 //                            System.out.println (myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
                             try {
-                                processNewTasksResourcesInfo (myAgent, msg);
+                                storeInfo(myAgent, msg);
                             } catch (ParseException e) {
                                 e.printStackTrace();
                             }
@@ -65,24 +75,92 @@ public class MasterAgent extends Agent {
                     block();
                 }
 
-                if (receivedTasksInfoFromAll() && receivedResourcesInfoFromAll()) {
-                    System.out.println( myAgent.getLocalName() + " Round: " + round);
-                    performTasks( myAgent);
-                    perishResourceItems( myAgent);
-                    resetRound();
-                    round += 1;
-                }
+                if (receivedInfoFromAll()) {
+                    for (int r=0; r<numberOfRounds; r++) {
+//                        System.out.println( myAgent.getLocalName() + " Round: " + r+1);
+                        for (var taskInfo : tasksInfo.entrySet() ) {
+                            findNewTasks (taskInfo.getValue().get(r));
+                        }
+                        for (var resourceInfo : resourcesInfo.entrySet() ) {
+                            findNewResources (resourceInfo.getValue().get(r));
+                        }
+                        performTasks( myAgent);
+                        perishResourceItems( myAgent);
+                    }
 
-                if (receivedUtilInfoFromAll()) {
                     System.out.println("Sum of agent utilities: " + agentUtilitiesSum());
                     System.out.println("Efficiency of the protocol: " + ((double) agentUtilitiesSum() / totalUtil * 100));
 
-                    for (var utilInfo: utilInfoReceived.entrySet()) {
-                        utilInfo.setValue( false);
-                    }
+                    block();
                 }
+
+//                if (receivedTasksInfoFromAll() && receivedResourcesInfoFromAll()) {
+//                    System.out.println( myAgent.getLocalName() + " Round: " + round);
+//                    performTasks( myAgent);
+//                    perishResourceItems( myAgent);
+//                    resetRound();
+//                    round += 1;
+//                }
+
+//                if (receivedUtilInfoFromAll()) {
+//                    System.out.println("Sum of agent utilities: " + agentUtilitiesSum());
+//                    System.out.println("Efficiency of the protocol: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+//
+//                    for (var utilInfo: utilInfoReceived.entrySet()) {
+//                        utilInfo.setValue( false);
+//                    }
+//                }
             }
         });
+    }
+
+
+    void findNewTasks (JSONObject joNewTasks) {
+
+        SortedSet<Task> newTasks = new TreeSet<>(new Task.taskComparator());
+        String id, resourceType;
+        Long utility, quantity;
+        Map<ResourceType, Long> requiredResources;
+        Iterator<String> keysIterator1 = joNewTasks.keySet().iterator();
+        while (keysIterator1.hasNext()) {
+            requiredResources = new LinkedHashMap<>();
+            id = keysIterator1.next();
+            JSONObject joTask = (JSONObject) joNewTasks.get(id);
+            utility = (Long) joTask.get("utility");
+            JSONObject joRequiredResources = (JSONObject) joTask.get("requiredResources");
+            Iterator<String> keysIterator2 = joRequiredResources.keySet().iterator();
+            while (keysIterator2.hasNext()) {
+                resourceType = keysIterator2.next();
+                quantity = (Long) joRequiredResources.get(resourceType);
+                requiredResources.put( ResourceType.valueOf(resourceType), quantity);
+            }
+            Task newTask = new Task(id, utility.intValue(), requiredResources);
+            newTasks.add( newTask);
+        }
+        toDoTasks.addAll( newTasks);
+    }
+
+
+    void findNewResources (JSONObject joNewResources) {
+
+        String resourceType;
+        String id;
+        Long lifetime;
+        Iterator<String> keysIterator1 = joNewResources.keySet().iterator();
+        while (keysIterator1.hasNext()) {
+            resourceType = keysIterator1.next();
+            JSONObject joItems = (JSONObject) joNewResources.get(resourceType);
+            Iterator<String> keysIterator2 = joItems.keySet().iterator();
+            while (keysIterator2.hasNext()) {
+                id = keysIterator2.next();
+                lifetime = (Long) joItems.get(id);
+                ResourceItem item = new ResourceItem(id, ResourceType.valueOf(resourceType), lifetime.intValue());
+                if (availableResources.containsKey( ResourceType.valueOf(resourceType)) == false) {
+                    availableResources.put(ResourceType.valueOf(resourceType), new TreeSet<>(new ResourceItem.resourceItemComparator()));
+                }
+                availableResources.get(ResourceType.valueOf(resourceType)).add(item);
+            }
+        }
     }
 
 
@@ -111,61 +189,82 @@ public class MasterAgent extends Agent {
 //            availableResources.put( resource.getKey(), availableItems);
         }
 
-        for (var entry : expiredResources.entrySet()) {
-            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
-        }
+//        for (var entry : expiredResources.entrySet()) {
+//            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+//        }
     }
 
 
-    boolean receivedTasksInfoFromAll() {
+    boolean receivedInfoFromAll() {
 
-        boolean received = true;
-        for (var taskInfo : tasksInfoReceived.entrySet() ) {
-            if (taskInfo.getValue() == false) {
-                received = false;
-                break;
+        for (var taskInfo : tasksInfo.entrySet() ) {
+            if (taskInfo.getValue().size() < numberOfRounds) {
+                return false;
             }
         }
-        return received;
-    }
-
-
-    boolean receivedResourcesInfoFromAll() {
-
-        boolean received = true;
-        for (var resourceInfo : resourcesInfoReceived.entrySet() ) {
-            if (resourceInfo.getValue() == false) {
-                received = false;
-                break;
+        for (var taskInfo : resourcesInfo.entrySet() ) {
+            if (taskInfo.getValue().size() < numberOfRounds) {
+                return false;
             }
         }
-        return received;
-    }
-
-
-    boolean receivedUtilInfoFromAll() {
-
-        boolean received = true;
-        for (var utilInfo : utilInfoReceived.entrySet() ) {
-            if (utilInfo.getValue() == false) {
-                received = false;
-                break;
+        for (var taskInfo : utilitiesInfo.entrySet() ) {
+            if (taskInfo.getValue().size() < numberOfRounds) {
+                return false;
             }
         }
-        return received;
+        return true;
     }
 
 
-    void resetRound() {
+//    boolean receivedTasksInfoFromAll() {
+//
+//        boolean received = true;
+//        for (var taskInfo : tasksInfoReceived.entrySet() ) {
+//            if (taskInfo.getValue() == false) {
+//                received = false;
+//                break;
+//            }
+//        }
+//        return received;
+//    }
 
-        for (var taskInfo: tasksInfoReceived.entrySet()) {
-            taskInfo.setValue( false);
-        }
 
-        for (var resourceInfo: resourcesInfoReceived.entrySet()) {
-            resourceInfo.setValue( false);
-        }
-    }
+//    boolean receivedResourcesInfoFromAll() {
+//
+//        boolean received = true;
+//        for (var resourceInfo : resourcesInfoReceived.entrySet() ) {
+//            if (resourceInfo.getValue() == false) {
+//                received = false;
+//                break;
+//            }
+//        }
+//        return received;
+//    }
+
+
+//    boolean receivedUtilInfoFromAll() {
+//
+//        boolean received = true;
+//        for (var utilInfo : utilInfoReceived.entrySet() ) {
+//            if (utilInfo.getValue() == false) {
+//                received = false;
+//                break;
+//            }
+//        }
+//        return received;
+//    }
+
+
+//    void resetRound() {
+//
+//        for (var taskInfo: tasksInfoReceived.entrySet()) {
+//            taskInfo.setValue( false);
+//        }
+//
+//        for (var resourceInfo: resourcesInfoReceived.entrySet()) {
+//            resourceInfo.setValue( false);
+//        }
+//    }
 
 
     private void performTasks(Agent myAgent) {
@@ -199,7 +298,7 @@ public class MasterAgent extends Agent {
             System.out.println("Error!!");
         }
 
-        System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+//        System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
     }
 
 
@@ -237,7 +336,7 @@ public class MasterAgent extends Agent {
     }
 
 
-    private void processNewTasksResourcesInfo(Agent myAgent, ACLMessage msg) throws ParseException {
+    private void storeInfo(Agent myAgent, ACLMessage msg) throws ParseException {
 
         String content = msg.getContent();
 
@@ -250,70 +349,23 @@ public class MasterAgent extends Agent {
         Long totalUtil = (Long) jo.get("totalUtil");
 
         if (joNewTasks != null) {
-            SortedSet<Task> newTasks = new TreeSet<>(new Task.taskComparator());
-            String id, resourceType;
-            Long utility, quantity;
-            Map<ResourceType, Integer> requiredResources;
-            Iterator<String> keysIterator1 = joNewTasks.keySet().iterator();
-            while (keysIterator1.hasNext()) {
-                requiredResources = new LinkedHashMap<>();
-                id = keysIterator1.next();
-                JSONObject joTask = (JSONObject) joNewTasks.get(id);
-                utility = (Long) joTask.get("utility");
-                JSONObject joRequiredResources = (JSONObject) joTask.get("requiredResources");
-                Iterator<String> keysIterator2 = joRequiredResources.keySet().iterator();
-                while (keysIterator2.hasNext()) {
-                    resourceType = keysIterator2.next();
-                    quantity = (Long) joRequiredResources.get(resourceType);
-                    requiredResources.put( ResourceType.valueOf(resourceType), quantity.intValue());
-                }
-                Task newTask = new Task(id, utility.intValue(), requiredResources);
-                newTasks.add( newTask);
-            }
-            toDoTasks.addAll( newTasks);
-            tasksInfoReceived.put( agentId, true);
+            tasksInfo.get(agentId).add( joNewTasks);
         }
 
         if (joNewResources != null) {
-            String resourceType;
-            String id;
-            Long lifetime;
-            Iterator<String> keysIterator1 = joNewResources.keySet().iterator();
-            while (keysIterator1.hasNext()) {
-                resourceType = keysIterator1.next();
-                JSONObject joItems = (JSONObject) joNewResources.get(resourceType);
-                Iterator<String> keysIterator2 = joItems.keySet().iterator();
-                while (keysIterator2.hasNext()) {
-                    id = keysIterator2.next();
-                    lifetime = (Long) joItems.get(id);
-                    ResourceItem item = new ResourceItem(id, ResourceType.valueOf(resourceType), lifetime.intValue());
-                    if (availableResources.containsKey( ResourceType.valueOf(resourceType)) == false) {
-                        availableResources.put(ResourceType.valueOf(resourceType), new TreeSet<>(new ResourceItem.resourceItemComparator()));
-                    }
-                    availableResources.get(ResourceType.valueOf(resourceType)).add(item);
-                }
-            }
-
-            resourcesInfoReceived.put( agentId, true);
+            resourcesInfo.get(agentId).add( joNewResources);
         }
 
         if (totalUtil != null) {
-            if (agentUtilities.containsKey(agentId) == false) {
-                agentUtilities.put(agentId, new ArrayList<>());
-            }
-            agentUtilities.get(agentId).add( totalUtil.intValue());
-
-            utilInfoReceived.put( agentId, true);
+            utilitiesInfo.get(agentId).add( totalUtil);
         }
-
-//        System.out.println("Hello");
     }
 
 
-    int agentUtilitiesSum() {
-        int sum = 0;
-        for( var agentUtil: agentUtilities.entrySet()) {
-            sum += agentUtil.getValue().get( agentUtil.getValue().size() - 1);
+    long agentUtilitiesSum() {
+        long sum = 0;
+        for( var utilInfo: utilitiesInfo.entrySet()) {
+            sum += utilInfo.getValue().get( numberOfRounds - 1);
         }
         return sum;
     }

@@ -5,11 +5,11 @@ import java.util.*;
 public class Task {
 
     String id;
-    int utility;
-    Map<ResourceType, Integer> requiredResources;
+    long utility;
+    Map<ResourceType, Long> requiredResources;
 //    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
 
-    public Task(String id, int utility, Map<ResourceType, Integer> requiredResources) {
+    public Task(String id, long utility, Map<ResourceType, Long> requiredResources) {
         this.id = id;
         this.utility = utility;
         this.requiredResources = requiredResources;

@@ -22,7 +22,8 @@ public class AdaptiveAgent extends Agent {
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
-    private int totalUtil;
+    private long totalUtil;
+    private int numberOfRounds;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -52,11 +53,12 @@ public class AdaptiveAgent extends Agent {
                     otherAgentsPhases.put(aid, ProtocolPhase.REQUESTING);
                 }
             }
+            numberOfRounds = (int) args[2];
         }
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
-                if (this.getTickCount() < 501) {
+                if (this.getTickCount() <= numberOfRounds) {
                     System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                     findTasks(myAgent);
@@ -148,11 +150,17 @@ public class AdaptiveAgent extends Agent {
         deliberateOnRequesting (myAgent);
         sendNextPhaseNotification (ProtocolPhase.BIDDING);
         waitForRequests( myAgent);
+        if( myAgent.getLocalName().equals("Agent1")) {
+            System.out.print("");
+        }
         if (receivedRequests.size() > 0) {
             deliberateOnBidding( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForBids( myAgent);
+        if( myAgent.getLocalName().equals("Agent1")) {
+            System.out.print("");
+        }
         if (receivedBids.size() > 0) {
             deliberateOnConfirming( myAgent);
         }
@@ -162,6 +170,10 @@ public class AdaptiveAgent extends Agent {
 
 
     void deliberateOnRequesting (Agent myAgent) {
+
+        if( myAgent.getLocalName().equals("Agent1")) {
+            System.out.print("");
+        }
 
         Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
 
@@ -276,6 +288,10 @@ public class AdaptiveAgent extends Agent {
 
     private void performTasks(Agent myAgent) {
 
+        if( myAgent.getLocalName().equals("Agent1")) {
+            System.out.print("");
+        }
+
         System.out.println( myAgent.getLocalName() + " Number of To Do Tasks: " + toDoTasks.size());
 //        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
         int count = 0;
@@ -351,16 +367,16 @@ public class AdaptiveAgent extends Agent {
 
         // creates a request based on the missing quantity for each resource type
 
-        Map<ResourceType, Integer> totalRequiredResources = new LinkedHashMap<>();
+        Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
-                totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0) + entry.getValue());
+                totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0L) + entry.getValue());
             }
         }
 
         for (var entry : totalRequiredResources.entrySet()) {
-            int missingQuantity = 0;
+            long missingQuantity = 0;
             if ( remainingResources.containsKey( entry.getKey())) {
                 if (remainingResources.get(entry.getKey()).size() < entry.getValue()) {
                     missingQuantity = entry.getValue() - remainingResources.get(entry.getKey()).size();
@@ -370,19 +386,19 @@ public class AdaptiveAgent extends Agent {
             }
 
             if (missingQuantity > 0) {
-                Map<Integer, Integer> utilityFunction = computeRequestUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
+                Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
                 sendRequest(entry.getKey(), missingQuantity, utilityFunction, myAgent);
             }
         }
     }
 
 
-    Map<Integer, Integer> computeRequestUtilityFunction(SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, int missingQuantity) {
+    Map<Long, Long> computeRequestUtilityFunction(SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, long missingQuantity) {
 
-        Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
-        for (int i=1; i<=missingQuantity; i++) {
-            int q = remainingResources.get(resourceType).size() + i;
-            int totalUtility = 0;
+        Map<Long, Long> utilityFunction = new LinkedHashMap<>();
+        for (long i=1; i<=missingQuantity; i++) {
+            long q = remainingResources.get(resourceType).size() + i;
+            long totalUtility = 0;
             for (Task task : blockedTasks) {
                 if (task.requiredResources.containsKey(resourceType)) {
                     if (q >= task.requiredResources.get(resourceType)) {
@@ -397,7 +413,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    Map<Integer, Integer> computeBidCostFunction(ResourceType resourceType, int bidQuantity, Map<Integer, Integer> requestUtilityFunction) {
+    Map<Long, Long> computeBidCostFunction(ResourceType resourceType, long bidQuantity, Map<Long, Long> requestUtilityFunction) {
 
 //        int requiredQuantity = 0;
 //        for (Task task : toDoTasks) {
@@ -408,11 +424,11 @@ public class AdaptiveAgent extends Agent {
 //            }
 //        }
 
-        int availableQuantity = availableResources.get(resourceType).size();
-        int totalUtil = utilityOfResources(resourceType, availableQuantity);
-        int bidCost, requestUtil;
-        Map<Integer, Integer> bidCostFunction = new LinkedHashMap<>();
-        for (int q=1; q<=bidQuantity; q++) {
+        long availableQuantity = availableResources.get(resourceType).size();
+        long totalUtil = utilityOfResources(resourceType, availableQuantity);
+        long bidCost, requestUtil;
+        Map<Long, Long> bidCostFunction = new LinkedHashMap<>();
+        for (long q=1; q<=bidQuantity; q++) {
 //            if( q <= requiredQuantity) {
                 bidCost = totalUtil - utilityOfResources( resourceType, availableQuantity - q);
                 requestUtil = requestUtilityFunction.get(q);
@@ -425,9 +441,9 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    int utilityOfResources (ResourceType resourceType, int quantity) {
+    long utilityOfResources (ResourceType resourceType, long quantity) {
 
-        int totalUtility = 0;
+        long totalUtility = 0;
         for (Task task : toDoTasks) {
             if (task.requiredResources.containsKey(resourceType)) {
                 if (quantity >= task.requiredResources.get(resourceType)) {
@@ -440,7 +456,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private void sendRequest (ResourceType resourceType, int missingQuantity, Map<Integer, Integer> utilityFunction, Agent myAgent) {
+    private void sendRequest (ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
@@ -482,12 +498,12 @@ public class AdaptiveAgent extends Agent {
 
 //        System.out.println( myAgent.getLocalName() + " received request with quantity " + requestedQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
 
-        Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
+        Map<Long, Long> utilityFunction = new LinkedHashMap<>();
         Iterator<String> keysIterator = joUtilityFunction.keySet().iterator();
         while (keysIterator.hasNext()) {
             String key = keysIterator.next();
             Long value = (Long) joUtilityFunction.get(key);
-            utilityFunction.put( Integer.valueOf(key), value.intValue());
+            utilityFunction.put( Long.valueOf(key), value);
         }
 
         Request request = new Request(reqId, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender());
@@ -518,10 +534,14 @@ public class AdaptiveAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-        int bidQuantity;
+        if( myAgent.getLocalName().equals("Agent1")) {
+            System.out.print("");
+        }
+
+        long bidQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
             if (availableResources.get(requestsForType.getKey()) != null) {
-                int availableQuantity = availableResources.get(requestsForType.getKey()).size();
+                long availableQuantity = availableResources.get(requestsForType.getKey()).size();
                 ArrayList<Request> requests = requestsForType.getValue();
                 while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
@@ -531,10 +551,10 @@ public class AdaptiveAgent extends Agent {
                     } else {
                         bidQuantity = selectedRequest.quantity;
                     }
-                    Map<Integer, Integer> costFunction = computeBidCostFunction(selectedRequest.resourceType, bidQuantity, selectedRequest.utilityFunction);
+                    Map<Long, Long> costFunction = computeBidCostFunction(selectedRequest.resourceType, bidQuantity, selectedRequest.utilityFunction);
 //                    int exp = computeExpectedUtilityOfResources(selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                    int cost = costFunction.get(bidQuantity);
-                    int util = selectedRequest.utilityFunction.get(bidQuantity);
+                    long cost = costFunction.get(bidQuantity);
+                    long util = selectedRequest.utilityFunction.get(bidQuantity);
                     if (cost < util) {
                         createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
                         availableQuantity = availableQuantity - bidQuantity;
@@ -563,11 +583,11 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    Request selectBestRequest(ArrayList<Request> requests, int remainingQuantity) {
+    Request selectBestRequest(ArrayList<Request> requests, long remainingQuantity) {
 
         Request selectedRequest = requests.get(0);
-        int highestUtility = 0;
-        int bidQuantity;
+        long highestUtility = 0;
+        long bidQuantity;
 
         for (Request request : requests) {
             if (remainingQuantity < request.quantity) {
@@ -575,7 +595,7 @@ public class AdaptiveAgent extends Agent {
             } else {
                 bidQuantity = request.quantity;
             }
-            int util = request.utilityFunction.get(bidQuantity);
+            long util = request.utilityFunction.get(bidQuantity);
             if (util > highestUtility) {
                 highestUtility = util;
                 selectedRequest = request;
@@ -586,7 +606,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, int bidQuantity, Map<Integer, Integer> costFunction, SortedSet<ResourceItem> availableItems) {
+    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, long bidQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems) {
 
 //        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
 //        for (int q=1; q<=bidQuantity; q++) {
@@ -596,7 +616,7 @@ public class AdaptiveAgent extends Agent {
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         Iterator<ResourceItem> itr = availableItems.iterator();
-        int q=1;
+        long q=1;
         while (q<=bidQuantity) {
             ResourceItem item = itr.next();
             offeredItems.put(item.getId(), item.getLifetime());
@@ -617,7 +637,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private void sendBid (String reqId, String bidId, AID requester, ResourceType resourceType, int bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
+    private void sendBid (String reqId, String bidId, AID requester, ResourceType resourceType, long bidQuantity, Map<Long, Long> costFunction, Map<String, Integer> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -660,12 +680,12 @@ public class AdaptiveAgent extends Agent {
 
         System.out.println( myAgent.getLocalName() + " received bid with quantity " + bidQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
 
-        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
+        Map<Long, Long> costFunction = new LinkedHashMap<>();
         Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
         while (keysIterator1.hasNext()) {
             String key = keysIterator1.next();
             Long value = (Long) joCostFunction.get(key);
-            costFunction.put( Integer.valueOf(key), value.intValue());
+            costFunction.put( Long.valueOf(key), value);
         }
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
@@ -689,11 +709,15 @@ public class AdaptiveAgent extends Agent {
 
     void deliberateOnConfirming( Agent myAgent) {
 
-        Map<Request, Map<Bid, Integer>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
+        if( myAgent.getLocalName().equals("Agent1")) {
+            System.out.print("");
+        }
+
+        Map<Request, Map<Bid, Long>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
 
         for (var request : sentRequests.entrySet()) {
             if ( receivedBids.containsKey(request.getKey())) {
-                Map<Bid, Integer> confirmQuantities = processBids( request.getValue());
+                Map<Bid, Long> confirmQuantities = processBids( request.getValue());
                 if (confirmQuantities.size() == 0) {
                     System.out.println("Error!!");
                 }
@@ -710,7 +734,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    void addResourceItemsInBids (Map<Request, Map<Bid, Integer>> confirmQuantitiesForAllRequests) {
+    void addResourceItemsInBids (Map<Request, Map<Bid, Long>> confirmQuantitiesForAllRequests) {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             SortedSet<ResourceItem> resourceItems;
@@ -726,7 +750,7 @@ public class AdaptiveAgent extends Agent {
                     offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), bidQuantity.getKey().resourceType, itemIdLifetime.getValue()));
                 }
                 Iterator<ResourceItem> itr = offeredItems.iterator();
-                int q=1;
+                long q=1;
                 while (q<=bidQuantity.getValue()) {
                     ResourceItem item = itr.next();
                     resourceItems.add(item);
@@ -752,7 +776,7 @@ public class AdaptiveAgent extends Agent {
             }
             Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
             for (var bidQuantity : bidQuantities.entrySet()) {
-                int q=1;
+                long q=1;
                 for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
                     if (q<=bidQuantity.getValue()) {
                         resourceItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
@@ -780,21 +804,21 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    public Map<Bid, Integer> processBids (Request request) {
+    public Map<Bid, Long> processBids (Request request) {
 
         // the requester selects the combination of bids that maximizes the difference between the utility of request and the total cost of all selected bids.
         // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
         // a greedy approach: we add 1 item from one bid in a loop up to the requested amount, without backtracking.
 
         Set<Bid> bids = receivedBids.get(request.id);
-        int minCost, cost;
+        long minCost, cost;
         Bid lowCostBid;
-        Map<Bid, Integer> confirmQuantities = new LinkedHashMap<>();
+        Map<Bid, Long> confirmQuantities = new LinkedHashMap<>();
         for (Bid bid : bids) {
-            confirmQuantities.put(bid, 0);
+            confirmQuantities.put(bid, 0L);
         }
 
-        for (int q=1; q<=request.quantity; q++) {
+        for (long q=1; q<=request.quantity; q++) {
             minCost = Integer.MAX_VALUE;
             lowCostBid = null;
             for (Bid bid : bids) {
@@ -817,7 +841,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private boolean hasExtraItem (Bid bid, Map<Bid, Integer> confirmQuantities) {
+    private boolean hasExtraItem (Bid bid, Map<Bid, Long> confirmQuantities) {
 
 //        if ( confirmQuantities.containsKey(bid)) {
             if (confirmQuantities.get(bid) < bid.quantity) {
@@ -831,11 +855,11 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private int totalCost(Bid bid, Map<Bid, Integer> confirmQuantities) {
+    private long totalCost(Bid bid, Map<Bid, Long> confirmQuantities) {
 
-        int totalCost = 0;
+        long totalCost = 0;
 
-        Map<Bid, Integer> tempQuantities =  new LinkedHashMap<>();
+        Map<Bid, Long> tempQuantities =  new LinkedHashMap<>();
         for (var entry : confirmQuantities.entrySet()) {
             if (entry.getValue() > 0) {
                 tempQuantities.put(entry.getKey(), entry.getValue());
@@ -845,7 +869,7 @@ public class AdaptiveAgent extends Agent {
         if (tempQuantities.containsKey(bid)) {
             tempQuantities.put(bid, tempQuantities.get(bid) + 1);
         } else {
-            tempQuantities.put(bid, 1);
+            tempQuantities.put(bid, 1L);
         }
 
         for (var entry : tempQuantities.entrySet()) {
@@ -879,7 +903,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    private void createConfirmation (Agent myAgent, Map<Request, Map<Bid, Integer>> confirmQuantitiesForAllRequests) {
+    private void createConfirmation (Agent myAgent, Map<Request, Map<Bid, Long>> confirmQuantitiesForAllRequests) {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var bidQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
@@ -889,7 +913,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    void sendConfirmation (Agent myAgent, String bidId, AID bidder, ResourceType resourceType, int confirmQuantity) {
+    void sendConfirmation (Agent myAgent, String bidId, AID bidder, ResourceType resourceType, long confirmQuantity) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.CONFIRM);
 
@@ -937,7 +961,7 @@ public class AdaptiveAgent extends Agent {
                 offeredItems.add(new ResourceItem(offeredItem.getKey(), resourceType, offeredItem.getValue()));
             }
             Iterator<ResourceItem> itr = offeredItems.iterator();
-            int q=1;
+            long q=1;
             while (q<=confirmQuantity) {
                 ResourceItem item = itr.next();
                 offeredItems.remove(item);
@@ -978,12 +1002,12 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    int computeExpectedUtilityOfResources ( ResourceType resourceType, int quantity, SortedSet<ResourceItem> resourceItems) {
+    long computeExpectedUtilityOfResources ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
 
-        int exp = 0;
+        long exp = 0;
         ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
-        int totalUtilityWithThisResourceType = 0;
-        int totalQuantityOfThisResourceType = 0;
+        long totalUtilityWithThisResourceType = 0;
+        long totalQuantityOfThisResourceType = 0;
 
         for (Task task : doneTasks) {
             if (task.requiredResources.containsKey(resourceType)) {
@@ -995,7 +1019,7 @@ public class AdaptiveAgent extends Agent {
 
         if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
             Iterator<ResourceItem> itr = resourceItems.iterator();
-            int q=1;
+            long q=1;
             while (q <= quantity) {
                 ResourceItem item = itr.next();
                 exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
@@ -1086,7 +1110,7 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    void sendTotalUtilToMasterAgent (int totalUtil, Agent myAgent) {
+    void sendTotalUtilToMasterAgent (long totalUtil, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
         AID aid = new AID("Agent0", AID.ISLOCALNAME);
@@ -1103,6 +1127,10 @@ public class AdaptiveAgent extends Agent {
 
 
     void receiveMessages(Agent myAgent, int performative) {
+
+        if( myAgent.getLocalName().equals("Agent1")) {
+            System.out.print("");
+        }
 
         MessageTemplate mt = MessageTemplate.MatchPerformative( performative);
 

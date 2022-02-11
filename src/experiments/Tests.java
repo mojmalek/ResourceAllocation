@@ -29,9 +29,9 @@ public class Tests {
 
         String reqId = UUID.randomUUID().toString();
 
-        Map<Integer, Integer> utilityFunction = new LinkedHashMap<>();
-        for (int i=1; i<=10; i++) {
-            utilityFunction.put(i, i*3);
+        Map<Long, Long> utilityFunction = new LinkedHashMap<>();
+        for (long i=1; i<=10; i++) {
+            utilityFunction.put( i, i*3);
         }
 
         Request request = new Request (reqId, 10, ResourceType.A, utilityFunction, agent1);
@@ -40,10 +40,10 @@ public class Tests {
 
         String bidId = UUID.randomUUID().toString();
 
-        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-        costFunction.put(1, 1);
-        costFunction.put(2, 2);
-        costFunction.put(3, 3);
+        Map<Long, Long> costFunction = new LinkedHashMap<>();
+        costFunction.put(1L, 1L);
+        costFunction.put(2L, 2L);
+        costFunction.put(3L, 3L);
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         offeredItems.put ("res1", 10);
@@ -55,11 +55,11 @@ public class Tests {
         bidId = UUID.randomUUID().toString();
 
         costFunction = new LinkedHashMap<>();
-        costFunction.put(1, 10);
-        costFunction.put(2, 20);
-        costFunction.put(3, 30);
-        costFunction.put(4, 40);
-        costFunction.put(5, 50);
+        costFunction.put(1L, 10L);
+        costFunction.put(2L, 20L);
+        costFunction.put(3L, 30L);
+        costFunction.put(4L, 40L);
+        costFunction.put(5L, 50L);
 
         offeredItems = new LinkedHashMap<>();
         offeredItems.put ("res1", 10);
@@ -73,10 +73,10 @@ public class Tests {
         bidId = UUID.randomUUID().toString();
 
         costFunction = new LinkedHashMap<>();
-        costFunction.put(1, 2);
-        costFunction.put(2, 4);
-        costFunction.put(3, 6);
-        costFunction.put(4, 8);
+        costFunction.put(1L, 2L);
+        costFunction.put(2L, 4L);
+        costFunction.put(3L, 6L);
+        costFunction.put(4L, 8L);
 
         offeredItems = new LinkedHashMap<>();
         offeredItems.put ("res1", 10);
@@ -95,7 +95,7 @@ public class Tests {
 
         agent.receivedBids = receivedBids;
 
-        Map<Bid, Integer> selectedBids = agent.processBids( request);
+        Map<Bid, Long> selectedBids = agent.processBids( request);
 
         System.out.println(selectedBids);
     }
