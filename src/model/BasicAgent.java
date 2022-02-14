@@ -518,14 +518,47 @@ public class BasicAgent extends Agent {
     long utilityOfResources (ResourceType resourceType, long quantity) {
 
         long totalUtility = 0;
+//        for (Task task : toDoTasks) {
+//            if (task.requiredResources.containsKey(resourceType)) {
+//                if (quantity >= task.requiredResources.get(resourceType)) {
+//                    totalUtility += task.utility;
+//                    quantity = quantity - task.requiredResources.get(resourceType);
+//                }
+//            }
+//        }
+
+        // determine the utility of tasks that can be done given all types of available resources
+        Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
+        Map<ResourceType, Long> resourceQuantities = new LinkedHashMap<>();
+        for (var entry: resources.entrySet()) {
+            if (entry.getKey() == resourceType) {
+                resourceQuantities.put(entry.getKey(), quantity);
+            } else {
+                resourceQuantities.put(entry.getKey(), (long) entry.getValue().size());
+            }
+        }
+
         for (Task task : toDoTasks) {
+            boolean enough = true;
             if (task.requiredResources.containsKey(resourceType)) {
-                if (quantity >= task.requiredResources.get(resourceType)) {
+                for (var entry: task.requiredResources.entrySet()) {
+                    if (resourceQuantities.containsKey(entry.getKey()) == false) {
+                        enough = false;
+                        break;
+                    } else if (entry.getValue() > resourceQuantities.get(entry.getKey())) {
+                        enough = false;
+                        break;
+                    }
+                }
+                if (enough == true ) {
                     totalUtility += task.utility;
-                    quantity = quantity - task.requiredResources.get(resourceType);
+                    for (var entry: task.requiredResources.entrySet()) {
+                        resourceQuantities.put( entry.getKey(), resourceQuantities.get(entry.getKey()) - entry.getValue());
+                    }
                 }
             }
         }
+
         return totalUtility;
     }
 
