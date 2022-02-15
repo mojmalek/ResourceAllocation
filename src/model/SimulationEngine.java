@@ -16,21 +16,23 @@ public class SimulationEngine {
         long minQuantity = 3;
         long quantityVariation = 3;
         long minUtil = 1;
-//        if( myAgent.getLocalName().equals("Agent1")) {
-//            minUtil = 1000;
-//        } else {
-//            minUtil = 1;
-//        }
-        long utilVariation = 100;
+        if( myAgent.getLocalName().equals("Agent1")) {
+            minUtil = 100;
+        }
+        if( myAgent.getLocalName().equals("Agent2")) {
+            minUtil = 100;
+        }
+        if( myAgent.getLocalName().equals("Agent3")) {
+            minUtil = 100;
+        }
+        if( myAgent.getLocalName().equals("Agent4")) {
+            minUtil = 100;
+        }
+        long utilVariation = 50;
         long quantity, utility;
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i = 0; i < resourceTypeValues.length; i++) {
-//                if( myAgent.getLocalName().equals("Agent1")) {
-//                    minQuantity = 1;
-//                } else {
-//                    minQuantity = 1000;
-//                }
                 quantity = minQuantity + random.nextLong(quantityVariation);
                 requiredResources.put(resourceTypeValues[i], quantity);
             }
@@ -50,11 +52,18 @@ public class SimulationEngine {
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         long minQuantity = 2;
-//        if( myAgent.getLocalName().equals("Agent1")) {
-//            minQuantity = 4;
-//        } else {
-//            minQuantity = 1;
-//        }
+        if( myAgent.getLocalName().equals("Agent5")) {
+            minQuantity = 5;
+        }
+        if( myAgent.getLocalName().equals("Agent6")) {
+            minQuantity = 5;
+        }
+        if( myAgent.getLocalName().equals("Agent7")) {
+            minQuantity = 5;
+        }
+        if( myAgent.getLocalName().equals("Agent8")) {
+            minQuantity = 5;
+        }
         long quantityVariation = 6;
         int minLifetime = 2;
         int lifetimeVariation = 3;

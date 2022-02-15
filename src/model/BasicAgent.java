@@ -691,6 +691,7 @@ public class BasicAgent extends Agent {
 
         for (var reqIdRequest : sentRequests.entrySet()) {
             if ( receivedBids.containsKey( reqIdRequest.getKey())) {
+                // select the bid with highest quantity
                 Bid selectedBid = selectBestBid( reqIdRequest.getValue());
                 createConfirmation( myAgent, selectedBid);
                 addResourceItemsInBid(selectedBid);

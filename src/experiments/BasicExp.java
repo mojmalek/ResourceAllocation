@@ -17,7 +17,7 @@ public class BasicExp {
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc=rt.createMainContainer(p);
         int numberOfRounds = 500;
-        int numberOfAgents = 4;
+        int numberOfAgents = 8;
         for(int i=0; i<=numberOfAgents; i++) {
             AgentController ac;
             try {

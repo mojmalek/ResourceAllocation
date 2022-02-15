@@ -754,12 +754,14 @@ public class AdaptiveAgent extends Agent {
             }
         }
 
-//        if (hasEnoughResourcesByConfirmBids( confirmQuantitiesForAllRequests)) {
-            if ( confirmQuantitiesForAllRequests.size() > 0) {
+        if (confirmQuantitiesForAllRequests.size() > 0) {
+            if (thereIsBenefitToConfirmBids( confirmQuantitiesForAllRequests)) {
                 createConfirmation( myAgent, confirmQuantitiesForAllRequests);
                 addResourceItemsInBids(confirmQuantitiesForAllRequests);
+            } else {
+                createRejection( myAgent, confirmQuantitiesForAllRequests);
             }
-//        }
+        }
     }
 
 
@@ -792,44 +794,75 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    boolean hasEnoughResourcesByConfirmBids (Map<Request, Map<Bid, Integer>> selectedBidsForAllRequests) {
+    boolean thereIsBenefitToConfirmBids(Map<Request, Map<Bid, Long>> selectedBidsForAllRequests) {
 
-        Map<ResourceType, SortedSet<ResourceItem>> allResourcesByConfirmBids = new LinkedHashMap<>(availableResources);
+        Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
+        Map<ResourceType, Long> resourceQuantities = new LinkedHashMap<>();
+        for (var entry: resources.entrySet()) {
+            resourceQuantities.put(entry.getKey(), (long) entry.getValue().size());
+        }
+        long totalUtilityBeforeConfirm = totalUtilityOfResources( resourceQuantities);
 
+        long sum;
         for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
-            SortedSet<ResourceItem> resourceItems;
-            if (allResourcesByConfirmBids.containsKey(selectedBidsForReq.getKey().resourceType)) {
-                resourceItems = allResourcesByConfirmBids.get( selectedBidsForReq.getKey().resourceType);
-            } else {
-                resourceItems = new TreeSet<>();
+            sum = 0;
+            for (var bidQuantity: selectedBidsForReq.getValue().entrySet()) {
+                sum += bidQuantity.getValue();
             }
-            Map<Bid, Integer> bidQuantities = selectedBidsForReq.getValue();
-            for (var bidQuantity : bidQuantities.entrySet()) {
-                long q=1;
-                for (var offeredItem : bidQuantity.getKey().offeredItems.entrySet()) {
-                    if (q<=bidQuantity.getValue()) {
-                        resourceItems.add(new ResourceItem(offeredItem.getKey(), bidQuantity.getKey().resourceType, offeredItem.getValue()));
-                        q++;
-                    }
-                    else {
-                        break;
-                    }
+            if (resourceQuantities.containsKey(selectedBidsForReq.getKey().resourceType)) {
+                resourceQuantities.put(selectedBidsForReq.getKey().resourceType, resourceQuantities.get(selectedBidsForReq.getKey().resourceType) + sum);
+            } else {
+                resourceQuantities.put(selectedBidsForReq.getKey().resourceType, sum);
+            }
+        }
+
+        long totalUtilityAfterConfirm = totalUtilityOfResources( resourceQuantities);
+
+        // find the max cost of bids per request
+        long maxCost = 0, cost;
+        for (var selectedBidsForReq : selectedBidsForAllRequests.entrySet()) {
+            cost = 0;
+            for (var bidQuantity : selectedBidsForReq.getValue().entrySet()) {
+                if (bidQuantity.getValue() > 0) {
+                    cost = cost + bidQuantity.getKey().costFunction.get(bidQuantity.getValue());
                 }
             }
-
-            allResourcesByConfirmBids.put( selectedBidsForReq.getKey().resourceType, resourceItems);
-        }
-
-        // check if there is enough resource to perform at least one task
-        boolean enough = false;
-        for (Task task : toDoTasks) {
-            if (hasEnoughResources( task, allResourcesByConfirmBids)) {
-                enough = true;
-                break;
+            if (cost > maxCost) {
+                maxCost = cost;
             }
         }
 
-        return enough;
+        if (totalUtilityAfterConfirm - totalUtilityBeforeConfirm > maxCost) {
+//        if (totalUtilityAfterConfirm - totalUtilityBeforeConfirm > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+    long totalUtilityOfResources (Map<ResourceType, Long> resourceQuantities) {
+
+        long totalUtility = 0;
+        for (Task task : toDoTasks) {
+            boolean enough = true;
+            for (var entry: task.requiredResources.entrySet()) {
+                if (resourceQuantities.containsKey(entry.getKey()) == false) {
+                    enough = false;
+                    break;
+                } else if (entry.getValue() > resourceQuantities.get(entry.getKey())) {
+                    enough = false;
+                    break;
+                }
+            }
+            if (enough == true ) {
+                totalUtility += task.utility;
+                for (var entry: task.requiredResources.entrySet()) {
+                    resourceQuantities.put( entry.getKey(), resourceQuantities.get(entry.getKey()) - entry.getValue());
+                }
+            }
+        }
+        return totalUtility;
     }
 
 
@@ -937,6 +970,16 @@ public class AdaptiveAgent extends Agent {
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var bidQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
                 sendConfirmation (myAgent, bidQuantity.getKey().id, bidQuantity.getKey().sender, bidQuantity.getKey().resourceType, bidQuantity.getValue());
+            }
+        }
+    }
+
+
+    private void createRejection (Agent myAgent, Map<Request, Map<Bid, Long>> confirmQuantitiesForAllRequests) {
+
+        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
+            for (var bidQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
+                sendConfirmation (myAgent, bidQuantity.getKey().id, bidQuantity.getKey().sender, bidQuantity.getKey().resourceType, 0);
             }
         }
     }
