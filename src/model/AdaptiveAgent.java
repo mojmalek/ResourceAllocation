@@ -413,25 +413,17 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    Map<Long, Long> computeBidCostFunction(ResourceType resourceType, long availableQuantity, long bidQuantity, Map<Long, Long> requestUtilityFunction) {
-
-//        int requiredQuantity = 0;
-//        for (Task task : toDoTasks) {
-//            for (var resTypeQuantity : task.requiredResources.entrySet()) {
-//                if (resTypeQuantity.getKey() == resourceType) {
-//                    requiredQuantity += resTypeQuantity.getValue();
-//                }
-//            }
-//        }
+    Map<Long, Long> computeBidCostFunction(ResourceType resourceType, long availableQuantity, long bidQuantity) {
 
         long cost, expectedCost = 0;
         Map<Long, Long> bidCostFunction = new LinkedHashMap<>();
         for (long q=1; q<=bidQuantity; q++) {
-//            if( q <= requiredQuantity) {
-                cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
-//                expectedCost = computeExpectedUtilityOfResources( resourceType, bidQuantity, availableResources.get(resourceType));
-                bidCostFunction.put(q, cost + expectedCost);
-//            }
+            cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
+            if (cost == 0) {
+                expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
+            }
+            // best coefficient: 0.03
+            bidCostFunction.put(q, (long) (cost + 0.03 * expectedCost));
         }
 
         return bidCostFunction;
@@ -581,7 +573,7 @@ public class AdaptiveAgent extends Agent {
                     } else {
                         bidQuantity = selectedRequest.quantity;
                     }
-                    Map<Long, Long> costFunction = computeBidCostFunction(selectedRequest.resourceType, availableQuantity, bidQuantity, selectedRequest.utilityFunction);
+                    Map<Long, Long> costFunction = computeBidCostFunction(selectedRequest.resourceType, availableQuantity, bidQuantity);
                     long cost = costFunction.get(bidQuantity);
                     long benefit = selectedRequest.utilityFunction.get(bidQuantity);
                     if (cost < benefit) {
@@ -597,18 +589,6 @@ public class AdaptiveAgent extends Agent {
             // reject or cascade the requests
             }
         }
-    }
-
-
-    int getActualBidQuantity ( Set<Integer> quantities) {
-        int max = 0;
-        for (int q: quantities) {
-            if (q > max) {
-                max = q;
-            }
-        }
-
-        return max;
     }
 
 
@@ -637,31 +617,19 @@ public class AdaptiveAgent extends Agent {
 
     private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, long bidQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems) {
 
-//        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-//        for (int q=1; q<=bidQuantity; q++) {
-//            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
-//            costFunction.put(q, cost);
-//        }
-
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
-        Iterator<ResourceItem> itr = availableItems.iterator();
-        long q=1;
-        while (q<=bidQuantity) {
-            ResourceItem item = itr.next();
+
+        for (long q=0; q<bidQuantity; q++) {
+            ResourceItem item = availableItems.first();
             offeredItems.put(item.getId(), item.getLifetime());
             availableItems.remove( item);
-            itr = availableItems.iterator();
-            q++;
         }
 
         String bidId = UUID.randomUUID().toString();
         Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, costFunction, offeredItems, bidder, requester);
-
         sentBids.put( bidId, bid);
-//        availableResources.put( resourceType, availableItems);
 
         sendBid(reqId, bidId, requester, resourceType, bidQuantity, costFunction, offeredItems);
-
 //        System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
     }
 
