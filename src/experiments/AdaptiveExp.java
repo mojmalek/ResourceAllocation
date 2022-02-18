@@ -7,30 +7,37 @@ import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
 
+import java.io.File;
+import java.util.Date;
+
 public class AdaptiveExp {
 
     public static void main(String[] args) {
 
-        Runtime rt=Runtime.instance();
-        Profile p=new ProfileImpl();
+        String logFileName = "logs/" + "AdaptiveExp-Agent0-" + new Date() + ".txt";
+        File logFile = new File (logFileName);
+        Runtime rt = Runtime.instance();
+        Profile p = new ProfileImpl();
         p.setParameter(Profile.MAIN_HOST, "localhost");
 //        p.setParameter(Profile.GUI, "true");
-        ContainerController cc=rt.createMainContainer(p);
-        int numberOfRounds = 500;
-        int numberOfAgents = 16;
-        for(int i=0; i<=numberOfAgents; i++) {
-            AgentController ac;
-            try {
-                if (i == 0) {
-                    ac = cc.createNewAgent("Agent0", "model.MasterAgent", new Object[]{numberOfAgents, numberOfRounds});
-                    ac.start();
-                } else {
-                    ac = cc.createNewAgent("Agent" + i, "model.AdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds});
-                    ac.start();
-                }
+        ContainerController cc = rt.createMainContainer(p);
+        int numberOfRounds = 1000;
+//        int numberOfAgents = 4;
+        for (int numberOfAgents=2; numberOfAgents<65; numberOfAgents=numberOfAgents*2) {
+            for (int i = 0; i <= numberOfAgents; i++) {
+                AgentController ac;
+                try {
+                    if (i == 0) {
+                        ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.MasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileName});
+                        ac.start();
+                    } else {
+                        ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.AdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds});
+                        ac.start();
+                    }
 //                ac.start();
-            } catch (StaleProxyException e) {
-                e.printStackTrace();
+                } catch (StaleProxyException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }

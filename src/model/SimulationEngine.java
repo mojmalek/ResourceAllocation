@@ -12,31 +12,38 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        int numOfTasks = 2;
-        long minQuantity = 3;
-        long quantityVariation = 3;
-        long minUtil = 1;
-        if( myAgent.getLocalName().equals("Agent1")) {
-            minUtil = 100;
-        }
-        if( myAgent.getLocalName().equals("Agent2")) {
-            minUtil = 100;
-        }
-        if( myAgent.getLocalName().equals("Agent3")) {
-            minUtil = 100;
-        }
-        if( myAgent.getLocalName().equals("Agent4")) {
-            minUtil = 100;
-        }
-        long utilVariation = 50;
+        int[] taskNums = new int[] {1, 2, 3, 4};
+        int numOfTasks = taskNums[random.nextInt( taskNums.length)];
+        long[] quantities = new long[] {0, 1, 3, 5};
+//        long minQuantity = 3;
+//        long quantityVariation = 3;
+        long[] utilities = new long[] {1, 5, 10, 50, 100};
+//        long minUtil = 1;
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            minUtil = 100;
+//        }
+//        if( myAgent.getLocalName().equals("Agent2")) {
+//            minUtil = 100;
+//        }
+//        if( myAgent.getLocalName().equals("Agent3")) {
+//            minUtil = 100;
+//        }
+//        if( myAgent.getLocalName().equals("Agent4")) {
+//            minUtil = 100;
+//        }
+//        long utilVariation = 50;
         long quantity, utility;
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i = 0; i < resourceTypeValues.length; i++) {
-                quantity = minQuantity + random.nextLong(quantityVariation);
-                requiredResources.put(resourceTypeValues[i], quantity);
+//                quantity = minQuantity + random.nextLong(quantityVariation);
+                quantity = quantities[random.nextInt( quantities.length)];
+                if (quantity > 0) {
+                    requiredResources.put(resourceTypeValues[i], quantity);
+                }
             }
-            utility = minUtil + random.nextLong(utilVariation);
+//            utility = minUtil + random.nextLong(utilVariation);
+            utility = utilities[random.nextInt( utilities.length)];
             String id = UUID.randomUUID().toString();
             Task newTask = new Task(id, utility, requiredResources);
             tasks.add(newTask);
@@ -51,29 +58,35 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long minQuantity = 2;
-        if( myAgent.getLocalName().equals("Agent5")) {
-            minQuantity = 5;
-        }
-        if( myAgent.getLocalName().equals("Agent6")) {
-            minQuantity = 5;
-        }
-        if( myAgent.getLocalName().equals("Agent7")) {
-            minQuantity = 5;
-        }
-        if( myAgent.getLocalName().equals("Agent8")) {
-            minQuantity = 5;
-        }
-        long quantityVariation = 6;
-        int minLifetime = 2;
-        int lifetimeVariation = 3;
+        long[] quantities = new long[] {0, 1, 3, 5, 8, 10};
+        int[] lifetimes = new int[] {1, 2, 3, 4};
+//        long minQuantity = 2;
+//        if( myAgent.getLocalName().equals("Agent5")) {
+//            minQuantity = 5;
+//        }
+//        if( myAgent.getLocalName().equals("Agent6")) {
+//            minQuantity = 5;
+//        }
+//        if( myAgent.getLocalName().equals("Agent7")) {
+//            minQuantity = 5;
+//        }
+//        if( myAgent.getLocalName().equals("Agent8")) {
+//            minQuantity = 5;
+//        }
+//        long quantityVariation = 6;
+//        int minLifetime = 2;
+//        int lifetimeVariation = 3;
         long quantity;
         int lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
-            quantity = minQuantity + random.nextLong(quantityVariation);
-            lifetime = minLifetime + random.nextInt(lifetimeVariation);
-            SortedSet<ResourceItem> items = findResourceItems( resourceTypeValues[i], lifetime, quantity);
-            resources.put(resourceTypeValues[i], items);
+//            quantity = minQuantity + random.nextLong(quantityVariation);
+            quantity = quantities[random.nextInt( quantities.length)];
+//            if (quantity > 0) {
+//                lifetime = minLifetime + random.nextInt(lifetimeVariation);
+                lifetime = lifetimes[random.nextInt( lifetimes.length)];
+                SortedSet<ResourceItem> items = findResourceItems(resourceTypeValues[i], lifetime, quantity);
+                resources.put(resourceTypeValues[i], items);
+//            }
         }
 
         return resources;

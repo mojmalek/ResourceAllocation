@@ -8,26 +8,24 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import java.io.*;
 import java.util.*;
 
 
 public class MasterAgent extends Agent {
 
-//    private ArrayList<AID> otherAgents = new ArrayList<>();
-//    private Map<AID, Boolean> tasksInfoReceived = new LinkedHashMap<>();
-//    private Map<AID, Boolean> resourcesInfoReceived = new LinkedHashMap<>();
-//    private Map<AID, Boolean> utilInfoReceived = new LinkedHashMap<>();
+    private boolean debugMode = true;
+    private String logFileName;
 
     private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
     private Map<AID, ArrayList<JSONObject>> resourcesInfo = new LinkedHashMap<>();
     private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
 
-
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
     private long totalUtil;
     private int numberOfRounds;
-//    private int round = 1;
+    private int numberOfAgents;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -36,23 +34,22 @@ public class MasterAgent extends Agent {
     @Override
     protected void setup() {
 
-        System.out.println("Hello World. I’m the Master agent! My local-name is " + getAID().getLocalName());
         // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
-            int numberOfAgents = (int) args[0];
+            numberOfAgents = (int) args[0];
             for (int i = 1; i <= numberOfAgents; i++) {
-                AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
-//                otherAgents.add(aid);
-//                tasksInfoReceived.put(aid, false);
-//                resourcesInfoReceived.put(aid, false);
-//                utilInfoReceived.put(aid, false);
-
+                AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
                 tasksInfo.put( aid, new ArrayList<>());
                 resourcesInfo.put( aid, new ArrayList<>());
                 utilitiesInfo.put( aid, new ArrayList<>());
             }
             numberOfRounds = (int) args[1];
+            logFileName = (String) args[2];
+        }
+
+        if (debugMode) {
+            logInf("Hello World. I’m the Master agent! My local-name is " + getAID().getLocalName());
         }
 
         addBehaviour(new CyclicBehaviour() {
@@ -63,7 +60,7 @@ public class MasterAgent extends Agent {
                     String content = msg.getContent();
                     switch (msg.getPerformative()) {
                         case ACLMessage.INFORM:
-//                            System.out.println (myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
+//                            logInf( myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
                             try {
                                 storeInfo(myAgent, msg);
                             } catch (ParseException e) {
@@ -77,7 +74,7 @@ public class MasterAgent extends Agent {
 
                 if (receivedInfoFromAll()) {
                     for (int r=0; r<numberOfRounds; r++) {
-//                        System.out.println( myAgent.getLocalName() + " Round: " + r+1);
+//                        logInf( myAgent.getLocalName() + " Round: " + r+1);
                         for (var taskInfo : tasksInfo.entrySet() ) {
                             findNewTasks (taskInfo.getValue().get(r));
                         }
@@ -88,28 +85,11 @@ public class MasterAgent extends Agent {
                         perishResourceItems( myAgent);
                     }
 
-                    System.out.println("Sum of agent utilities: " + agentUtilitiesSum());
-                    System.out.println("Efficiency of the protocol: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+//                    logInf ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
+                    logInf ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
 
                     block();
                 }
-
-//                if (receivedTasksInfoFromAll() && receivedResourcesInfoFromAll()) {
-//                    System.out.println( myAgent.getLocalName() + " Round: " + round);
-//                    performTasks( myAgent);
-//                    perishResourceItems( myAgent);
-//                    resetRound();
-//                    round += 1;
-//                }
-
-//                if (receivedUtilInfoFromAll()) {
-//                    System.out.println("Sum of agent utilities: " + agentUtilitiesSum());
-//                    System.out.println("Efficiency of the protocol: " + ((double) agentUtilitiesSum() / totalUtil * 100));
-//
-//                    for (var utilInfo: utilInfoReceived.entrySet()) {
-//                        utilInfo.setValue( false);
-//                    }
-//                }
             }
         });
     }
@@ -190,7 +170,7 @@ public class MasterAgent extends Agent {
         }
 
 //        for (var entry : expiredResources.entrySet()) {
-//            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+//            logInf( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
 //        }
     }
 
@@ -216,60 +196,9 @@ public class MasterAgent extends Agent {
     }
 
 
-//    boolean receivedTasksInfoFromAll() {
-//
-//        boolean received = true;
-//        for (var taskInfo : tasksInfoReceived.entrySet() ) {
-//            if (taskInfo.getValue() == false) {
-//                received = false;
-//                break;
-//            }
-//        }
-//        return received;
-//    }
-
-
-//    boolean receivedResourcesInfoFromAll() {
-//
-//        boolean received = true;
-//        for (var resourceInfo : resourcesInfoReceived.entrySet() ) {
-//            if (resourceInfo.getValue() == false) {
-//                received = false;
-//                break;
-//            }
-//        }
-//        return received;
-//    }
-
-
-//    boolean receivedUtilInfoFromAll() {
-//
-//        boolean received = true;
-//        for (var utilInfo : utilInfoReceived.entrySet() ) {
-//            if (utilInfo.getValue() == false) {
-//                received = false;
-//                break;
-//            }
-//        }
-//        return received;
-//    }
-
-
-//    void resetRound() {
-//
-//        for (var taskInfo: tasksInfoReceived.entrySet()) {
-//            taskInfo.setValue( false);
-//        }
-//
-//        for (var resourceInfo: resourcesInfoReceived.entrySet()) {
-//            resourceInfo.setValue( false);
-//        }
-//    }
-
-
     private void performTasks(Agent myAgent) {
 
-//        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
+//        logInf (myAgent.getLocalName() +  " is performing tasks.");
         int count = 0;
         SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
@@ -279,7 +208,7 @@ public class MasterAgent extends Agent {
                 doneTasksInThisRound.add(task);
                 boolean check = doneTasks.add(task);
                 if (check == false) {
-                    System.out.println("Error!!");
+                    logInf("Error!!");
                 }
                 totalUtil = totalUtil + task.utility;
                 count += 1;
@@ -287,7 +216,7 @@ public class MasterAgent extends Agent {
         }
 
         if (doneTasksInThisRound.size() != count) {
-            System.out.println("Error!!");
+            logInf("Error!!");
         }
 
         int initialSize = toDoTasks.size();
@@ -295,10 +224,10 @@ public class MasterAgent extends Agent {
         toDoTasks.removeAll (doneTasks);
 
         if ( initialSize - count != toDoTasks.size()) {
-            System.out.println("Error!!");
+            logInf("Error!!");
         }
 
-//        System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+//        logInf( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
     }
 
 
@@ -369,5 +298,19 @@ public class MasterAgent extends Agent {
         }
         return sum;
     }
+
+
+    protected void logInf(String msg) {
+
+            System.out.println(numberOfAgents + "Agent0: " + msg);
+            try {
+                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+                out.println(numberOfAgents + "Agent0: " + msg);
+                out.close();
+            } catch (IOException e) {
+                System.err.println("Error writing file..." + e.getMessage());
+            }
+    }
+
 
 }

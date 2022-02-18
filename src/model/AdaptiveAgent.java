@@ -15,6 +15,7 @@ import org.json.simple.parser.*;
 public class AdaptiveAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
+    private boolean debugMode = false;
 
     private ArrayList<AID> otherAgents = new ArrayList<>();
     private Map<AID, ProtocolPhase> otherAgentsPhases = new LinkedHashMap<>();
@@ -24,6 +25,7 @@ public class AdaptiveAgent extends Agent {
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
     private long totalUtil;
     private int numberOfRounds;
+    private int numberOfAgents;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -40,15 +42,17 @@ public class AdaptiveAgent extends Agent {
     @Override
     protected void setup() {
 
-        System.out.println("Hello World. I’m an Adaptive agent! My local-name is " + getAID().getLocalName());
+        if (debugMode) {
+            System.out.println("Hello World. I’m an Adaptive agent! My local-name is " + getAID().getLocalName());
+        }
         // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
-            int numberOfAgents = (int) args[0];
+            numberOfAgents = (int) args[0];
             int myId = (int) args[1];
             for (int i = 1; i <= numberOfAgents; i++) {
                 if ( i != myId) {
-                    AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
+                    AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
                     otherAgents.add(aid);
                     otherAgentsPhases.put(aid, ProtocolPhase.REQUESTING);
                 }
@@ -59,7 +63,9 @@ public class AdaptiveAgent extends Agent {
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 if (this.getTickCount() <= numberOfRounds) {
-                    System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
+                    if (debugMode) {
+                        System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
+                    }
 
                     findTasks(myAgent);
                     findResources(myAgent);
@@ -137,8 +143,10 @@ public class AdaptiveAgent extends Agent {
 //            availableResources.put( resource.getKey(), availableItems);
         }
 
-        for (var entry : expiredResources.entrySet()) {
-            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+        if (debugMode) {
+            for (var entry : expiredResources.entrySet()) {
+                System.out.println(myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+            }
         }
     }
 
@@ -150,17 +158,17 @@ public class AdaptiveAgent extends Agent {
         deliberateOnRequesting (myAgent);
         sendNextPhaseNotification (ProtocolPhase.BIDDING);
         waitForRequests( myAgent);
-        if( myAgent.getLocalName().equals("Agent1")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
         if (receivedRequests.size() > 0) {
             deliberateOnBidding( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForBids( myAgent);
-        if( myAgent.getLocalName().equals("Agent1")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
         if (receivedBids.size() > 0) {
             deliberateOnConfirming( myAgent);
         }
@@ -171,9 +179,9 @@ public class AdaptiveAgent extends Agent {
 
     void deliberateOnRequesting (Agent myAgent) {
 
-        if( myAgent.getLocalName().equals("Agent1")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
 
         Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
 
@@ -288,12 +296,14 @@ public class AdaptiveAgent extends Agent {
 
     private void performTasks(Agent myAgent) {
 
-        if( myAgent.getLocalName().equals("Agent1")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
 
-        System.out.println( myAgent.getLocalName() + " Number of To Do Tasks: " + toDoTasks.size());
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " Number of To Do Tasks: " + toDoTasks.size());
 //        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
+        }
         int count = 0;
         SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
         // Greedy algorithm: tasks are sorted by utility in toDoTasks
@@ -322,7 +332,10 @@ public class AdaptiveAgent extends Agent {
              System.out.println("Error!!");
         }
 
-        System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+        }
+
         sendTotalUtilToMasterAgent (totalUtil, myAgent);
     }
 
@@ -336,7 +349,6 @@ public class AdaptiveAgent extends Agent {
                     ResourceItem item = resourceItems.first();
                     resourceItems.remove(item);
                 }
-//                remainingResources.replace(entry.getKey(), resourceItems);
             }
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -366,7 +378,6 @@ public class AdaptiveAgent extends Agent {
     private void createRequests (SortedSet<Task> blockedTasks, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, Agent myAgent) {
 
         // creates a request based on the missing quantity for each resource type
-
         Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
 
         for (Task task : blockedTasks) {
@@ -556,9 +567,9 @@ public class AdaptiveAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-        if( myAgent.getLocalName().equals("Agent1")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
 
         long bidQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
@@ -674,9 +685,9 @@ public class AdaptiveAgent extends Agent {
         ResourceType resourceType = ResourceType.valueOf(rt);
         JSONObject joCostFunction = (JSONObject) jo.get(Ontology.BID_COST_FUNCTION);
         JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.BID_OFFERED_ITEMS);
-
-        System.out.println( myAgent.getLocalName() + " received bid with quantity " + bidQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
-
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " received bid with quantity " + bidQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+        }
         Map<Long, Long> costFunction = new LinkedHashMap<>();
         Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
         while (keysIterator1.hasNext()) {
@@ -706,9 +717,9 @@ public class AdaptiveAgent extends Agent {
 
     void deliberateOnConfirming( Agent myAgent) {
 
-        if( myAgent.getLocalName().equals("Agent1")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
 
         Map<Request, Map<Bid, Long>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
 
@@ -984,8 +995,9 @@ public class AdaptiveAgent extends Agent {
         ResourceType resourceType = ResourceType.valueOf(rt);
 
         Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
-        System.out.println( myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
-
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+        }
         restoreResources(bidId, resourceType, confirmQuantity.intValue());
     }
 
@@ -1098,7 +1110,7 @@ public class AdaptiveAgent extends Agent {
     void sendNewTasksToMasterAgent (SortedSet<Task> newTasks, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewTasks = new JSONObject();
@@ -1127,7 +1139,7 @@ public class AdaptiveAgent extends Agent {
     void sendNewResourcesToMasterAgent (Map<ResourceType, SortedSet<ResourceItem>> newResources, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewResources = new JSONObject();
@@ -1153,7 +1165,7 @@ public class AdaptiveAgent extends Agent {
     void sendTotalUtilToMasterAgent (long totalUtil, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject jo = new JSONObject();
@@ -1168,9 +1180,9 @@ public class AdaptiveAgent extends Agent {
 
     void receiveMessages(Agent myAgent, int performative) {
 
-        if( myAgent.getLocalName().equals("Agent1")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
 
         MessageTemplate mt = MessageTemplate.MatchPerformative( performative);
 
