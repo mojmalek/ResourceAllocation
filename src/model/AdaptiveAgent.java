@@ -63,9 +63,7 @@ public class AdaptiveAgent extends Agent {
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 if (this.getTickCount() <= numberOfRounds) {
-                    if (debugMode) {
                         System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
-                    }
 
                     findTasks(myAgent);
                     findResources(myAgent);
@@ -81,6 +79,8 @@ public class AdaptiveAgent extends Agent {
 
 //        System.out.println (myAgent.getLocalName() + " is finding tasks.");
 
+        expireTasks( myAgent);
+
         SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
         toDoTasks.addAll(newTasks);
 
@@ -95,7 +95,7 @@ public class AdaptiveAgent extends Agent {
 //        System.out.println (myAgent.getLocalName() + " is finding resources.");
 
         // decrease lifetime of remaining resources
-        perishResourceItems( myAgent);
+        expireResourceItems( myAgent);
 
         Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources( myAgent);
 
@@ -118,12 +118,13 @@ public class AdaptiveAgent extends Agent {
     }
 
 
-    void perishResourceItems( Agent myAgent) {
+    void expireResourceItems(Agent myAgent) {
 
         SortedSet<ResourceItem> availableItems;
         ArrayList<ResourceItem> expiredItems;
         ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
         for (var resource : availableResources.entrySet()) {
+            expiredItemsInThisRound.clear();
             availableItems = availableResources.get( resource.getKey());
             if (expiredResources.containsKey( resource.getKey())) {
                 expiredItems = expiredResources.get( resource.getKey());
@@ -138,15 +139,40 @@ public class AdaptiveAgent extends Agent {
                     expiredItems.add( item);
                 }
             }
+            int initialSize = availableItems.size();
             availableItems.removeAll( expiredItemsInThisRound);
-//            expiredResources.put( resource.getKey(), expiredItems);
-//            availableResources.put( resource.getKey(), availableItems);
+            if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
+                System.out.println("Error!!");
+            }
         }
 
         if (debugMode) {
             for (var entry : expiredResources.entrySet()) {
                 System.out.println(myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
             }
+        }
+    }
+
+
+    void expireTasks(Agent myAgent) {
+
+        SortedSet<Task> lateTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+        int count = 0;
+        for (Task task : toDoTasks) {
+            task.deadline--;
+            if (task.deadline == 0) {
+                lateTasksInThisRound.add( task);
+                count += 1;
+            }
+        }
+
+        if (lateTasksInThisRound.size() != count) {
+            System.out.println("Error!!");
+        }
+        int initialSize = toDoTasks.size();
+        toDoTasks.removeAll( lateTasksInThisRound);
+        if ( initialSize - count != toDoTasks.size()) {
+            System.out.println("Error!!");
         }
     }
 
@@ -433,8 +459,7 @@ public class AdaptiveAgent extends Agent {
             if (cost == 0) {
                 expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
             }
-            // best coefficient: 0.03
-            bidCostFunction.put(q, (long) (cost + 0.03 * expectedCost));
+            bidCostFunction.put(q, (long) (cost + 0.1 * expectedCost));
         }
 
         return bidCostFunction;

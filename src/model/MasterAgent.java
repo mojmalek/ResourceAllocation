@@ -14,7 +14,7 @@ import java.util.*;
 
 public class MasterAgent extends Agent {
 
-    private boolean debugMode = true;
+    private boolean debugMode = false;
     private String logFileName;
 
     private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
@@ -82,7 +82,8 @@ public class MasterAgent extends Agent {
                             findNewResources (resourceInfo.getValue().get(r));
                         }
                         performTasks( myAgent);
-                        perishResourceItems( myAgent);
+                        expireResourceItems( myAgent);
+                        expireTasks( myAgent);
                     }
 
 //                    logInf ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
@@ -114,7 +115,7 @@ public class MasterAgent extends Agent {
                 quantity = (Long) joRequiredResources.get(resourceType);
                 requiredResources.put( ResourceType.valueOf(resourceType), quantity);
             }
-            Task newTask = new Task(id, utility.intValue(), requiredResources);
+            Task newTask = new Task(id, utility.intValue(), 20, requiredResources);
             newTasks.add( newTask);
         }
         toDoTasks.addAll( newTasks);
@@ -144,12 +145,13 @@ public class MasterAgent extends Agent {
     }
 
 
-    void perishResourceItems( Agent myAgent) {
+    void expireResourceItems(Agent myAgent) {
 
         SortedSet<ResourceItem> availableItems;
         ArrayList<ResourceItem> expiredItems;
         ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
         for (var resource : availableResources.entrySet()) {
+            expiredItemsInThisRound.clear();
             availableItems = availableResources.get( resource.getKey());
             if (expiredResources.containsKey( resource.getKey())) {
                 expiredItems = expiredResources.get( resource.getKey());
@@ -164,14 +166,39 @@ public class MasterAgent extends Agent {
                     expiredItems.add( item);
                 }
             }
+            int initialSize = availableItems.size();
             availableItems.removeAll( expiredItemsInThisRound);
-//            expiredResources.put( resource.getKey(), expiredItems);
-//            availableResources.put( resource.getKey(), availableItems);
+            if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
+                logInf("Error!!");
+            }
         }
 
 //        for (var entry : expiredResources.entrySet()) {
 //            logInf( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
 //        }
+    }
+
+
+    void expireTasks(Agent myAgent) {
+
+        SortedSet<Task> lateTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+        int count = 0;
+        for (Task task : toDoTasks) {
+                task.deadline--;
+                if (task.deadline == 0) {
+                    lateTasksInThisRound.add( task);
+                    count += 1;
+                }
+        }
+
+        if (lateTasksInThisRound.size() != count) {
+            logInf("Error!!");
+        }
+        int initialSize = toDoTasks.size();
+        toDoTasks.removeAll( lateTasksInThisRound);
+        if ( initialSize - count != toDoTasks.size()) {
+            logInf("Error!!");
+        }
     }
 
 

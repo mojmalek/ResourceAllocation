@@ -6,12 +6,14 @@ public class Task {
 
     String id;
     long utility;
+    int deadline;
     Map<ResourceType, Long> requiredResources;
 //    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
 
-    public Task(String id, long utility, Map<ResourceType, Long> requiredResources) {
+    public Task(String id, long utility, int deadline, Map<ResourceType, Long> requiredResources) {
         this.id = id;
         this.utility = utility;
+        this.deadline = deadline;
         this.requiredResources = requiredResources;
     }
 

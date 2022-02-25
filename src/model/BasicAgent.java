@@ -15,6 +15,7 @@ import java.util.*;
 public class BasicAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
+    private boolean debugMode = false;
 
     private ArrayList<AID> otherAgents = new ArrayList<>();
     private Map<AID, ProtocolPhase> otherAgentsPhases = new LinkedHashMap<>();
@@ -24,6 +25,7 @@ public class BasicAgent extends Agent {
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
     private long totalUtil;
     private int numberOfRounds;
+    private int numberOfAgents;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -40,15 +42,17 @@ public class BasicAgent extends Agent {
     @Override
     protected void setup() {
 
-        System.out.println("Hello World. I’m a Basic agent! My local-name is " + getAID().getLocalName());
+        if (debugMode) {
+            System.out.println("Hello World. I’m a Basic agent! My local-name is " + getAID().getLocalName());
+        }
         // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
-            int numberOfAgents = (int) args[0];
+            numberOfAgents = (int) args[0];
             int myId = (int) args[1];
             for (int i = 1; i <= numberOfAgents; i++) {
                 if ( i != myId) {
-                    AID aid = new AID("Agent"+i, AID.ISLOCALNAME);
+                    AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
                     otherAgents.add(aid);
                     otherAgentsPhases.put(aid, ProtocolPhase.REQUESTING);
                 }
@@ -75,6 +79,8 @@ public class BasicAgent extends Agent {
 
 //        System.out.println (myAgent.getLocalName() + " is finding tasks.");
 
+        expireTasks( myAgent);
+
         SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
         toDoTasks.addAll(newTasks);
 
@@ -89,7 +95,7 @@ public class BasicAgent extends Agent {
 //        System.out.println (myAgent.getLocalName() + " is finding resources.");
 
         // decrease lifetime of remaining resources
-        perishResourceItems( myAgent);
+        expireResourceItems( myAgent);
 
         Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources( myAgent);
 
@@ -112,12 +118,13 @@ public class BasicAgent extends Agent {
     }
 
 
-    void perishResourceItems( Agent myAgent) {
+    void expireResourceItems(Agent myAgent) {
 
         SortedSet<ResourceItem> availableItems;
         ArrayList<ResourceItem> expiredItems;
         ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
         for (var resource : availableResources.entrySet()) {
+            expiredItemsInThisRound.clear();
             availableItems = availableResources.get( resource.getKey());
             if (expiredResources.containsKey( resource.getKey())) {
                 expiredItems = expiredResources.get( resource.getKey());
@@ -132,13 +139,40 @@ public class BasicAgent extends Agent {
                     expiredItems.add( item);
                 }
             }
+            int initialSize = availableItems.size();
             availableItems.removeAll( expiredItemsInThisRound);
-//            expiredResources.put( resource.getKey(), expiredItems);
-//            availableResources.put( resource.getKey(), availableItems);
+            if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
+                System.out.println("Error!!");
+            }
         }
 
-        for (var entry : expiredResources.entrySet()) {
-            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+        if (debugMode) {
+            for (var entry : expiredResources.entrySet()) {
+                System.out.println(myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+            }
+        }
+    }
+
+
+    void expireTasks(Agent myAgent) {
+
+        SortedSet<Task> lateTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+        int count = 0;
+        for (Task task : toDoTasks) {
+            task.deadline--;
+            if (task.deadline == 0) {
+                lateTasksInThisRound.add( task);
+                count += 1;
+            }
+        }
+
+        if (lateTasksInThisRound.size() != count) {
+            System.out.println("Error!!");
+        }
+        int initialSize = toDoTasks.size();
+        toDoTasks.removeAll( lateTasksInThisRound);
+        if ( initialSize - count != toDoTasks.size()) {
+            System.out.println("Error!!");
         }
     }
 
@@ -307,7 +341,10 @@ public class BasicAgent extends Agent {
              System.out.println("Error!!");
         }
 
-        System.out.println( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+        }
+
         sendTotalUtilToMasterAgent (totalUtil, myAgent);
     }
 
@@ -658,7 +695,9 @@ public class BasicAgent extends Agent {
 //        JSONObject joCostFunction = (JSONObject) jo.get(Ontology.BID_COST_FUNCTION);
         JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.BID_OFFERED_ITEMS);
 
-        System.out.println( myAgent.getLocalName() + " received bid with quantity " + bidQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " received bid with quantity " + bidQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+        }
 
 //        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
 //        Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
@@ -780,17 +819,17 @@ public class BasicAgent extends Agent {
     private void processConfirmation (Agent myAgent, ACLMessage confirmation) throws ParseException {
 
         String content = confirmation.getContent();
-
         Object obj = new JSONParser().parse(content);
         JSONObject jo = (JSONObject) obj;
 
         String bidId = (String) jo.get("bidId");
-
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-
         Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
-        System.out.println( myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+        }
 
         restoreResources(bidId, resourceType, confirmQuantity.intValue());
     }
@@ -874,7 +913,7 @@ public class BasicAgent extends Agent {
     void sendNewTasksToMasterAgent (SortedSet<Task> newTasks, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewTasks = new JSONObject();
@@ -903,7 +942,7 @@ public class BasicAgent extends Agent {
     void sendNewResourcesToMasterAgent (Map<ResourceType, SortedSet<ResourceItem>> newResources, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewResources = new JSONObject();
@@ -929,7 +968,7 @@ public class BasicAgent extends Agent {
     void sendTotalUtilToMasterAgent (long totalUtil, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject jo = new JSONObject();
