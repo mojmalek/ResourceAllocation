@@ -12,33 +12,36 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        int[] taskNums = new int[] {1, 2, 3, 4};
-        int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] quantities;
-        long minUtil = 1;
-        long utilVariation = 50;
-//        long[] utilities = new long[] {1, 5, 10, 20, 30, 50, 100};
         Set<String> requesters = Set.of("8Agent1", "8Agent2", "8Agent3", "8Agent4");
         Set<String> bidders = Set.of("8Agent5", "8Agent6", "8Agent7", "8Agent8");
-        if( requesters.contains(myAgent.getLocalName())) {
-            minUtil = 100;
-        }
+        int[] taskNums = new int[] {1, 2, 4, 8};
+//        if( bidders.contains(myAgent.getLocalName())) {
+//            taskNums = new int[] {1, 2, 3, 8};
+//        }
+        int numOfTasks = taskNums[random.nextInt( taskNums.length)];
+        long[] quantities = new long[] {0, 1, 2, 4, 8};
+//        long minUtil = 10;
+//        long utilVariation = 5;
+        long[] utilities = new long[] {1, 2, 4, 8, 16, 32, 64};
+//        if( bidders.contains(myAgent.getLocalName())) {
+//            minUtil = 20;
+//        }
         long quantity, utility;
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i=0; i<resourceTypeValues.length; i++) {
-                if( bidders.contains(myAgent.getLocalName()) && resourceTypeValues[i] == ResourceType.A ) {
-                    quantities = new long[] {0, 1};
-                } else {
-                    quantities = new long[] {0, 1, 2, 3, 4, 5};
-                }
+//                if( bidders.contains(myAgent.getLocalName()) && resourceTypeValues[i] == ResourceType.A ) {
+//                    quantities = new long[] {4, 5};
+//                } else {
+//                    quantities = new long[] {0, 1, 2, 3, 4};
+//                }
                 quantity = quantities[random.nextInt( quantities.length)];
                 if (quantity > 0) {
                     requiredResources.put(resourceTypeValues[i], quantity);
                 }
             }
-            utility = minUtil + random.nextLong(utilVariation);
-//            utility = utilities[random.nextInt( utilities.length)];
+//            utility = minUtil + random.nextLong(utilVariation);
+            utility = utilities[random.nextInt( utilities.length)];
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
                 Task newTask = new Task(id, utility, 20, requiredResources);
@@ -57,12 +60,12 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {0, 1, 2, 3, 4, 5};
-        int[] lifetimes = new int[] {1, 2, 3, 4};
+        long[] quantities = new long[] {0, 1, 2, 4, 8};
+        int[] lifetimes = new int[] {3};
         Set<String> bidders = Set.of("8Agent5", "8Agent6", "8Agent7", "8Agent8");
-        if( bidders.contains(myAgent.getLocalName())) {
-            quantities = new long[] {4};
-        }
+//        if( bidders.contains(myAgent.getLocalName())) {
+//            quantities = new long[] {4};
+//        }
         long quantity;
         int lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {

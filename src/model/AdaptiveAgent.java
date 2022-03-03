@@ -458,8 +458,9 @@ public class AdaptiveAgent extends Agent {
             cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
             if (cost == 0) {
                 expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
+//                System.out.println( expectedCost);
             }
-            bidCostFunction.put(q, (long) (cost + 0.1 * expectedCost));
+            bidCostFunction.put(q, (long) (cost + 0.05 * expectedCost));
         }
 
         return bidCostFunction;
@@ -1081,7 +1082,7 @@ public class AdaptiveAgent extends Agent {
 
     long computeExpectedUtilityOfResources ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
 
-        long exp = 0;
+        double exp = 0.0;
         ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
         long totalUtilityWithThisResourceType = 0;
         long totalQuantityOfThisResourceType = 0;
@@ -1099,13 +1100,51 @@ public class AdaptiveAgent extends Agent {
             long q=1;
             while (q <= quantity) {
                 ResourceItem item = itr.next();
-                exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
-//                exp = exp + ((doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+                if (item.getLifetime() > 1) {
+//                    exp = exp + ((double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType);
+                    exp = exp + (( (double) doneTasksWithThisResourceType.size() / doneTasks.size()) * ( (double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+                }
+//                exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
                 q++;
             }
         }
 
-        return exp;
+        return Math.round(exp);
+    }
+
+
+    long computeExpectedCost ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
+
+        Set<String> requesters = Set.of("8Agent1", "8Agent2", "8Agent3", "8Agent4");
+        Set<String> bidders = Set.of("8Agent5", "8Agent6", "8Agent7", "8Agent8");
+
+        double exp = 0.0;
+        double averageRequiredQuantity;
+        double averageUtil;
+
+//        if( bidders.contains(this.getLocalName()) && resourceType == ResourceType.A ) {
+//            averageRequiredQuantity = 4.5 / 2 + 4.5 ;
+//        } else {
+            averageRequiredQuantity = 3;
+//        }
+
+//        if( bidders.contains(this.getLocalName())) {
+//            averageUtil = 22.5;
+//        } else {
+            averageUtil = 18.14;
+//        }
+
+        Iterator<ResourceItem> itr = resourceItems.iterator();
+        long q=1;
+        while (q <= quantity) {
+            ResourceItem item = itr.next();
+            if (item.getLifetime() > 1) {
+                exp = exp + averageUtil / averageRequiredQuantity;
+            }
+            q++;
+        }
+
+        return Math.round(exp);
     }
 
 

@@ -32,7 +32,7 @@ public class AdaptiveExp {
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc = rt.createMainContainer(p);
         int numberOfRounds = 1000;
-        for (int numberOfAgents=2; numberOfAgents<65; numberOfAgents=numberOfAgents*2) {
+        for (int numberOfAgents=4; numberOfAgents<65; numberOfAgents=numberOfAgents*2) {
             for (int i = 0; i <= numberOfAgents; i++) {
                 AgentController ac;
                 try {
@@ -62,7 +62,7 @@ public class AdaptiveExp {
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc = rt.createMainContainer(p);
         int numberOfRounds = 1000;
-        int numberOfAgents = 8;
+        int numberOfAgents = 48;
         for (int i = 0; i <= numberOfAgents; i++) {
             AgentController ac;
             try {

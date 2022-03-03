@@ -330,13 +330,13 @@ public class MasterAgent extends Agent {
     protected void logInf(String msg) {
 
             System.out.println(numberOfAgents + "Agent0: " + msg);
-            try {
-                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
-                out.println(numberOfAgents + "Agent0: " + msg);
-                out.close();
-            } catch (IOException e) {
-                System.err.println("Error writing file..." + e.getMessage());
-            }
+//            try {
+//                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+//                out.println(numberOfAgents + "Agent0: " + msg);
+//                out.close();
+//            } catch (IOException e) {
+//                System.err.println("Error writing file..." + e.getMessage());
+//            }
     }
 
 
