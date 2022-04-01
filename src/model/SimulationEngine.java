@@ -92,4 +92,35 @@ public class SimulationEngine {
         return resourceItems;
     }
 
+
+    public Map<ResourceType,Integer>[][] generateSocialNetwork( int numberOfAgents, double connectivity) {
+
+        Map<ResourceType,Integer>[][] socialNetwork = new LinkedHashMap[numberOfAgents][numberOfAgents];
+
+        Map<ResourceType, Integer> weights = new LinkedHashMap<>();
+        for (int i=0; i<ResourceType.getValues().length; i++) {
+            weights.put(ResourceType.getValues()[i], 5);
+        }
+
+        // first connect each agent to its next
+        for (int i = 0; i < numberOfAgents-1; i++) {
+                socialNetwork[i][i+1] = weights;
+                socialNetwork[i+1][i] = weights;
+        }
+
+        // then consider connecting more agents based on the degree of connectivity
+        Random random = new Random();
+        for (int i = 0; i < numberOfAgents-1; i++) {
+            for (int j = i+2; j < numberOfAgents; j++) {
+                double r = random.nextDouble();
+                if (r < connectivity) {
+                    socialNetwork[i][j] = weights;
+                    socialNetwork[j][i] = weights;
+                }
+            }
+        }
+
+        return socialNetwork;
+    }
+
 }

@@ -4,15 +4,15 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import java.util.*;
 
-import jade.lang.acl.MessageTemplate;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.*;
 
-
-public class AdaptiveAgent extends Agent {
+public class SocialAdaptiveAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
     private boolean debugMode = false;

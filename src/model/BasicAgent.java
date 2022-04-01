@@ -602,6 +602,8 @@ public class BasicAgent extends Agent {
 
     Request selectBestRequest(ArrayList<Request> requests, long remainingQuantity) {
 
+        //TODO: select the request with highest efficiency
+
         Request selectedRequest = requests.get(0);
         long highestUtility = 0;
         long bidQuantity;
