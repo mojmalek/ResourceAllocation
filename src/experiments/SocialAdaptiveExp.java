@@ -70,7 +70,7 @@ public class SocialAdaptiveExp {
         int numberOfAgents = 8;
         double connectivity = 0.5;
 
-        Map<ResourceType,Integer>[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
+        Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
 
 //        System.out.println( socialNetwork[1][2].get(ResourceType.A));
 

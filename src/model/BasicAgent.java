@@ -33,10 +33,10 @@ public class BasicAgent extends Agent {
     // reqId
     public Map<String, Request> sentRequests = new LinkedHashMap<>();
     public Map<ResourceType, ArrayList<Request>> receivedRequests = new LinkedHashMap<>();
-    // bidId
-    public Map<String, Bid> sentBids = new LinkedHashMap<>();
+    // offerId
+    public Map<String, Offer> sentOffers = new LinkedHashMap<>();
     // reqId
-    public Map<String, Set<Bid>> receivedBids = new LinkedHashMap<>();
+    public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
 
     @Override
@@ -182,14 +182,14 @@ public class BasicAgent extends Agent {
 //        System.out.println (myAgent.getLocalName() +  " is negotiating.");
         resetRound();
         deliberateOnRequesting (myAgent);
-        sendNextPhaseNotification (ProtocolPhase.BIDDING);
+        sendNextPhaseNotification (ProtocolPhase.OFFERING);
         waitForRequests( myAgent);
         if (receivedRequests.size() > 0) {
-            deliberateOnBidding( myAgent);
+            deliberateOnOffering( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
-        waitForBids( myAgent);
-        if (receivedBids.size() > 0) {
+        waitForOffers( myAgent);
+        if (receivedOffers.size() > 0) {
             deliberateOnConfirming( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
@@ -242,9 +242,9 @@ public class BasicAgent extends Agent {
     }
 
 
-    void waitForBids( Agent myAgent) {
+    void waitForOffers(Agent myAgent) {
 
-        while(inBiddingPhase()) {
+        while(inOfferingPhase()) {
             myAgent.doWait(1);
             receiveMessages( myAgent, ACLMessage.INFORM);
         }
@@ -275,15 +275,15 @@ public class BasicAgent extends Agent {
     }
 
 
-    boolean inBiddingPhase () {
+    boolean inOfferingPhase() {
 
-        boolean bidding = false;
+        boolean offering = false;
         for (var agentPhase : otherAgentsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.BIDDING) {
-                bidding = true;
+            if (agentPhase.getValue() == ProtocolPhase.OFFERING) {
+                offering = true;
             }
         }
-        return bidding;
+        return offering;
     }
 
 
@@ -305,8 +305,8 @@ public class BasicAgent extends Agent {
         blockedTasks.clear();
         receivedRequests.clear();
         sentRequests.clear();
-        receivedBids.clear();
-        sentBids.clear();
+        receivedOffers.clear();
+        sentOffers.clear();
     }
 
 
@@ -494,7 +494,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void deliberateOnBidding( Agent myAgent) {
+    private void deliberateOnOffering(Agent myAgent) {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
         // the bidder can wait for other requests before bidding.
@@ -513,7 +513,7 @@ public class BasicAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-        long bidQuantity;
+        long offerQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
             if (availableResources.get(requestsForType.getKey()) != null) {
                 long availableQuantity = availableResources.get(requestsForType.getKey()).size();
@@ -522,15 +522,15 @@ public class BasicAgent extends Agent {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( requests, availableQuantity);
                     if (availableQuantity < selectedRequest.quantity) {
-                        bidQuantity = availableQuantity;
+                        offerQuantity = availableQuantity;
                     } else {
-                        bidQuantity = selectedRequest.quantity;
+                        offerQuantity = selectedRequest.quantity;
                     }
-                    long cost = computeBidCost(selectedRequest.resourceType, availableQuantity, bidQuantity);
-                    long benefit = selectedRequest.utilityFunction.get(bidQuantity);
+                    long cost = computeOfferCost(selectedRequest.resourceType, availableQuantity, offerQuantity);
+                    long benefit = selectedRequest.utilityFunction.get(offerQuantity);
                     if (cost < benefit) {
-                        createBid(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, bidQuantity, availableResources.get(selectedRequest.resourceType));
-                        availableQuantity = availableQuantity - bidQuantity;
+                        createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, availableResources.get(selectedRequest.resourceType));
+                        availableQuantity = availableQuantity - offerQuantity;
                     } else {
                         // reject or cascade the request
                     }
@@ -544,11 +544,11 @@ public class BasicAgent extends Agent {
     }
 
 
-    long computeBidCost(ResourceType resourceType, long availableQuantity, long bidQuantity) {
+    long computeOfferCost(ResourceType resourceType, long availableQuantity, long offerQuantity) {
 
-        long bidCost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - bidQuantity);
+        long offerCost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - offerQuantity);
 
-        return bidCost;
+        return offerCost;
     }
 
 
@@ -606,15 +606,15 @@ public class BasicAgent extends Agent {
 
         Request selectedRequest = requests.get(0);
         long highestUtility = 0;
-        long bidQuantity;
+        long offerQuantity;
 
         for (Request request : requests) {
             if (remainingQuantity < request.quantity) {
-                bidQuantity = remainingQuantity;
+                offerQuantity = remainingQuantity;
             } else {
-                bidQuantity = request.quantity;
+                offerQuantity = request.quantity;
             }
-            long util = request.utilityFunction.get(bidQuantity);
+            long util = request.utilityFunction.get(offerQuantity);
             if (util > highestUtility) {
                 highestUtility = util;
                 selectedRequest = request;
@@ -625,10 +625,10 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void createBid (String reqId, AID bidder, AID requester, ResourceType resourceType, long bidQuantity, SortedSet<ResourceItem> availableItems) {
+    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, SortedSet<ResourceItem> availableItems) {
 
 //        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-//        for (int q=1; q<=bidQuantity; q++) {
+//        for (int q=1; q<=offerQuantity; q++) {
 //            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
 //            costFunction.put(q, cost);
 //        }
@@ -636,7 +636,7 @@ public class BasicAgent extends Agent {
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         Iterator<ResourceItem> itr = availableItems.iterator();
         long q=1;
-        while (q<=bidQuantity) {
+        while (q<=offerQuantity) {
             ResourceItem item = itr.next();
             offeredItems.put(item.getId(), item.getLifetime());
             availableItems.remove( item);
@@ -644,19 +644,19 @@ public class BasicAgent extends Agent {
             q++;
         }
 
-        String bidId = UUID.randomUUID().toString();
-        Bid bid = new Bid(bidId, reqId, bidQuantity, resourceType, null, offeredItems, bidder, requester);
+        String offerId = UUID.randomUUID().toString();
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, null, offeredItems, offerer, requester);
 
-        sentBids.put( bidId, bid);
+        sentOffers.put( offerId, offer);
 //        availableResources.put( resourceType, availableItems);
 
-        sendBid(reqId, bidId, requester, resourceType, bidQuantity, null, offeredItems);
+        sendOffer(reqId, offerId, requester, resourceType, offerQuantity, null, offeredItems);
 
-//        System.out.println( "createBid for resourceType: " + resourceType.name() + " with bidQuantity: " + bidQuantity);
+//        System.out.println( "createBid for resourceType: " + resourceType.name() + " with offerQuantity: " + offerQuantity);
     }
 
 
-    private void sendBid (String reqId, String bidId, AID requester, ResourceType resourceType, long bidQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
+    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -664,11 +664,11 @@ public class BasicAgent extends Agent {
 
         JSONObject jo = new JSONObject();
         jo.put("reqId", reqId);
-        jo.put("bidId", bidId);
-        jo.put(Ontology.RESOURCE_BID_QUANTITY, bidQuantity);
+        jo.put("offerId", offerId);
+        jo.put(Ontology.RESOURCE_OFFER_QUANTITY, offerQuantity);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
 //        jo.put(Ontology.BID_COST_FUNCTION, costFunction);
-        jo.put(Ontology.BID_OFFERED_ITEMS, offeredItems);
+        jo.put(Ontology.OFFERED_ITEMS, offeredItems);
 
         msg.setContent( jo.toJSONString());
 
@@ -678,7 +678,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void storeBid (Agent myAgent, ACLMessage msg) throws ParseException {
+    private void storeOffer(Agent myAgent, ACLMessage msg) throws ParseException {
 
         // if agents operate and communicate asynchronously, then a bid might be received at any time.
         // the requester can wait for other bids before confirming.
@@ -688,17 +688,17 @@ public class BasicAgent extends Agent {
         Object obj = new JSONParser().parse(content);
         JSONObject jo = (JSONObject) obj;
 
-        Long bidQuantity = (Long) jo.get(Ontology.RESOURCE_BID_QUANTITY);
+        Long offerQuantity = (Long) jo.get(Ontology.RESOURCE_OFFER_QUANTITY);
 
         String reqId = (String) jo.get("reqId");
-        String bidId = (String) jo.get("bidId");
+        String offerId = (String) jo.get("offerId");
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
 //        JSONObject joCostFunction = (JSONObject) jo.get(Ontology.BID_COST_FUNCTION);
-        JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.BID_OFFERED_ITEMS);
+        JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.OFFERED_ITEMS);
 
         if (debugMode) {
-            System.out.println(myAgent.getLocalName() + " received bid with quantity " + bidQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+            System.out.println(myAgent.getLocalName() + " received offer with quantity " + offerQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
         }
 
 //        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
@@ -717,104 +717,104 @@ public class BasicAgent extends Agent {
             offeredItems.put( key, value.intValue());
         }
 
-        Bid bid = new Bid(bidId, reqId, bidQuantity.intValue(), resourceType, null, offeredItems, msg.getSender(), myAgent.getAID());
+        Offer offer = new Offer(offerId, reqId, offerQuantity.intValue(), resourceType, null, offeredItems, msg.getSender(), myAgent.getAID());
 
-        Set<Bid> bids = receivedBids.get(reqId);
-        if (bids == null) {
-            bids = new HashSet<>();
+        Set<Offer> offers = receivedOffers.get(reqId);
+        if (offers == null) {
+            offers = new HashSet<>();
         }
-        bids.add( bid);
-        receivedBids.put( reqId, bids);
+        offers.add(offer);
+        receivedOffers.put( reqId, offers);
     }
 
 
     void deliberateOnConfirming( Agent myAgent) {
 
         for (var reqIdRequest : sentRequests.entrySet()) {
-            if ( receivedBids.containsKey( reqIdRequest.getKey())) {
+            if ( receivedOffers.containsKey( reqIdRequest.getKey())) {
                 // select the bid with highest quantity
-                Bid selectedBid = selectBestBid( reqIdRequest.getValue());
-                createConfirmation( myAgent, selectedBid);
-                addResourceItemsInBid(selectedBid);
+                Offer selectedOffer = selectBestOffer( reqIdRequest.getValue());
+                createConfirmation( myAgent, selectedOffer);
+                addResourceItemsInOffer(selectedOffer);
                 // reject the other bids
-                Set<Bid> bids = receivedBids.get(reqIdRequest.getValue().id);
-                bids.remove(selectedBid);
-                for (Bid bid : bids) {
-                    createRejection( myAgent, bid);
+                Set<Offer> offers = receivedOffers.get(reqIdRequest.getValue().id);
+                offers.remove(selectedOffer);
+                for (Offer offer : offers) {
+                    createRejection( myAgent, offer);
                 }
             }
         }
     }
 
 
-    Bid selectBestBid (Request request) {
+    Offer selectBestOffer(Request request) {
 
-        Set<Bid> bids = receivedBids.get(request.id);
+        Set<Offer> offers = receivedOffers.get(request.id);
         long max = 0;
-        Bid bestBid = null;
-        for (Bid bid : bids) {
-            if (bid.quantity > max) {
-                max = bid.quantity;
-                bestBid = bid;
+        Offer bestOffer = null;
+        for (Offer offer : offers) {
+            if (offer.quantity > max) {
+                max = offer.quantity;
+                bestOffer = offer;
             }
 
         }
-        return bestBid;
+        return bestOffer;
     }
 
 
-    void addResourceItemsInBid (Bid selectedBid) {
+    void addResourceItemsInOffer(Offer selectedOffer) {
 
         SortedSet<ResourceItem> resourceItems;
-        if (availableResources.containsKey(selectedBid.resourceType)) {
-            resourceItems = availableResources.get( selectedBid.resourceType);
+        if (availableResources.containsKey(selectedOffer.resourceType)) {
+            resourceItems = availableResources.get( selectedOffer.resourceType);
         } else {
             resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
         }
         // create a sorted set of offered items
         SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-        for (var itemIdLifetime : selectedBid.offeredItems.entrySet()) {
-            offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), selectedBid.resourceType, itemIdLifetime.getValue()));
+        for (var itemIdLifetime : selectedOffer.offeredItems.entrySet()) {
+            offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), selectedOffer.resourceType, itemIdLifetime.getValue()));
         }
         Iterator<ResourceItem> itr = offeredItems.iterator();
         long q=1;
-        while (q<=selectedBid.quantity) {
+        while (q<= selectedOffer.quantity) {
             ResourceItem item = itr.next();
             resourceItems.add(item);
             q++;
         }
 
-        availableResources.put( selectedBid.resourceType, resourceItems);
+        availableResources.put( selectedOffer.resourceType, resourceItems);
     }
 
 
-    private void createConfirmation (Agent myAgent, Bid selectedBid) {
+    private void createConfirmation (Agent myAgent, Offer selectedOffer) {
 
-        sendConfirmation(myAgent, selectedBid.id, selectedBid.sender, selectedBid.resourceType, selectedBid.quantity);
+        sendConfirmation(myAgent, selectedOffer.id, selectedOffer.sender, selectedOffer.resourceType, selectedOffer.quantity);
     }
 
 
-    private void createRejection (Agent myAgent, Bid bid) {
+    private void createRejection (Agent myAgent, Offer offer) {
 
-        sendConfirmation(myAgent, bid.id, bid.sender, bid.resourceType, 0);
+        sendConfirmation(myAgent, offer.id, offer.sender, offer.resourceType, 0);
     }
 
 
-    void sendConfirmation (Agent myAgent, String bidId, AID bidder, ResourceType resourceType, long confirmQuantity) {
+    void sendConfirmation (Agent myAgent, String offerId, AID offerer, ResourceType resourceType, long confirmQuantity) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.CONFIRM);
 
-        msg.addReceiver (bidder);
+        msg.addReceiver (offerer);
 
         JSONObject jo = new JSONObject();
-        jo.put("bidId", bidId);
+        jo.put("offerId", offerId);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.RESOURCE_CONFIRM_QUANTITY, confirmQuantity);
 
         msg.setContent( jo.toJSONString());
         send(msg);
 
-//        System.out.println( myAgent.getLocalName() + " sent confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " to bidder " + bidder.getLocalName());
+//        System.out.println( myAgent.getLocalName() + " sent confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " to offerer " + offerer.getLocalName());
     }
 
 
@@ -824,7 +824,7 @@ public class BasicAgent extends Agent {
         Object obj = new JSONParser().parse(content);
         JSONObject jo = (JSONObject) obj;
 
-        String bidId = (String) jo.get("bidId");
+        String offerId = (String) jo.get("offerId");
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
         Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
@@ -833,18 +833,18 @@ public class BasicAgent extends Agent {
             System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
         }
 
-        restoreResources(bidId, resourceType, confirmQuantity.intValue());
+        restoreResources(offerId, resourceType, confirmQuantity.intValue());
     }
 
 
-    private void restoreResources(String bidId, ResourceType resourceType, int confirmQuantity) {
+    private void restoreResources(String offerId, ResourceType resourceType, int confirmQuantity) {
 
-        Bid sentBid = sentBids.get( bidId);
+        Offer sentOffer = sentOffers.get( offerId);
 
-        if (confirmQuantity < sentBid.quantity) {
+        if (confirmQuantity < sentOffer.quantity) {
             // create a sorted set of offered items
             SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-            for (var offeredItem : sentBid.offeredItems.entrySet()) {
+            for (var offeredItem : sentOffer.offeredItems.entrySet()) {
                 offeredItems.add(new ResourceItem(offeredItem.getKey(), resourceType, offeredItem.getValue()));
             }
             Iterator<ResourceItem> itr = offeredItems.iterator();
@@ -1008,7 +1008,7 @@ public class BasicAgent extends Agent {
 //                    System.out.println(myAgent.getLocalName() + " received a BID message from " + msg.getSender().getLocalName());
 
                     try {
-                        storeBid(myAgent, msg);
+                        storeOffer(myAgent, msg);
                     } catch (ParseException e) {
                         e.printStackTrace();
                     }

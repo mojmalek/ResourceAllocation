@@ -7,15 +7,15 @@ import java.util.Objects;
 public class Confirmation {
 
     String id;
-    String bidId;
+    String offerId;
     long quantity;
     ResourceType resourceType;
     AID sender;
     AID receiver;
 
-    public Confirmation(String id, String bidId, long quantity, ResourceType resourceType, AID sender, AID receiver) {
+    public Confirmation(String id, String offerId, long quantity, ResourceType resourceType, AID sender, AID receiver) {
         this.id = id;
-        this.bidId = bidId;
+        this.offerId = offerId;
         this.quantity = quantity;
         this.resourceType = resourceType;
         this.sender = sender;

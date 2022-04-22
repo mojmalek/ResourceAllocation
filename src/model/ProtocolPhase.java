@@ -2,7 +2,7 @@ package model;
 
 public enum ProtocolPhase {
 
-    REQUESTING, BIDDING, CONFORMING;
+    REQUESTING, OFFERING, CONFORMING;
 
 
     private static final ProtocolPhase[] VALUES = values();

@@ -1,7 +1,7 @@
 package experiments;
 
 import jade.core.AID;
-import model.Bid;
+import model.Offer;
 import model.Request;
 import model.AdaptiveAgent;
 import model.ResourceType;
@@ -36,7 +36,7 @@ public class Tests {
 
         Request request = new Request (reqId, 10, ResourceType.A, utilityFunction, agent1);
 
-        Map<String, Set<Bid>> receivedBids = new LinkedHashMap<>();
+        Map<String, Set<Offer>> receivedBids = new LinkedHashMap<>();
 
         String bidId = UUID.randomUUID().toString();
 
@@ -50,7 +50,7 @@ public class Tests {
         offeredItems.put ("res2", 10);
         offeredItems.put ("res3", 10);
 
-        Bid bid1 = new Bid (bidId, reqId,3, ResourceType.A, costFunction, offeredItems, agent2, agent1);
+        Offer offer1 = new Offer(bidId, reqId,3, ResourceType.A, costFunction, offeredItems, agent2, agent1);
 
         bidId = UUID.randomUUID().toString();
 
@@ -68,7 +68,7 @@ public class Tests {
         offeredItems.put ("res4", 10);
         offeredItems.put ("res5", 10);
 
-        Bid bid2 = new Bid(bidId, reqId,5, ResourceType.A, costFunction, offeredItems, agent3, agent1);
+        Offer offer2 = new Offer(bidId, reqId,5, ResourceType.A, costFunction, offeredItems, agent3, agent1);
 
         bidId = UUID.randomUUID().toString();
 
@@ -84,18 +84,18 @@ public class Tests {
         offeredItems.put ("res3", 10);
         offeredItems.put ("res4", 10);
 
-        Bid bid3 = new Bid(bidId, reqId,4, ResourceType.A, costFunction, offeredItems, agent4, agent1);
+        Offer offer3 = new Offer(bidId, reqId,4, ResourceType.A, costFunction, offeredItems, agent4, agent1);
 
-        Set<Bid> bids = new HashSet<>();
-        bids.add(bid1);
-        bids.add(bid2);
-        bids.add(bid3);
+        Set<Offer> offers = new HashSet<>();
+        offers.add(offer1);
+        offers.add(offer2);
+        offers.add(offer3);
 
-        receivedBids.put(reqId, bids);
+        receivedBids.put(reqId, offers);
 
-        agent.receivedBids = receivedBids;
+        agent.receivedOffers = receivedBids;
 
-        Map<Bid, Long> selectedBids = agent.processBids( request);
+        Map<Offer, Long> selectedBids = agent.processOffers( request);
 
         System.out.println(selectedBids);
     }
