@@ -4,14 +4,20 @@ import jade.core.AID;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class Request {
 
     String id;
+    Boolean cascaded;
+    String originalId;
     long quantity;
     ResourceType resourceType;
     Map<Long, Long> utilityFunction;
     AID sender;
+    Set<Integer> receivers;
+    // id, lifetime
+    Map<String, Integer> reservedItems;
 
     public Request(String id, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender) {
         this.id = id;
@@ -19,6 +25,17 @@ public class Request {
         this.resourceType = resourceType;
         this.utilityFunction = utilityFunction;
         this.sender = sender;
+    }
+
+    public Request(String id, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, Set<Integer> receivers, Map<String, Integer> reservedItems) {
+        this.id = id;
+        this.cascaded = cascaded;
+        this.quantity = quantity;
+        this.resourceType = resourceType;
+        this.utilityFunction = utilityFunction;
+        this.sender = sender;
+        this.receivers = receivers;
+        this.reservedItems = reservedItems;
     }
 
     @Override

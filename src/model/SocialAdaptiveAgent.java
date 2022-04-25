@@ -31,10 +31,10 @@ public class SocialAdaptiveAgent extends Agent {
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
 
     // reqId
-    public Map<String, Request2> sentRequests = new LinkedHashMap<>();
+    public Map<String, Request> sentRequests = new LinkedHashMap<>();
     // reqId
-    public Map<String, Request2> cascadedRequests = new LinkedHashMap<>();
-    public Map<ResourceType, ArrayList<Request2>> receivedRequests = new LinkedHashMap<>();
+//    public Map<String, Request> cascadedRequests = new LinkedHashMap<>();
+    public Map<ResourceType, ArrayList<Request>> receivedRequests = new LinkedHashMap<>();
     // offerId
     public Map<String, Offer> sentOffers = new LinkedHashMap<>();
     // reqId
@@ -417,19 +417,30 @@ public class SocialAdaptiveAgent extends Agent {
             }
         }
 
-        for (var entry : totalRequiredResources.entrySet()) {
+        for (var resourceTypeQuantity : totalRequiredResources.entrySet()) {
             long missingQuantity = 0;
-            if ( remainingResources.containsKey( entry.getKey())) {
-                if (remainingResources.get(entry.getKey()).size() < entry.getValue()) {
-                    missingQuantity = entry.getValue() - remainingResources.get(entry.getKey()).size();
+            if ( remainingResources.containsKey( resourceTypeQuantity.getKey())) {
+                if (remainingResources.get(resourceTypeQuantity.getKey()).size() < resourceTypeQuantity.getValue()) {
+                    missingQuantity = resourceTypeQuantity.getValue() - remainingResources.get(resourceTypeQuantity.getKey()).size();
                 }
             } else {
-                missingQuantity = entry.getValue();
+                missingQuantity = resourceTypeQuantity.getValue();
             }
 
             if (missingQuantity > 0) {
-                Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
-                sendRequest(entry.getKey(), missingQuantity, utilityFunction, myAgent, null, null);
+                Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, resourceTypeQuantity.getKey(), remainingResources, missingQuantity);
+                Set<Integer> receivers = new TreeSet<>();
+                Set<AID> aidSet = new TreeSet<>();
+                for (int i = 0; i < neighbors.length; i++) {
+                    if (neighbors[i] != null) {
+                        receivers.add(i+1);
+                        AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
+                        aidSet.add(aid);
+                    }
+                }
+                String reqId = UUID.randomUUID().toString();
+                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, receivers, aidSet);
+                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), receivers, null));
             }
         }
     }
@@ -520,21 +531,13 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    private void sendRequest (ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Agent myAgent, Set<Integer> previousReceivers, Map<String, Integer> reservedItems) {
+    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> receivers, Set<AID> aidSet) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
-        Set<Integer> receivers = new TreeSet<>();
-        receivers.addAll( previousReceivers);
-        for (int i = 0; i < neighbors.length; i++) {
-            if (neighbors[i] != null && !previousReceivers.contains(i+1)) {
-                AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
-                msg.addReceiver(aid);
-                receivers.add(i+1);
-            }
+        for( AID aid : aidSet) {
+            msg.addReceiver(aid);
         }
-
-        String reqId = UUID.randomUUID().toString();
 
         JSONObject jo = new JSONObject();
         jo.put("reqId", reqId);
@@ -547,12 +550,7 @@ public class SocialAdaptiveAgent extends Agent {
 //      msg.setReplyByDate();
         send(msg);
 
-        if( reservedItems == null) {
-            sentRequests.put( reqId, new Request2(reqId, reqId, missingQuantity, resourceType, utilityFunction, myAgent.getAID(), receivers, null));
-        } else {
-            cascadedRequests.put( reqId, new Request2(reqId, reqId, missingQuantity, resourceType, utilityFunction, myAgent.getAID(), receivers, reservedItems));
-        }
-//        System.out.println( myAgent.getLocalName() + " sent a request with quantity: " + missingQuantity + " for resourceType: " + resourceType.name());
+//        System.out.println( this.getLocalName() + " sent a request with quantity: " + missingQuantity + " for resourceType: " + resourceType.name());
     }
 
 
@@ -564,7 +562,7 @@ public class SocialAdaptiveAgent extends Agent {
         JSONObject jo = (JSONObject) obj;
 
         String reqId = (String) jo.get("reqId");
-        String originalId = (String) jo.get("originalId");
+//        String originalId = (String) jo.get("originalId");
         Long requestedQuantity = (Long) jo.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
@@ -582,7 +580,7 @@ public class SocialAdaptiveAgent extends Agent {
             utilityFunction.put( Long.valueOf(key), value);
         }
 
-        Request2 request = new Request2(reqId, originalId, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), receivers, null);
+        Request request = new Request(reqId, null, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), receivers, null);
 
         if ( receivedRequests.containsKey(resourceType) == false) {
             receivedRequests.put(resourceType, new ArrayList<>());
@@ -616,12 +614,12 @@ public class SocialAdaptiveAgent extends Agent {
 
         long offerQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
-            ArrayList<Request2> requests = requestsForType.getValue();
+            ArrayList<Request> requests = requestsForType.getValue();
             if (availableResources.get(requestsForType.getKey()) != null) {
                 long availableQuantity = availableResources.get(requestsForType.getKey()).size();
                 while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
-                    Request2 selectedRequest = selectBestRequest( requests, availableQuantity);
+                    Request selectedRequest = selectBestRequest( requests, availableQuantity);
                     if (availableQuantity < selectedRequest.quantity) {
                         // cascade the request
                         offerQuantity = availableQuantity;
@@ -650,47 +648,55 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    void cascadeRequests (ArrayList<Request2> requests) {
+    void cascadeRequests (ArrayList<Request> requests) {
 
-        for (Request2 request : requests) {
+        for (Request request : requests) {
             cascadeRequest( request, 0);
         }
     }
 
 
-    void cascadeRequest (Request2 request, long offerQuantity) {
+    void cascadeRequest (Request request, long offerQuantity) {
 
         long missingQuantity = request.quantity - offerQuantity;
-
         Map<Long, Long> utilityFunction = new LinkedHashMap<>();
-
         for (long i=1; i<=missingQuantity; i++) {
             utilityFunction.put(i, request.utilityFunction.get(i+offerQuantity));
         }
 
         SortedSet<ResourceItem> availableItems = availableResources.get(request.resourceType);
-
         Map<String, Integer> reservedItems = new LinkedHashMap<>();
-
         for (long q=0; q<offerQuantity; q++) {
             ResourceItem item = availableItems.first();
             reservedItems.put(item.getId(), item.getLifetime());
             availableItems.remove( item);
         }
 
-        sendRequest(request.resourceType, missingQuantity, utilityFunction, this, request.receivers, reservedItems);
+        Set<Integer> allReceivers = new TreeSet<>();
+        Set<AID> aidSet = new TreeSet<>();
+        allReceivers.addAll( request.receivers);
+        for (int i = 0; i < neighbors.length; i++) {
+            if (neighbors[i] != null && !request.receivers.contains(i+1)) {
+                allReceivers.add(i+1);
+                AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
+                aidSet.add(aid);
+            }
+        }
+        String reqId = UUID.randomUUID().toString();
+        sendRequest( reqId, request.resourceType, missingQuantity, utilityFunction, allReceivers, aidSet);
+        sentRequests.put( reqId, new Request(reqId, true, missingQuantity, request.resourceType, utilityFunction, this.getAID(), allReceivers, reservedItems));
     }
 
 
-    Request2 selectBestRequest(ArrayList<Request2> requests, long remainingQuantity) {
+    Request selectBestRequest(ArrayList<Request> requests, long remainingQuantity) {
 
         //TODO: select the request with highest efficiency
 
-        Request2 selectedRequest = requests.get(0);
+        Request selectedRequest = requests.get(0);
         long highestUtility = 0;
         long offerQuantity;
 
-        for (Request2 request : requests) {
+        for (Request request : requests) {
             if (remainingQuantity < request.quantity) {
                 offerQuantity = remainingQuantity;
             } else {
@@ -802,7 +808,7 @@ public class SocialAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
 
-        Map<Request2, Map<Offer, Long>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
+        Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
 
         for (var request : sentRequests.entrySet()) {
             if ( receivedOffers.containsKey(request.getKey())) {
@@ -825,7 +831,7 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    void addResourceItemsInOffers(Map<Request2, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+    void addResourceItemsInOffers(Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             SortedSet<ResourceItem> resourceItems;
@@ -854,7 +860,7 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    boolean thereIsBenefitToConfirmOffers(Map<Request2, Map<Offer, Long>> selectedOffersForAllRequests) {
+    boolean thereIsBenefitToConfirmOffers(Map<Request, Map<Offer, Long>> selectedOffersForAllRequests) {
 
         Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
         Map<ResourceType, Long> resourceQuantities = new LinkedHashMap<>();
@@ -926,11 +932,11 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    public Map<Offer, Long> processOffers(Request2 request) {
+    public Map<Offer, Long> processOffers(Request request) {
 
-        // the requester selects the combination of bids that maximizes the difference between the utility of request and the total cost of all selected bids.
-        // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
-        // a greedy approach: we add 1 item from one bid in a loop up to the requested amount, without backtracking.
+        // the requester selects the combination of offer that maximizes the difference between the utility of request and the total cost of all selected offers.
+        // it is allowed to take partial amounts of oﬀered resources in multiple offers up to the requested amount.
+        // a greedy approach: we add 1 item from one offer in a loop up to the requested amount, without backtracking.
 
         Set<Offer> offers = receivedOffers.get(request.id);
         long minCost, cost;
@@ -1025,7 +1031,7 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    private void createConfirmation (Agent myAgent, Map<Request2, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+    private void createConfirmation (Agent myAgent, Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
@@ -1035,7 +1041,7 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    private void createRejection (Agent myAgent, Map<Request2, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+    private void createRejection (Agent myAgent, Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
