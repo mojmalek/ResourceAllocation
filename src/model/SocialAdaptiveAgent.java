@@ -234,7 +234,7 @@ public class SocialAdaptiveAgent extends Agent {
 
         for (int i = 0; i < neighbors.length; i++) {
             if (neighbors[i] != null) {
-                AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
+                AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
                 msg.addReceiver(aid);
             }
         }
@@ -466,12 +466,19 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity) {
+    Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity, AID requester) {
+
+        String requesterName = requester.getLocalName();
+        int requesterId = Integer.valueOf(requesterName.replace("Agent", ""));
+        int distance = neighbors[requesterId];
 
         long cost, expectedCost = 0;
         Map<Long, Long> offerCostFunction = new LinkedHashMap<>();
         for (long q=1; q<=offerQuantity; q++) {
             cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
+
+            cost += distance * q;
+
             if (cost == 0) {
                 expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
 //                System.out.println( expectedCost);
@@ -621,37 +628,31 @@ public class SocialAdaptiveAgent extends Agent {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( requests, availableQuantity);
                     if (availableQuantity < selectedRequest.quantity) {
-                        // cascade the request
                         offerQuantity = availableQuantity;
                         cascadeRequest( selectedRequest, offerQuantity);
+                        availableQuantity = availableQuantity - offerQuantity;
                     } else {
                         offerQuantity = selectedRequest.quantity;
-                        Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity);
+                        Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
                         long cost = costFunction.get(offerQuantity);
                         long benefit = selectedRequest.utilityFunction.get(offerQuantity);
                         if (cost < benefit) {
                             createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+                            availableQuantity = availableQuantity - offerQuantity;
                         } else {
-                            // cascade the request
+                            cascadeRequest( selectedRequest, 0);
                         }
                     }
-                    availableQuantity = availableQuantity - offerQuantity;
                     requests.remove( selectedRequest);
                 }
-                if (requests.size() > 0) {
-                    cascadeRequests(requests);
+                for (Request request : requests) {
+                    cascadeRequest( request, 0);
                 }
             } else {
-                cascadeRequests (requests);
+                for (Request request : requests) {
+                    cascadeRequest( request, 0);
+                }
             }
-        }
-    }
-
-
-    void cascadeRequests (ArrayList<Request> requests) {
-
-        for (Request request : requests) {
-            cascadeRequest( request, 0);
         }
     }
 
@@ -934,7 +935,7 @@ public class SocialAdaptiveAgent extends Agent {
 
     public Map<Offer, Long> processOffers(Request request) {
 
-        // the requester selects the combination of offer that maximizes the difference between the utility of request and the total cost of all selected offers.
+        // the requester selects the combination of offers that maximizes the difference between the utility of request and the total cost of all selected offers.
         // it is allowed to take partial amounts of oﬀered resources in multiple offers up to the requested amount.
         // a greedy approach: we add 1 item from one offer in a loop up to the requested amount, without backtracking.
 
