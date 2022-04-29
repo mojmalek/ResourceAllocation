@@ -15,6 +15,7 @@ public class Request {
     ResourceType resourceType;
     Map<Long, Long> utilityFunction;
     AID sender;
+    AID originalSender;
     Set<Integer> receivers;
     // id, lifetime
     Map<String, Integer> reservedItems;
@@ -27,13 +28,14 @@ public class Request {
         this.sender = sender;
     }
 
-    public Request(String id, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, Set<Integer> receivers, Map<String, Integer> reservedItems) {
+    public Request(String id, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, AID originalSender, Set<Integer> receivers, Map<String, Integer> reservedItems) {
         this.id = id;
         this.cascaded = cascaded;
         this.quantity = quantity;
         this.resourceType = resourceType;
         this.utilityFunction = utilityFunction;
         this.sender = sender;
+        this.originalSender = sender;
         this.receivers = receivers;
         this.reservedItems = reservedItems;
     }

@@ -193,8 +193,14 @@ public class SocialAdaptiveAgent extends Agent {
         if (receivedRequests.size() > 0) {
             deliberateOnOffering( myAgent);
         }
+//        sendNextPhaseNotification (ProtocolPhase.CONFORMING);
+        waitForOffers( myAgent);
+        if (receivedOffers.size() > 0) {
+            deliberateOnCompositeOffering( myAgent);
+        }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForOffers( myAgent);
+
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
 //        }
@@ -440,7 +446,7 @@ public class SocialAdaptiveAgent extends Agent {
                 }
                 String reqId = UUID.randomUUID().toString();
                 sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, receivers, aidSet);
-                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), receivers, null));
+                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, receivers, null));
             }
         }
     }
@@ -587,7 +593,7 @@ public class SocialAdaptiveAgent extends Agent {
             utilityFunction.put( Long.valueOf(key), value);
         }
 
-        Request request = new Request(reqId, null, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), receivers, null);
+        Request request = new Request(reqId, null, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), null, receivers, null);
 
         if ( receivedRequests.containsKey(resourceType) == false) {
             receivedRequests.put(resourceType, new ArrayList<>());
@@ -685,7 +691,7 @@ public class SocialAdaptiveAgent extends Agent {
         }
         String reqId = UUID.randomUUID().toString();
         sendRequest( reqId, request.resourceType, missingQuantity, utilityFunction, allReceivers, aidSet);
-        sentRequests.put( reqId, new Request(reqId, true, missingQuantity, request.resourceType, utilityFunction, this.getAID(), allReceivers, reservedItems));
+        sentRequests.put( reqId, new Request(reqId, true, missingQuantity, request.resourceType, utilityFunction, this.getAID(), request.sender, allReceivers, reservedItems));
     }
 
 
@@ -803,13 +809,68 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
+    void deliberateOnCompositeOffering (Agent myAgent) {
+
+        Map<Request, Map<Offer, Long>> selectedOffersForAllCascadedRequests = new LinkedHashMap<>();
+
+        for (var request : sentRequests.entrySet()) {
+            if (request.getValue().cascaded && receivedOffers.containsKey(request.getKey())) {
+//                Set<Offer> offers = receivedOffers.get(request.getKey());
+                Map<Offer, Long> confirmQuantities = processOffers( request.getValue());
+                selectedOffersForAllCascadedRequests.put(request.getValue(), confirmQuantities);
+            }
+        }
+
+        if (selectedOffersForAllCascadedRequests.size() > 0) {
+            combineOffers( selectedOffersForAllCascadedRequests);
+        }
+    }
+
+
+    private void combineOffers (Map<Request, Map<Offer, Long>> selectedOffersForAllCascadedRequests) {
+
+        for (var selectedOffersForReq : selectedOffersForAllCascadedRequests.entrySet()) {
+
+            Request cascadedRequest = selectedOffersForReq.getKey();
+            Map<Offer, Long> selectedOffers = selectedOffersForReq.getValue();
+
+            long offerQuantity = 0;
+            offerQuantity += cascadedRequest.reservedItems.size();
+            for ( var offer : selectedOffers.entrySet()) {
+                offerQuantity += offer.getValue();
+            }
+
+            Map<String, Integer> offeredItems = new LinkedHashMap<>();
+            for (var item : cascadedRequest.reservedItems.entrySet()) {
+                offeredItems.put(item.getKey(), item.getValue());
+            }
+            for ( var offer : selectedOffers.entrySet()) {
+                for (var item :offer.getKey().offeredItems.entrySet() ) {
+                    offeredItems.put(item.getKey(), item.getValue());
+                }
+            }
+
+            Map<Long, Long> costFunction = new LinkedHashMap<>();
+            //compute cost function
+
+
+            String offerId = UUID.randomUUID().toString();
+            Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, offerer, requester);
+            sentOffers.put( offerId, offer);
+
+            sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems);
+
+        }
+    }
+
+
     void deliberateOnConfirming( Agent myAgent) {
 
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
 //        }
 
-        Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
+        Map<Request, Map<Offer, Long>> selectedOffersForAllRequests = new LinkedHashMap<>();
 
         for (var request : sentRequests.entrySet()) {
             if ( receivedOffers.containsKey(request.getKey())) {
@@ -817,16 +878,16 @@ public class SocialAdaptiveAgent extends Agent {
                 if (confirmQuantities.size() == 0) {
                     System.out.println("Error!!");
                 }
-                confirmQuantitiesForAllRequests.put(request.getValue(), confirmQuantities);
+                selectedOffersForAllRequests.put(request.getValue(), confirmQuantities);
             }
         }
 
-        if (confirmQuantitiesForAllRequests.size() > 0) {
-            if (thereIsBenefitToConfirmOffers( confirmQuantitiesForAllRequests)) {
-                createConfirmation( myAgent, confirmQuantitiesForAllRequests);
-                addResourceItemsInOffers(confirmQuantitiesForAllRequests);
+        if (selectedOffersForAllRequests.size() > 0) {
+            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
+                createConfirmation( myAgent, selectedOffersForAllRequests);
+                addResourceItemsInOffers(selectedOffersForAllRequests);
             } else {
-                createRejection( myAgent, confirmQuantitiesForAllRequests);
+                createRejection( myAgent, selectedOffersForAllRequests);
             }
         }
     }

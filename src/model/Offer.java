@@ -4,6 +4,7 @@ import jade.core.AID;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class Offer {
 
@@ -16,6 +17,7 @@ public class Offer {
     Map<String, Integer> offeredItems;
     AID sender;
     AID receiver;
+    Set<Offer> includedOffers;
 
     public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
         this.id = id;
