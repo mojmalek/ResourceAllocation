@@ -815,28 +815,70 @@ public class SocialAdaptiveAgent extends Agent {
 
         for (var request : sentRequests.entrySet()) {
             if (request.getValue().cascaded && receivedOffers.containsKey(request.getKey())) {
-//                Set<Offer> offers = receivedOffers.get(request.getKey());
-                Map<Offer, Long> confirmQuantities = processOffers( request.getValue());
-                selectedOffersForAllCascadedRequests.put(request.getValue(), confirmQuantities);
+
+                combineOffers( request.getValue());
+//                Map<Offer, Long> confirmQuantities = processOffers( request.getValue());
+//                selectedOffersForAllCascadedRequests.put(request.getValue(), confirmQuantities);
             }
         }
 
-        if (selectedOffersForAllCascadedRequests.size() > 0) {
-            combineOffers( selectedOffersForAllCascadedRequests);
-        }
+//        if (selectedOffersForAllCascadedRequests.size() > 0) {
+//            combineOffers( selectedOffersForAllCascadedRequests);
+//        }
     }
 
 
-    private void combineOffers (Map<Request, Map<Offer, Long>> selectedOffersForAllCascadedRequests) {
+    private void combineOffers (Request cascadedRequest) {
 
-        for (var selectedOffersForReq : selectedOffersForAllCascadedRequests.entrySet()) {
+        Set<Offer> offers = receivedOffers.get(cascadedRequest.id);
 
-            Request cascadedRequest = selectedOffersForReq.getKey();
-            Map<Offer, Long> selectedOffers = selectedOffersForReq.getValue();
+//        for (var selectedOffersForCascadedRequest : selectedOffersForAllCascadedRequests.entrySet()) {
+//            Request cascadedRequest = selectedOffersForCascadedRequest.getKey();
+//            Map<Offer, Long> offerQuantities = selectedOffersForCascadedRequest.getValue();
+
+            String requesterName = cascadedRequest.originalSender.getLocalName();
+            int requesterId = Integer.valueOf(requesterName.replace("Agent", ""));
+            int distance = neighbors[requesterId];
+
+            // we first add the reserved items to the cost function
+            long availableQuantity = availableResources.get(cascadedRequest.resourceType).size();
+            Map<Long, Long> costFunction = computeOfferCostFunction(cascadedRequest.resourceType, availableQuantity, cascadedRequest.reservedItems.size(), cascadedRequest.originalSender);
+
+            // then we add the offered items to the cost function
+//            Set<Offer> offers = offerQuantities.keySet();
+            Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
+
+            long minCost, cost;
+            Offer lowCostOffer;
+            for (Offer offer : offers) {
+                offerQuantities.put(offer, 0L);
+            }
+
+            for (long q=cascadedRequest.reservedItems.size()+1; q<= cascadedRequest.quantity; q++) {
+                minCost = Integer.MAX_VALUE;
+                cost = 0;
+                lowCostOffer = null;
+                for (Offer offer : offers) {
+                    if (hasExtraItem(offer, offerQuantities)) {
+                        cost = totalCost(offer, offerQuantities);
+                        if (cost < minCost) {
+                            minCost = cost;
+                            lowCostOffer = offer;
+                        }
+                    }
+                }
+                if (lowCostOffer != null) {
+                    cost += distance * q;
+                    costFunction.put(q, cost);
+                    offerQuantities.put(lowCostOffer, offerQuantities.get(lowCostOffer) + 1);
+                } else {
+                    break;
+                }
+            }
 
             long offerQuantity = 0;
             offerQuantity += cascadedRequest.reservedItems.size();
-            for ( var offer : selectedOffers.entrySet()) {
+            for ( var offer : offerQuantities.entrySet()) {
                 offerQuantity += offer.getValue();
             }
 
@@ -844,23 +886,18 @@ public class SocialAdaptiveAgent extends Agent {
             for (var item : cascadedRequest.reservedItems.entrySet()) {
                 offeredItems.put(item.getKey(), item.getValue());
             }
-            for ( var offer : selectedOffers.entrySet()) {
-                for (var item :offer.getKey().offeredItems.entrySet() ) {
+            for ( var offer : offerQuantities.entrySet()) {
+                for (var item : offer.getKey().offeredItems.entrySet() ) {
                     offeredItems.put(item.getKey(), item.getValue());
                 }
             }
 
-            Map<Long, Long> costFunction = new LinkedHashMap<>();
-            //compute cost function
-
 
             String offerId = UUID.randomUUID().toString();
-            Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, offerer, requester);
-            sentOffers.put( offerId, offer);
-
+            Offer combinedOffer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, this.getAID(), cascadedRequest.originalSender, offers);
+            sentOffers.put( offerId, combinedOffer);
             sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems);
-
-        }
+//        }
     }
 
 
