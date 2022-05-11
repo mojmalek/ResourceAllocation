@@ -2,7 +2,7 @@ package model;
 
 public enum ProtocolPhase {
 
-    REQUESTING, OFFERING, CONFORMING;
+    REQUESTING, CASCADING_REQUEST, OFFERING, CASCADING_OFFER, CONFORMING, CASCADING_CONFIRM;
 
 
     private static final ProtocolPhase[] VALUES = values();

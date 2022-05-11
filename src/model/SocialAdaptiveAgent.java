@@ -181,34 +181,39 @@ public class SocialAdaptiveAgent extends Agent {
 
 
     private void negotiate (Agent myAgent) {
-
 //        System.out.println (myAgent.getLocalName() +  " is negotiating.");
         resetRound();
         deliberateOnRequesting (myAgent);
-        sendNextPhaseNotification (ProtocolPhase.OFFERING);
+        sendNextPhaseNotification (ProtocolPhase.CASCADING_REQUEST);
         waitForRequests( myAgent);
+        if (receivedRequests.size() > 0) {
+            deliberateOnCascadingRequest(myAgent);
+        }
+        sendNextPhaseNotification (ProtocolPhase.OFFERING);
+        waitForCascadedRequests( myAgent);
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
 //        }
         if (receivedRequests.size() > 0) {
             deliberateOnOffering( myAgent);
         }
-//        sendNextPhaseNotification (ProtocolPhase.CONFORMING);
+        sendNextPhaseNotification (ProtocolPhase.CASCADING_OFFER);
         waitForOffers( myAgent);
         if (receivedOffers.size() > 0) {
-            deliberateOnCompositeOffering( myAgent);
+            deliberateOnCascadingOffer( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
-        waitForOffers( myAgent);
-
+        waitForCascadedOffers( myAgent);
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
 //        }
         if (receivedOffers.size() > 0) {
             deliberateOnConfirming( myAgent);
         }
-        sendNextPhaseNotification (ProtocolPhase.REQUESTING);
+        sendNextPhaseNotification (ProtocolPhase.CASCADING_CONFIRM);
         waitForConfirmations( myAgent);
+        sendNextPhaseNotification (ProtocolPhase.REQUESTING);
+        waitForCascadedConfirms( myAgent);
     }
 
 
@@ -263,9 +268,29 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
+    void waitForCascadedRequests( Agent myAgent) {
+
+        while(inCascadingRequestPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.REQUEST);
+    }
+
+
     void waitForOffers(Agent myAgent) {
 
         while(inOfferingPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.PROPOSE);
+    }
+
+
+    void waitForCascadedOffers(Agent myAgent) {
+
+        while(inCascadingOfferPhase()) {
             myAgent.doWait(1);
             receiveMessages( myAgent, ACLMessage.INFORM);
         }
@@ -283,7 +308,17 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    boolean inRequestingPhase () {
+    void waitForCascadedConfirms( Agent myAgent) {
+
+        while(inCascadingConfirmPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.CONFIRM);
+    }
+
+
+    boolean inRequestingPhase() {
 
         boolean requesting = false;
         for (var agentPhase : otherAgentsPhases.entrySet() ) {
@@ -293,6 +328,19 @@ public class SocialAdaptiveAgent extends Agent {
             }
         }
         return requesting;
+    }
+
+
+    boolean inCascadingRequestPhase() {
+
+        boolean cascadingRequest = false;
+        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CASCADING_REQUEST) {
+                cascadingRequest = true;
+                break;
+            }
+        }
+        return cascadingRequest;
     }
 
 
@@ -308,7 +356,19 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    boolean inConfirmingPhase () {
+    boolean inCascadingOfferPhase() {
+
+        boolean cascadingOffer = false;
+        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CASCADING_OFFER) {
+                cascadingOffer = true;
+            }
+        }
+        return cascadingOffer;
+    }
+
+
+    boolean inConfirmingPhase() {
 
         boolean confirming = false;
         for (var agentPhase : otherAgentsPhases.entrySet() ) {
@@ -318,6 +378,19 @@ public class SocialAdaptiveAgent extends Agent {
             }
         }
         return confirming;
+    }
+
+
+    boolean inCascadingConfirmPhase() {
+
+        boolean cascadingConfirm = false;
+        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CASCADING_CONFIRM) {
+                cascadingConfirm = true;
+                break;
+            }
+        }
+        return cascadingConfirm;
     }
 
 
@@ -602,6 +675,47 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
+
+
+    private void deliberateOnCascadingRequest(Agent myAgent) {
+
+        long offerQuantity;
+        for (var requestsForType : receivedRequests.entrySet()) {
+            ArrayList<Request> requests = requestsForType.getValue();
+            if (availableResources.get(requestsForType.getKey()) != null) {
+                long availableQuantity = availableResources.get(requestsForType.getKey()).size();
+                while (availableQuantity > 0 && requests.size() > 0) {
+                    // Greedy approach
+                    Request selectedRequest = selectBestRequest( requests, availableQuantity);
+                    if (availableQuantity < selectedRequest.quantity) {
+                        offerQuantity = availableQuantity;
+                        cascadeRequest( selectedRequest, offerQuantity);
+                        availableQuantity = availableQuantity - offerQuantity;
+                    } else {
+                        offerQuantity = selectedRequest.quantity;
+                        Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
+                        long cost = costFunction.get(offerQuantity);
+                        long benefit = selectedRequest.utilityFunction.get(offerQuantity);
+                        if (cost < benefit) {
+//                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+//                            availableQuantity = availableQuantity - offerQuantity;
+                        } else {
+                            cascadeRequest( selectedRequest, 0);
+                        }
+                    }
+                    requests.remove( selectedRequest);
+                }
+                for (Request request : requests) {
+                    cascadeRequest( request, 0);
+                }
+            } else {
+                for (Request request : requests) {
+                    cascadeRequest( request, 0);
+                }
+            }
+        }
+    }
+
     private void deliberateOnOffering(Agent myAgent) {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
@@ -634,9 +748,9 @@ public class SocialAdaptiveAgent extends Agent {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( requests, availableQuantity);
                     if (availableQuantity < selectedRequest.quantity) {
-                        offerQuantity = availableQuantity;
-                        cascadeRequest( selectedRequest, offerQuantity);
-                        availableQuantity = availableQuantity - offerQuantity;
+//                        offerQuantity = availableQuantity;
+//                        cascadeRequest( selectedRequest, offerQuantity);
+//                        availableQuantity = availableQuantity - offerQuantity;
                     } else {
                         offerQuantity = selectedRequest.quantity;
                         Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
@@ -646,18 +760,18 @@ public class SocialAdaptiveAgent extends Agent {
                             createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
                             availableQuantity = availableQuantity - offerQuantity;
                         } else {
-                            cascadeRequest( selectedRequest, 0);
+//                            cascadeRequest( selectedRequest, 0);
                         }
                     }
                     requests.remove( selectedRequest);
                 }
-                for (Request request : requests) {
-                    cascadeRequest( request, 0);
-                }
+//                for (Request request : requests) {
+//                    cascadeRequest( request, 0);
+//                }
             } else {
-                for (Request request : requests) {
-                    cascadeRequest( request, 0);
-                }
+//                for (Request request : requests) {
+//                    cascadeRequest( request, 0);
+//                }
             }
         }
     }
@@ -809,19 +923,19 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    void deliberateOnCompositeOffering (Agent myAgent) {
+    void deliberateOnCascadingOffer(Agent myAgent) {
 
         for (var request : sentRequests.entrySet()) {
             if (request.getValue().cascaded) {
 //                if (receivedOffers.containsKey(request.getKey())) {
-                    combineOffers( request.getValue());
+                    cascadeOffers( request.getValue());
 //                }
             }
         }
     }
 
 
-    private void combineOffers (Request cascadedRequest) {
+    private void cascadeOffers(Request cascadedRequest) {
 
         long availableQuantity = availableResources.get(cascadedRequest.resourceType).size();
         Map<Long, Long> costFunction = computeOfferCostFunction(cascadedRequest.resourceType, availableQuantity, cascadedRequest.reservedItems.size(), cascadedRequest.originalSender);
@@ -1160,6 +1274,10 @@ public class SocialAdaptiveAgent extends Agent {
 
 
     private void processConfirmation (Agent myAgent, ACLMessage confirmation) throws ParseException {
+
+        // TODO: how to know if a confirmation should be cascaded ?
+        // use offerId in sentOffers to find the included offers in the cascadedOffer
+        // then cascade partial confirmations to all the included offers
 
         String content = confirmation.getContent();
 
