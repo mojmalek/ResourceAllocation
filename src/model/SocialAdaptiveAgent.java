@@ -940,7 +940,7 @@ public class SocialAdaptiveAgent extends Agent {
         long availableQuantity = availableResources.get(cascadedRequest.resourceType).size();
         Map<Long, Long> costFunction = computeOfferCostFunction(cascadedRequest.resourceType, availableQuantity, cascadedRequest.reservedItems.size(), cascadedRequest.originalSender);
 
-        long offerQuantity = cascadedRequest.reservedItems.size();;
+        long offerQuantity = cascadedRequest.reservedItems.size();
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
         for (var item : cascadedRequest.reservedItems.entrySet()) {
@@ -1026,10 +1026,10 @@ public class SocialAdaptiveAgent extends Agent {
 
         if (selectedOffersForAllRequests.size() > 0) {
             if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
-                createConfirmation( myAgent, selectedOffersForAllRequests);
+                createConfirmation( selectedOffersForAllRequests);
                 addResourceItemsInOffers(selectedOffersForAllRequests);
             } else {
-                createRejection( myAgent, selectedOffersForAllRequests);
+                createRejection( selectedOffersForAllRequests);
             }
         }
     }
@@ -1235,27 +1235,27 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    private void createConfirmation (Agent myAgent, Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+    private void createConfirmation (Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
-                sendConfirmation (myAgent, offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
+                sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
             }
         }
     }
 
 
-    private void createRejection (Agent myAgent, Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+    private void createRejection (Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
-                sendConfirmation (myAgent, offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, 0);
+                sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, 0);
             }
         }
     }
 
 
-    void sendConfirmation (Agent myAgent, String offerId, AID offerer, ResourceType resourceType, long confirmQuantity) {
+    void sendConfirmation (String offerId, AID offerer, ResourceType resourceType, long confirmQuantity) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.CONFIRM);
 
@@ -1275,33 +1275,89 @@ public class SocialAdaptiveAgent extends Agent {
 
     private void processConfirmation (Agent myAgent, ACLMessage confirmation) throws ParseException {
 
-        // TODO: how to know if a confirmation should be cascaded ?
-        // use offerId in sentOffers to find the included offers in the cascadedOffer
-        // then cascade partial confirmations to all the included offers
-
         String content = confirmation.getContent();
-
         Object obj = new JSONParser().parse(content);
         JSONObject jo = (JSONObject) obj;
 
         String offerId = (String) jo.get("offerId");
-
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-
         Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
+
         if (debugMode) {
             System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
         }
-        restoreResources(offerId, resourceType, confirmQuantity.intValue());
+
+        Offer sentOffer = sentOffers.get(offerId);
+        Set<Offer> includedOffers = sentOffer.includedOffers;
+        Request cascadedRequest = sentRequests.get(sentOffer.reqId);
+
+        if (includedOffers != null) {
+            Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
+            for (Offer offer : includedOffers) {
+                offerQuantities.put(offer, 0L);
+            }
+            if (confirmQuantity > cascadedRequest.reservedItems.size()) {
+                long minCost, cost;
+                Offer lowCostOffer;
+                for (long q = cascadedRequest.reservedItems.size()+1; q <= confirmQuantity; q++) {
+                    minCost = Integer.MAX_VALUE;
+                    lowCostOffer = null;
+                    for (Offer offer : includedOffers) {
+                        if (hasExtraItem(offer, offerQuantities)) {
+                            cost = totalCost(offer, offerQuantities);
+                            if (cost < minCost) {
+                                minCost = cost;
+                                lowCostOffer = offer;
+                            }
+                        }
+                    }
+                    if (lowCostOffer != null) {
+                        offerQuantities.put(lowCostOffer, offerQuantities.get(lowCostOffer) + 1);
+                    } else {
+                        break;
+                    }
+                }
+            }
+            cascadePartialConfirmations(offerQuantities);
+        }
+
+        restoreResources(offerId, resourceType, confirmQuantity);
     }
 
 
-    private void restoreResources(String offerId, ResourceType resourceType, int confirmQuantity) {
+    private void cascadePartialConfirmations(Map<Offer, Long> offerQuantities) {
+
+        for (var offerQuantity : offerQuantities.entrySet()) {
+            sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
+        }
+    }
+
+
+    private void restoreResources(String offerId, ResourceType resourceType, long confirmQuantity) {
 
         Offer sentOffer = sentOffers.get( offerId);
+        Set<Offer> includedOffers = sentOffer.includedOffers;
+        Request cascadedRequest = sentRequests.get(sentOffer.reqId);
 
-        if (confirmQuantity < sentOffer.quantity) {
+        if (includedOffers != null) {
+            if (confirmQuantity < cascadedRequest.reservedItems.size()) {
+                // create a sorted set of offered items
+                SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+                for (var offeredItem : cascadedRequest.reservedItems.entrySet()) {
+                    offeredItems.add(new ResourceItem(offeredItem.getKey(), resourceType, offeredItem.getValue()));
+                }
+                Iterator<ResourceItem> itr = offeredItems.iterator();
+                long q=1;
+                while (q<=confirmQuantity) {
+                    ResourceItem item = itr.next();
+                    offeredItems.remove(item);
+                    itr = offeredItems.iterator();
+                    q++;
+                }
+                availableResources.get(resourceType).addAll(offeredItems);
+            }
+        } else if (confirmQuantity < sentOffer.quantity) {
             // create a sorted set of offered items
             SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
             for (var offeredItem : sentOffer.offeredItems.entrySet()) {
@@ -1315,19 +1371,7 @@ public class SocialAdaptiveAgent extends Agent {
                 itr = offeredItems.iterator();
                 q++;
             }
-
             availableResources.get(resourceType).addAll(offeredItems);
-
-//            int unusedQuantity = sentBid.quantity - confirmQuantity;
-//            SortedSet<ResourceItem> resourceItems = availableResources.get( resourceType);
-//            itr = offeredItems.iterator();
-//            q=1;
-//            while (q<=unusedQuantity) {
-//                ResourceItem item = itr.next();
-//                resourceItems.add(item);
-//                q++;
-//            }
-//            availableResources.put( resourceType, resourceItems);
         }
     }
 
