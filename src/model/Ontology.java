@@ -12,5 +12,4 @@ public class Ontology {
     protected final static String PROTOCOL_PHASE = "protocolPhase";
     protected final static String RECEIVERS = "receivers";
 
-
 }

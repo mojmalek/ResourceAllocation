@@ -10,7 +10,7 @@ public class Request {
 
     String id;
     Boolean cascaded;
-    String originalId;
+//    String originalId;
     long quantity;
     ResourceType resourceType;
     Map<Long, Long> utilityFunction;
@@ -35,7 +35,7 @@ public class Request {
         this.resourceType = resourceType;
         this.utilityFunction = utilityFunction;
         this.sender = sender;
-        this.originalSender = sender;
+        this.originalSender = originalSender;
         this.receivers = receivers;
         this.reservedItems = reservedItems;
     }

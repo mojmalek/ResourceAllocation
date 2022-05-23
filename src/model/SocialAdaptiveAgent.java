@@ -5,6 +5,7 @@ import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -18,7 +19,7 @@ public class SocialAdaptiveAgent extends Agent {
     private boolean debugMode = false;
 
     private Integer[] neighbors;
-    private Map<AID, ProtocolPhase> otherAgentsPhases = new LinkedHashMap<>();
+    private Map<AID, ProtocolPhase> neighborsPhases = new LinkedHashMap<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
@@ -52,15 +53,15 @@ public class SocialAdaptiveAgent extends Agent {
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
             int myId = (int) args[1];
-            for (int i = 1; i <= numberOfAgents; i++) {
-                if ( i != myId) {
-                    AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
-//                    otherAgents.add(aid);
-                    otherAgentsPhases.put(aid, ProtocolPhase.REQUESTING);
-                }
-            }
             numberOfRounds = (int) args[2];
             neighbors = (Integer[]) args[3];
+
+            for (int i = 0; i < neighbors.length; i++) {
+                if (neighbors[i] != null) {
+                    AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
+                    neighborsPhases.put(aid, ProtocolPhase.REQUESTING);
+                }
+            }
         }
 
         addBehaviour (new TickerBehaviour(this, 1) {
@@ -321,7 +322,7 @@ public class SocialAdaptiveAgent extends Agent {
     boolean inRequestingPhase() {
 
         boolean requesting = false;
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+        for (var agentPhase : neighborsPhases.entrySet() ) {
             if (agentPhase.getValue() == ProtocolPhase.REQUESTING) {
                 requesting = true;
                 break;
@@ -334,7 +335,7 @@ public class SocialAdaptiveAgent extends Agent {
     boolean inCascadingRequestPhase() {
 
         boolean cascadingRequest = false;
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+        for (var agentPhase : neighborsPhases.entrySet() ) {
             if (agentPhase.getValue() == ProtocolPhase.CASCADING_REQUEST) {
                 cascadingRequest = true;
                 break;
@@ -347,7 +348,7 @@ public class SocialAdaptiveAgent extends Agent {
     boolean inOfferingPhase() {
 
         boolean offering = false;
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+        for (var agentPhase : neighborsPhases.entrySet() ) {
             if (agentPhase.getValue() == ProtocolPhase.OFFERING) {
                 offering = true;
             }
@@ -359,7 +360,7 @@ public class SocialAdaptiveAgent extends Agent {
     boolean inCascadingOfferPhase() {
 
         boolean cascadingOffer = false;
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+        for (var agentPhase : neighborsPhases.entrySet() ) {
             if (agentPhase.getValue() == ProtocolPhase.CASCADING_OFFER) {
                 cascadingOffer = true;
             }
@@ -371,7 +372,7 @@ public class SocialAdaptiveAgent extends Agent {
     boolean inConfirmingPhase() {
 
         boolean confirming = false;
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+        for (var agentPhase : neighborsPhases.entrySet() ) {
             if (agentPhase.getValue() == ProtocolPhase.CONFORMING) {
                 confirming = true;
                 break;
@@ -384,7 +385,7 @@ public class SocialAdaptiveAgent extends Agent {
     boolean inCascadingConfirmPhase() {
 
         boolean cascadingConfirm = false;
-        for (var agentPhase : otherAgentsPhases.entrySet() ) {
+        for (var agentPhase : neighborsPhases.entrySet() ) {
             if (agentPhase.getValue() == ProtocolPhase.CASCADING_CONFIRM) {
                 cascadingConfirm = true;
                 break;
@@ -509,16 +510,16 @@ public class SocialAdaptiveAgent extends Agent {
             if (missingQuantity > 0) {
                 Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, resourceTypeQuantity.getKey(), remainingResources, missingQuantity);
                 Set<Integer> receivers = new TreeSet<>();
-                Set<AID> aidSet = new TreeSet<>();
+                Set<AID> receiverIds = new TreeSet<>();
                 for (int i = 0; i < neighbors.length; i++) {
                     if (neighbors[i] != null) {
                         receivers.add(i+1);
                         AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
-                        aidSet.add(aid);
+                        receiverIds.add(aid);
                     }
                 }
                 String reqId = UUID.randomUUID().toString();
-                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, receivers, aidSet);
+                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, receivers, receiverIds);
                 sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, receivers, null));
             }
         }
@@ -548,15 +549,16 @@ public class SocialAdaptiveAgent extends Agent {
     Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity, AID requester) {
 
         String requesterName = requester.getLocalName();
-        int requesterId = Integer.valueOf(requesterName.replace("Agent", ""));
-        int distance = neighbors[requesterId];
+        int requesterId = Integer.valueOf(requesterName.replace(numberOfAgents+"Agent", ""));
+        int distance = neighbors[requesterId-1];
 
-        long cost, expectedCost = 0;
+        long cost;
+        long expectedCost = 0;
         Map<Long, Long> offerCostFunction = new LinkedHashMap<>();
         for (long q=1; q<=offerQuantity; q++) {
             cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
 
-            cost += distance * q;
+            cost += distance * 1;
 
             if (cost == 0) {
                 expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
@@ -617,11 +619,11 @@ public class SocialAdaptiveAgent extends Agent {
     }
 
 
-    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> receivers, Set<AID> aidSet) {
+    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> receivers, Set<AID> receiverIds) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
-        for( AID aid : aidSet) {
+        for( AID aid : receiverIds) {
             msg.addReceiver(aid);
         }
 
@@ -652,7 +654,14 @@ public class SocialAdaptiveAgent extends Agent {
         Long requestedQuantity = (Long) jo.get(Ontology.RESOURCE_REQUESTED_QUANTITY);
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-        Set<Integer> receivers = (Set<Integer>) jo.get("receivers");
+
+        JSONArray joReceivers = (JSONArray) jo.get("receivers");
+
+        Set<Integer> receivers = new TreeSet<>();
+        for (int i=0; i<joReceivers.size(); i++) {
+            Long value = (Long) joReceivers.get(i);
+            receivers.add(Integer.valueOf(value.intValue()));
+        }
 
         JSONObject joUtilityFunction = (JSONObject) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
 
@@ -673,8 +682,6 @@ public class SocialAdaptiveAgent extends Agent {
         }
         receivedRequests.get(resourceType).add(request);
     }
-
-
 
 
     private void deliberateOnCascadingRequest(Agent myAgent) {
@@ -794,17 +801,17 @@ public class SocialAdaptiveAgent extends Agent {
         }
 
         Set<Integer> allReceivers = new TreeSet<>();
-        Set<AID> aidSet = new TreeSet<>();
+        Set<AID> receiverIds = new TreeSet<>();
         allReceivers.addAll( request.receivers);
         for (int i = 0; i < neighbors.length; i++) {
             if (neighbors[i] != null && !request.receivers.contains(i+1)) {
                 allReceivers.add(i+1);
                 AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
-                aidSet.add(aid);
+                receiverIds.add(aid);
             }
         }
         String reqId = UUID.randomUUID().toString();
-        sendRequest( reqId, request.resourceType, missingQuantity, utilityFunction, allReceivers, aidSet);
+        sendRequest( reqId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds);
         sentRequests.put( reqId, new Request(reqId, true, missingQuantity, request.resourceType, utilityFunction, this.getAID(), request.sender, allReceivers, reservedItems));
     }
 
@@ -926,7 +933,7 @@ public class SocialAdaptiveAgent extends Agent {
     void deliberateOnCascadingOffer(Agent myAgent) {
 
         for (var request : sentRequests.entrySet()) {
-            if (request.getValue().cascaded) {
+            if (request.getValue().cascaded == true) {
 //                if (receivedOffers.containsKey(request.getKey())) {
                     cascadeOffers( request.getValue());
 //                }
@@ -951,8 +958,8 @@ public class SocialAdaptiveAgent extends Agent {
         if (receivedOffers.containsKey(cascadedRequest.id)) {
             offers = receivedOffers.get(cascadedRequest.id);
             String requesterName = cascadedRequest.originalSender.getLocalName();
-            int requesterId = Integer.valueOf(requesterName.replace("Agent", ""));
-            int distance = neighbors[requesterId];
+            int requesterId = Integer.valueOf(requesterName.replace(numberOfAgents+"Agent", ""));
+            int distance = neighbors[requesterId-1];
 
             Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
 
@@ -976,7 +983,7 @@ public class SocialAdaptiveAgent extends Agent {
                     }
                 }
                 if (lowCostOffer != null) {
-                    cost += distance * q;
+                    cost += distance * 1;
                     costFunction.put(q, cost);
                     offerQuantities.put(lowCostOffer, offerQuantities.get(lowCostOffer) + 1);
                 } else {
@@ -999,10 +1006,12 @@ public class SocialAdaptiveAgent extends Agent {
             }
         }
 
-        String offerId = UUID.randomUUID().toString();
-        Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, this.getAID(), cascadedRequest.originalSender, offers);
-        sentOffers.put( offerId, offer);
-        sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems);
+        if (offerQuantity > 0) {
+            String offerId = UUID.randomUUID().toString();
+            Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, this.getAID(), cascadedRequest.originalSender, offers);
+            sentOffers.put(offerId, offer);
+            sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems);
+        }
     }
 
 
@@ -1480,7 +1489,7 @@ public class SocialAdaptiveAgent extends Agent {
         String pp = (String) jo.get(Ontology.PROTOCOL_PHASE);
         ProtocolPhase protocolPhase = ProtocolPhase.valueOf(pp);
 
-        otherAgentsPhases.put( msg.getSender(), protocolPhase);
+        neighborsPhases.put( msg.getSender(), protocolPhase);
     }
 
 
