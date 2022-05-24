@@ -13,7 +13,7 @@ import org.json.simple.parser.ParseException;
 import java.util.*;
 
 
-public class SocialAdaptiveAgent extends Agent {
+public class NeighborAdaptiveAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
     private boolean debugMode = false;
@@ -185,36 +185,24 @@ public class SocialAdaptiveAgent extends Agent {
 //        System.out.println (myAgent.getLocalName() +  " is negotiating.");
         resetRound();
         deliberateOnRequesting (myAgent);
-        sendNextPhaseNotification (ProtocolPhase.CASCADING_REQUEST);
-        waitForRequests( myAgent);
-        if (receivedRequests.size() > 0) {
-            deliberateOnCascadingRequest(myAgent);
-        }
         sendNextPhaseNotification (ProtocolPhase.OFFERING);
-        waitForCascadedRequests( myAgent);
+        waitForRequests( myAgent);
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
 //        }
         if (receivedRequests.size() > 0) {
             deliberateOnOffering( myAgent);
         }
-        sendNextPhaseNotification (ProtocolPhase.CASCADING_OFFER);
-        waitForOffers( myAgent);
-        if (receivedOffers.size() > 0) {
-            deliberateOnCascadingOffer( myAgent);
-        }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
-        waitForCascadedOffers( myAgent);
+        waitForOffers( myAgent);
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
 //        }
         if (receivedOffers.size() > 0) {
             deliberateOnConfirming( myAgent);
         }
-        sendNextPhaseNotification (ProtocolPhase.CASCADING_CONFIRM);
-        waitForConfirmations( myAgent);
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
-        waitForCascadedConfirms( myAgent);
+        waitForConfirmations( myAgent);
     }
 
 

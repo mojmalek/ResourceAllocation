@@ -11,9 +11,8 @@ import model.SimulationEngine;
 
 import java.io.File;
 import java.util.Date;
-import java.util.Map;
 
-public class SocialAdaptiveExp {
+public class NeighborAdaptiveExp {
 
 
     public static void main(String[] args) {
@@ -95,7 +94,7 @@ public class SocialAdaptiveExp {
                     ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.MasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileName});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.SocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, socialNetwork[i-1]});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.NeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, socialNetwork[i-1]});
                     ac.start();
                 }
 //                ac.start();
