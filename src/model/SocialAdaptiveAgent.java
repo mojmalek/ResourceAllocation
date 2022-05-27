@@ -687,41 +687,58 @@ public class SocialAdaptiveAgent extends Agent {
     private void deliberateOnCascadingRequest(Agent myAgent) {
 
         long offerQuantity;
+        Set<AID> receiverIds;
+        Request selectedRequest;
+        ArrayList<Request> cascadedRequests = new ArrayList<>();
         for (var requestsForType : receivedRequests.entrySet()) {
             ArrayList<Request> requests = requestsForType.getValue();
+            ArrayList<Request> copyOfRequests = new ArrayList<>(requests);
+            cascadedRequests.clear();
             if (availableResources.get(requestsForType.getKey()) != null) {
                 long availableQuantity = availableResources.get(requestsForType.getKey()).size();
-                while (availableQuantity > 0 && requests.size() > 0) {
+                while (availableQuantity > 0 && copyOfRequests.size() > 0) {
                     // Greedy approach
-                    Request selectedRequest = selectBestRequest( requests, availableQuantity);
-                    if (availableQuantity < selectedRequest.quantity) {
-                        offerQuantity = availableQuantity;
-                        cascadeRequest( selectedRequest, offerQuantity);
-                        availableQuantity = availableQuantity - offerQuantity;
-                    } else {
-                        offerQuantity = selectedRequest.quantity;
-                        Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
-                        long cost = costFunction.get(offerQuantity);
-                        long benefit = selectedRequest.utilityFunction.get(offerQuantity);
-                        if (cost < benefit) {
-//                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
-//                            availableQuantity = availableQuantity - offerQuantity;
+                    selectedRequest = selectBestRequest( copyOfRequests, availableQuantity);
+                    receiverIds = findNeighborsToCascadeRequest( selectedRequest);
+                    if( receiverIds.size() > 0) {
+                        if (availableQuantity < selectedRequest.quantity) {
+                            offerQuantity = availableQuantity;
+                            cascadeRequest(selectedRequest, offerQuantity, receiverIds);
+                            cascadedRequests.add( selectedRequest);
+                            availableQuantity = availableQuantity - offerQuantity;
                         } else {
-                            cascadeRequest( selectedRequest, 0);
+                            offerQuantity = selectedRequest.quantity;
+                            Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
+                            long cost = costFunction.get(offerQuantity);
+                            long benefit = selectedRequest.utilityFunction.get(offerQuantity);
+                            if (cost >= benefit) {
+                                cascadeRequest(selectedRequest, 0, receiverIds);
+                                cascadedRequests.add( selectedRequest);
+                            }
                         }
                     }
-                    requests.remove( selectedRequest);
+                    copyOfRequests.remove(selectedRequest);
                 }
-                for (Request request : requests) {
-                    cascadeRequest( request, 0);
+                for (Request request : copyOfRequests) {
+                    receiverIds = findNeighborsToCascadeRequest( request);
+                    if( receiverIds.size() > 0) {
+                        cascadeRequest(request, 0, receiverIds);
+                        cascadedRequests.add( request);
+                    }
                 }
             } else {
-                for (Request request : requests) {
-                    cascadeRequest( request, 0);
+                for (Request request : copyOfRequests) {
+                    receiverIds = findNeighborsToCascadeRequest( request);
+                    if( receiverIds.size() > 0) {
+                        cascadeRequest(request, 0, receiverIds);
+                        cascadedRequests.add( request);
+                    }
                 }
             }
+            requests.removeAll( cascadedRequests);
         }
     }
+
 
     private void deliberateOnOffering(Agent myAgent) {
 
@@ -754,11 +771,7 @@ public class SocialAdaptiveAgent extends Agent {
                 while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( requests, availableQuantity);
-                    if (availableQuantity < selectedRequest.quantity) {
-//                        offerQuantity = availableQuantity;
-//                        cascadeRequest( selectedRequest, offerQuantity);
-//                        availableQuantity = availableQuantity - offerQuantity;
-                    } else {
+                    if (availableQuantity >= selectedRequest.quantity) {
                         offerQuantity = selectedRequest.quantity;
                         Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
                         long cost = costFunction.get(offerQuantity);
@@ -766,25 +779,16 @@ public class SocialAdaptiveAgent extends Agent {
                         if (cost < benefit) {
                             createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
                             availableQuantity = availableQuantity - offerQuantity;
-                        } else {
-//                            cascadeRequest( selectedRequest, 0);
                         }
                     }
                     requests.remove( selectedRequest);
                 }
-//                for (Request request : requests) {
-//                    cascadeRequest( request, 0);
-//                }
-            } else {
-//                for (Request request : requests) {
-//                    cascadeRequest( request, 0);
-//                }
             }
         }
     }
 
 
-    void cascadeRequest (Request request, long offerQuantity) {
+    void cascadeRequest (Request request, long offerQuantity, Set<AID> receiverIds) {
 
         long missingQuantity = request.quantity - offerQuantity;
         Map<Long, Long> utilityFunction = new LinkedHashMap<>();
@@ -801,18 +805,29 @@ public class SocialAdaptiveAgent extends Agent {
         }
 
         Set<Integer> allReceivers = new TreeSet<>();
-        Set<AID> receiverIds = new TreeSet<>();
         allReceivers.addAll( request.receivers);
+        for (AID aid : receiverIds) {
+            int receiver = Integer.valueOf(aid.getLocalName().replace(numberOfAgents+"Agent", ""));
+            allReceivers.add( receiver);
+        }
+
+        String reqId = UUID.randomUUID().toString();
+        sendRequest(reqId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds);
+        sentRequests.put(reqId, new Request(reqId, true, missingQuantity, request.resourceType, utilityFunction, this.getAID(), request.sender, allReceivers, reservedItems));
+    }
+
+
+    Set<AID> findNeighborsToCascadeRequest( Request request) {
+
+        Set<AID> receiverIds = new TreeSet<>();
         for (int i = 0; i < neighbors.length; i++) {
-            if (neighbors[i] != null && !request.receivers.contains(i+1)) {
-                allReceivers.add(i+1);
-                AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
+            AID aid = new AID(numberOfAgents+"Agent"+(i+1), AID.ISLOCALNAME);
+            if (neighbors[i] != null && !request.receivers.contains(i+1) && !request.sender.equals(aid)) {
                 receiverIds.add(aid);
             }
         }
-        String reqId = UUID.randomUUID().toString();
-        sendRequest( reqId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds);
-        sentRequests.put( reqId, new Request(reqId, true, missingQuantity, request.resourceType, utilityFunction, this.getAID(), request.sender, allReceivers, reservedItems));
+
+        return receiverIds;
     }
 
 
@@ -1070,6 +1085,9 @@ public class SocialAdaptiveAgent extends Agent {
 
             availableResources.put( confirmQuantitiesForReq.getKey().resourceType, resourceItems);
         }
+
+        // TODO: decrease the cost of transfer between sender and receiver from totalUtil
+        // since we compute social welfare of all agents, we can decrease the cost of transfer locally
     }
 
 
@@ -1336,6 +1354,8 @@ public class SocialAdaptiveAgent extends Agent {
 
 
     private void cascadePartialConfirmations(Map<Offer, Long> offerQuantities) {
+
+        // TODO: decrease the cost of transfer between sender and receiver from totalUtil when cascading confirmations
 
         for (var offerQuantity : offerQuantities.entrySet()) {
             sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());

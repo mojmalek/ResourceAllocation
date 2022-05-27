@@ -1058,6 +1058,9 @@ public class NeighborAdaptiveAgent extends Agent {
 
             availableResources.put( confirmQuantitiesForReq.getKey().resourceType, resourceItems);
         }
+
+        // TODO: decrease the cost of transfer between sender and receiver from totalUtil
+
     }
 
 
