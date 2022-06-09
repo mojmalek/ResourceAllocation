@@ -41,6 +41,8 @@ public class NeighborAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
+    private int count;
+    private int errorCount;
 
     @Override
     protected void setup() {
@@ -191,6 +193,10 @@ public class NeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedRequests.size() > 0) {
+//            count++;
+//            System.out.println();
+//            System.out.println(this.getLocalName() + " Count: " + count);
+//            System.out.println();
             deliberateOnOffering( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
@@ -199,6 +205,10 @@ public class NeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedOffers.size() > 0) {
+//            count++;
+//            System.out.println();
+//            System.out.println(this.getLocalName() + " Count: " + count);
+//            System.out.println();
             deliberateOnConfirming( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
@@ -497,18 +507,18 @@ public class NeighborAdaptiveAgent extends Agent {
 
             if (missingQuantity > 0) {
                 Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, resourceTypeQuantity.getKey(), remainingResources, missingQuantity);
-                Set<Integer> receivers = new TreeSet<>();
+                Set<Integer> allReceivers = new TreeSet<>();
                 Set<AID> receiverIds = new TreeSet<>();
                 for (int i = 0; i < neighbors.length; i++) {
                     if (neighbors[i] != null) {
-                        receivers.add(i+1);
+                        allReceivers.add(i+1);
                         AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
                         receiverIds.add(aid);
                     }
                 }
                 String reqId = UUID.randomUUID().toString();
-                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, receivers, receiverIds);
-                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, receivers, null));
+                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, allReceivers, receiverIds);
+                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, allReceivers, null));
             }
         }
     }
@@ -607,7 +617,7 @@ public class NeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> receivers, Set<AID> receiverIds) {
+    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> allReceivers, Set<AID> receiverIds) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
@@ -620,7 +630,7 @@ public class NeighborAdaptiveAgent extends Agent {
         jo.put(Ontology.RESOURCE_REQUESTED_QUANTITY, missingQuantity);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.REQUEST_UTILITY_FUNCTION, utilityFunction);
-        jo.put(Ontology.RECEIVERS, receivers);
+        jo.put(Ontology.ALL_RECEIVERS, allReceivers);
 
         msg.setContent( jo.toJSONString());
 //      msg.setReplyByDate();
@@ -643,7 +653,7 @@ public class NeighborAdaptiveAgent extends Agent {
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
 
-        JSONArray joReceivers = (JSONArray) jo.get("receivers");
+        JSONArray joReceivers = (JSONArray) jo.get("allReceivers");
 
         Set<Integer> receivers = new TreeSet<>();
         for (int i=0; i<joReceivers.size(); i++) {
@@ -742,31 +752,24 @@ public class NeighborAdaptiveAgent extends Agent {
                 while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( requests, availableQuantity);
-                    if (availableQuantity < selectedRequest.quantity) {
-//                        offerQuantity = availableQuantity;
-//                        cascadeRequest( selectedRequest, offerQuantity);
-//                        availableQuantity = availableQuantity - offerQuantity;
-                    } else {
+                    if (availableQuantity >= selectedRequest.quantity) {
                         offerQuantity = selectedRequest.quantity;
                         Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
                         long cost = costFunction.get(offerQuantity);
                         long benefit = selectedRequest.utilityFunction.get(offerQuantity);
+
+//                        count++;
+//                        System.out.println();
+//                        System.out.println(this.getLocalName() + " Count: " + count);
+//                        System.out.println();
+
                         if (cost < benefit) {
                             createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
                             availableQuantity = availableQuantity - offerQuantity;
-                        } else {
-//                            cascadeRequest( selectedRequest, 0);
                         }
                     }
                     requests.remove( selectedRequest);
                 }
-//                for (Request request : requests) {
-//                    cascadeRequest( request, 0);
-//                }
-            } else {
-//                for (Request request : requests) {
-//                    cascadeRequest( request, 0);
-//                }
             }
         }
     }
@@ -790,9 +793,9 @@ public class NeighborAdaptiveAgent extends Agent {
 
         Set<Integer> allReceivers = new TreeSet<>();
         Set<AID> receiverIds = new TreeSet<>();
-        allReceivers.addAll( request.receivers);
+        allReceivers.addAll( request.allReceivers);
         for (int i = 0; i < neighbors.length; i++) {
-            if (neighbors[i] != null && !request.receivers.contains(i+1)) {
+            if (neighbors[i] != null && !request.allReceivers.contains(i+1)) {
                 allReceivers.add(i+1);
                 AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
                 receiverIds.add(aid);
@@ -915,6 +918,11 @@ public class NeighborAdaptiveAgent extends Agent {
         }
         offers.add(offer);
         receivedOffers.put( reqId, offers);
+
+        if( sentRequests.keySet().contains(reqId) == false) {
+            errorCount++;
+            System.out.println(this.getLocalName() + " errorCount: " + errorCount);
+        }
     }
 
 
@@ -1022,7 +1030,14 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         if (selectedOffersForAllRequests.size() > 0) {
+
             if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
+
+//                count++;
+//                System.out.println();
+//                System.out.println(this.getLocalName() + " Count: " + count);
+//                System.out.println();
+
                 createConfirmation( selectedOffersForAllRequests);
                 addResourceItemsInOffers(selectedOffersForAllRequests);
             } else {

@@ -10,6 +10,6 @@ public class Ontology {
     protected final static String OFFERED_ITEMS = "offeredItems";
     protected final static String RESOURCE_CONFIRM_QUANTITY = "confirmQuantity";
     protected final static String PROTOCOL_PHASE = "protocolPhase";
-    protected final static String RECEIVERS = "receivers";
+    protected final static String ALL_RECEIVERS = "allReceivers";
 
 }
