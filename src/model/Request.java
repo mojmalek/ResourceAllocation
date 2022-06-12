@@ -19,6 +19,8 @@ public class Request {
     Set<Integer> allReceivers;
     // id, lifetime
     Map<String, Integer> reservedItems;
+    int timeout;
+    boolean processed;
 
     public Request(String id, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender) {
         this.id = id;
@@ -38,6 +40,19 @@ public class Request {
         this.originalSender = originalSender;
         this.allReceivers = allReceivers;
         this.reservedItems = reservedItems;
+    }
+
+    public Request(String id, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, AID originalSender, Set<Integer> allReceivers, Map<String, Integer> reservedItems, int timeout) {
+        this.id = id;
+        this.cascaded = cascaded;
+        this.quantity = quantity;
+        this.resourceType = resourceType;
+        this.utilityFunction = utilityFunction;
+        this.sender = sender;
+        this.originalSender = originalSender;
+        this.allReceivers = allReceivers;
+        this.reservedItems = reservedItems;
+        this.timeout = timeout;
     }
 
     @Override
