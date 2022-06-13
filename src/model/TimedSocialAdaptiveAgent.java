@@ -209,7 +209,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         sendNextPhaseNotification (ProtocolPhase.CASCADING_OFFER);
         waitForOffers( myAgent);
         if (receivedOffers.size() > 0) {
-            deliberateOnCascadingOffer( myAgent);
+            deliberateOnCascadingOffers( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForCascadedOffers( myAgent);
@@ -225,12 +225,12 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     void deliberateOnRequesting (Agent myAgent) {
 
-        if( myAgent.getLocalName().equals("4Agent1")) {
-            System.out.print("");
-        }
-        if( myAgent.getLocalName().equals("4Agent2")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("4Agent1")) {
+//            System.out.print("");
+//        }
+//        if( myAgent.getLocalName().equals("4Agent2")) {
+//            System.out.print("");
+//        }
 
         Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
 
@@ -408,10 +408,10 @@ public class TimedSocialAdaptiveAgent extends Agent {
     void resetRound() {
 
         blockedTasks.clear();
-        receivedRequests.clear();
-        sentRequests.clear();
-        receivedOffers.clear();
-        sentOffers.clear();
+//        receivedRequests.clear();
+//        sentRequests.clear();
+//        receivedOffers.clear();
+//        sentOffers.clear();
     }
 
 
@@ -500,10 +500,15 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
         // creates a request based on the missing quantity for each resource type
         Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
+        int requestTimeout = Integer.MAX_VALUE;
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
                 totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+            }
+            //TODO: minimum or maximum task deadline
+            if( task.deadline < requestTimeout) {
+                requestTimeout = task.deadline;
             }
         }
 
@@ -529,8 +534,8 @@ public class TimedSocialAdaptiveAgent extends Agent {
                     }
                 }
                 String reqId = UUID.randomUUID().toString();
-                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, allReceivers, receiverIds);
-                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, allReceivers, null));
+                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, allReceivers, receiverIds, requestTimeout);
+                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, allReceivers, null, requestTimeout));
 
                 if( debugMode) {
                     logInf(currentRound, this.getLocalName(), "created request with id " + reqId + " with quantity: " + missingQuantity + " for resourceType: " + resourceTypeQuantity.getKey().name() + " to " + getReceiverNames(receiverIds));
@@ -633,7 +638,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
     }
 
 
-    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> allReceivers, Set<AID> receiverIds) {
+    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> allReceivers, Set<AID> receiverIds, int timeout) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
@@ -647,6 +652,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.REQUEST_UTILITY_FUNCTION, utilityFunction);
         jo.put(Ontology.ALL_RECEIVERS, allReceivers);
+        jo.put(Ontology.REQUEST_TIMEOUT, timeout);
 
         msg.setContent( jo.toJSONString());
 //      msg.setReplyByDate();
@@ -699,7 +705,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
             utilityFunction.put( Long.valueOf(key), value);
         }
 
-        Request request = new Request(reqId, null, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), null, allReceivers, null);
+        int timeout = (int) jo.get("requestTimeout");
+
+        Request request = new Request(reqId, null, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), null, allReceivers, null, timeout);
 
         if ( receivedRequests.containsKey(resourceType) == false) {
             receivedRequests.put(resourceType, new ArrayList<>());
@@ -723,12 +731,12 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     private void deliberateOnCascadingRequest(Agent myAgent) {
 
-        if( myAgent.getLocalName().equals("4Agent1")) {
-            System.out.print("");
-        }
-        if( myAgent.getLocalName().equals("4Agent2")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("4Agent1")) {
+//            System.out.print("");
+//        }
+//        if( myAgent.getLocalName().equals("4Agent2")) {
+//            System.out.print("");
+//        }
 
         long offerQuantity;
         Set<AID> receiverIds;
@@ -803,12 +811,12 @@ public class TimedSocialAdaptiveAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-        if( myAgent.getLocalName().equals("4Agent3")) {
-            System.out.print("");
-        }
-        if( myAgent.getLocalName().equals("4Agent4")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("4Agent3")) {
+//            System.out.print("");
+//        }
+//        if( myAgent.getLocalName().equals("4Agent4")) {
+//            System.out.print("");
+//        }
 
         long offerQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
@@ -831,7 +839,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //                        System.out.println();
 
                         if (cost < benefit) {
-                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType), selectedRequest.timeout);
                             availableQuantity = availableQuantity - offerQuantity;
                         }
                     }
@@ -870,7 +878,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         }
 
 //        String reqId = UUID.randomUUID().toString();
-        sendRequest(request.id, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds);
+        sendRequest(request.id, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds, request.timeout);
         sentRequests.put(request.id, new Request(request.id, true, missingQuantity, request.resourceType, request.utilityFunction, this.getAID(), request.sender, allReceivers, reservedItems));
 
         if( debugMode) {
@@ -918,7 +926,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
     }
 
 
-    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems) {
+    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems, int requestTimeout) {
 
         Map<String, Integer> offeredItems = new LinkedHashMap<>();
 
@@ -929,10 +937,10 @@ public class TimedSocialAdaptiveAgent extends Agent {
         }
 
         String offerId = UUID.randomUUID().toString();
-        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, offerer, requester);
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, offerer, requester, null, requestTimeout+1);
         sentOffers.put( offerId, offer);
 
-        sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems);
+        sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems, requestTimeout+1);
 
         if( debugMode) {
             logInf(currentRound, this.getLocalName(), "created offer with id " + offerId + " for reqId " + reqId + " for resourceType: " + resourceType.name() + " with quantity: " + offerQuantity + " to " + requester.getLocalName());
@@ -940,7 +948,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
     }
 
 
-    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, Map<String, Integer> offeredItems) {
+    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, int offerTimeout) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -953,6 +961,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.OFFER_COST_FUNCTION, costFunction);
         jo.put(Ontology.OFFERED_ITEMS, offeredItems);
+        jo.put(Ontology.OFFER_TIMEOUT, offerTimeout);
 
         msg.setContent( jo.toJSONString());
 
@@ -1002,7 +1011,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
             offeredItems.put( key, value.intValue());
         }
 
-        Offer offer = new Offer(offerId, reqId, offerQuantity.intValue(), resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
+        int offerTimeout = (int) jo.get("offerTimeout");
+
+        Offer offer = new Offer(offerId, reqId, offerQuantity.intValue(), resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID(), null, offerTimeout);
 
         Set<Offer> offers = receivedOffers.get(reqId);
         if (offers == null) {
@@ -1019,14 +1030,14 @@ public class TimedSocialAdaptiveAgent extends Agent {
     }
 
 
-    void deliberateOnCascadingOffer(Agent myAgent) {
+    void deliberateOnCascadingOffers(Agent myAgent) {
 
-        if( myAgent.getLocalName().equals("4Agent1")) {
-            System.out.print("");
-        }
-        if( myAgent.getLocalName().equals("4Agent2")) {
-            System.out.print("");
-        }
+//        if( myAgent.getLocalName().equals("4Agent1")) {
+//            System.out.print("");
+//        }
+//        if( myAgent.getLocalName().equals("4Agent2")) {
+//            System.out.print("");
+//        }
 
         for (var request : sentRequests.entrySet()) {
             if (request.getValue().cascaded == true) {
@@ -1104,9 +1115,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
             long benefit = cascadedRequest.utilityFunction.get(offerQuantity);
             if (cost < benefit) {
                 String offerId = UUID.randomUUID().toString();
-                Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, this.getAID(), cascadedRequest.originalSender, offers);
+                Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, this.getAID(), cascadedRequest.originalSender, offers, cascadedRequest.timeout+1);
                 sentOffers.put(offerId, offer);
-                sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems);
+                sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems, cascadedRequest.timeout+1);
 
                 if( debugMode) {
                     logInf(currentRound, this.getLocalName(), "cascaded offer with id " + offerId + " for reqId " + cascadedRequest.id + " for resourceType: " + cascadedRequest.resourceType.name() + " with quantity: " + offerQuantity + " to " + cascadedRequest.originalSender.getLocalName());

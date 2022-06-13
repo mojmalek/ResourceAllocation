@@ -11,5 +11,7 @@ public class Ontology {
     protected final static String RESOURCE_CONFIRM_QUANTITY = "confirmQuantity";
     protected final static String PROTOCOL_PHASE = "protocolPhase";
     protected final static String ALL_RECEIVERS = "allReceivers";
+    protected final static String REQUEST_TIMEOUT = "requestTimeout";
+    protected final static String OFFER_TIMEOUT = "offerTimeout";
 
 }

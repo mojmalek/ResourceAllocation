@@ -18,6 +18,8 @@ public class Offer {
     AID sender;
     AID receiver;
     Set<Offer> includedOffers;
+    int timeout;
+    boolean processed;
 
     public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
         this.id = id;
@@ -40,6 +42,19 @@ public class Offer {
         this.sender = sender;
         this.receiver = receiver;
         this.includedOffers = includedOffers;
+    }
+
+    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver, Set<Offer> includedOffers, int timeout) {
+        this.id = id;
+        this.reqId = reqId;
+        this.quantity = quantity;
+        this.resourceType = resourceType;
+        this.costFunction = costFunction;
+        this.offeredItems = offeredItems;
+        this.sender = sender;
+        this.receiver = receiver;
+        this.includedOffers = includedOffers;
+        this.timeout = timeout;
     }
 
     @Override
