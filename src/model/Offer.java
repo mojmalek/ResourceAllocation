@@ -14,14 +14,14 @@ public class Offer {
     ResourceType resourceType;
     Map<Long, Long> costFunction;
     // id, lifetime
-    Map<String, Integer> offeredItems;
+    Map<String, Long> offeredItems;
     AID sender;
     AID receiver;
     Set<Offer> includedOffers;
-    int timeout;
+    long timeout;
     boolean processed;
 
-    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver) {
+    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, AID sender, AID receiver) {
         this.id = id;
         this.reqId = reqId;
         this.quantity = quantity;
@@ -32,7 +32,7 @@ public class Offer {
         this.receiver = receiver;
     }
 
-    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver, Set<Offer> includedOffers) {
+    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, AID sender, AID receiver, Set<Offer> includedOffers) {
         this.id = id;
         this.reqId = reqId;
         this.quantity = quantity;
@@ -44,7 +44,7 @@ public class Offer {
         this.includedOffers = includedOffers;
     }
 
-    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Integer> offeredItems, AID sender, AID receiver, Set<Offer> includedOffers, int timeout) {
+    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, AID sender, AID receiver, Set<Offer> includedOffers, long timeout) {
         this.id = id;
         this.reqId = reqId;
         this.quantity = quantity;

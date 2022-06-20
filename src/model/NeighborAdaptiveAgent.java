@@ -784,7 +784,7 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         SortedSet<ResourceItem> availableItems = availableResources.get(request.resourceType);
-        Map<String, Integer> reservedItems = new LinkedHashMap<>();
+        Map<String, Long> reservedItems = new LinkedHashMap<>();
         for (long q=0; q<offerQuantity; q++) {
             ResourceItem item = availableItems.first();
             reservedItems.put(item.getId(), item.getLifetime());
@@ -834,7 +834,7 @@ public class NeighborAdaptiveAgent extends Agent {
 
     private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems) {
 
-        Map<String, Integer> offeredItems = new LinkedHashMap<>();
+        Map<String, Long> offeredItems = new LinkedHashMap<>();
 
         for (long q=0; q<offerQuantity; q++) {
             ResourceItem item = availableItems.first();
@@ -851,7 +851,7 @@ public class NeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, Map<String, Integer> offeredItems) {
+    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, Map<String, Long> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -902,15 +902,15 @@ public class NeighborAdaptiveAgent extends Agent {
             costFunction.put( Long.valueOf(key), value);
         }
 
-        Map<String, Integer> offeredItems = new LinkedHashMap<>();
+        Map<String, Long> offeredItems = new LinkedHashMap<>();
         Iterator<String> keysIterator2 = joOfferedItems.keySet().iterator();
         while (keysIterator2.hasNext()) {
             String key = keysIterator2.next();
             Long value = (Long) joOfferedItems.get(key);
-            offeredItems.put( key, value.intValue());
+            offeredItems.put( key, value);
         }
 
-        Offer offer = new Offer(offerId, reqId, offerQuantity.intValue(), resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
 
         Set<Offer> offers = receivedOffers.get(reqId);
         if (offers == null) {
@@ -945,7 +945,7 @@ public class NeighborAdaptiveAgent extends Agent {
 
         long offerQuantity = cascadedRequest.reservedItems.size();
 
-        Map<String, Integer> offeredItems = new LinkedHashMap<>();
+        Map<String, Long> offeredItems = new LinkedHashMap<>();
         for (var item : cascadedRequest.reservedItems.entrySet()) {
             offeredItems.put(item.getKey(), item.getValue());
         }

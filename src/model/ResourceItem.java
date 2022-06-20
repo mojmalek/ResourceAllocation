@@ -9,10 +9,10 @@ public class ResourceItem {
     private String id;
     private ResourceType type;
 //    private Date expiryDate;
-    private int lifetime;
+    private long lifetime;
 
 
-    public ResourceItem(String id, ResourceType type, int lifetime) {
+    public ResourceItem(String id, ResourceType type, long lifetime) {
         this.id = id;
         this.type = type;
         this.lifetime = lifetime;
@@ -26,11 +26,11 @@ public class ResourceItem {
         return type;
     }
 
-    public int getLifetime() {
+    public long getLifetime() {
         return lifetime;
     }
 
-    public void setLifetime(int lifetime) {
+    public void setLifetime(long lifetime) {
         this.lifetime = lifetime;
     }
 
@@ -60,8 +60,8 @@ public class ResourceItem {
     public static class resourceItemComparator implements Comparator<ResourceItem> {
         public int compare(ResourceItem item1, ResourceItem item2)
         {
-            Integer lifetime1 = item1.lifetime;
-            Integer lifetime2 = item2.lifetime;
+            Long lifetime1 = item1.lifetime;
+            Long lifetime2 = item2.lifetime;
             String id1 = item1.id;
             String id2 = item2.id;
 

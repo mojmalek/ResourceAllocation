@@ -633,7 +633,7 @@ public class BasicAgent extends Agent {
 //            costFunction.put(q, cost);
 //        }
 
-        Map<String, Integer> offeredItems = new LinkedHashMap<>();
+        Map<String, Long> offeredItems = new LinkedHashMap<>();
         Iterator<ResourceItem> itr = availableItems.iterator();
         long q=1;
         while (q<=offerQuantity) {
@@ -656,7 +656,7 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Integer, Integer> costFunction, Map<String, Integer> offeredItems) {
+    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Integer, Integer> costFunction, Map<String, Long> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -709,15 +709,15 @@ public class BasicAgent extends Agent {
 //            costFunction.put( Integer.valueOf(key), value.intValue());
 //        }
 
-        Map<String, Integer> offeredItems = new LinkedHashMap<>();
+        Map<String, Long> offeredItems = new LinkedHashMap<>();
         Iterator<String> keysIterator2 = joOfferedItems.keySet().iterator();
         while (keysIterator2.hasNext()) {
             String key = keysIterator2.next();
             Long value = (Long) joOfferedItems.get(key);
-            offeredItems.put( key, value.intValue());
+            offeredItems.put( key, value);
         }
 
-        Offer offer = new Offer(offerId, reqId, offerQuantity.intValue(), resourceType, null, offeredItems, msg.getSender(), myAgent.getAID());
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, null, offeredItems, msg.getSender(), myAgent.getAID());
 
         Set<Offer> offers = receivedOffers.get(reqId);
         if (offers == null) {
