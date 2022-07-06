@@ -59,8 +59,8 @@ public class SocialAdaptiveExp {
 
         SimulationEngine simulationEngine = new SimulationEngine();
 
-        String logFileName = "logs/" + "AdaptiveExp-Agent0-" + new Date() + ".txt";
-        File logFile = new File (logFileName);
+        String logFileName = "logs/" + "SocialAdaptiveExp-Agent0-" + new Date() + ".txt";
+        String debugFileName = "logs/" + "SocialAdaptiveExp-All-" + new Date() + ".txt";
         Runtime rt = Runtime.instance();
         Profile p = new ProfileImpl();
         p.setParameter(Profile.MAIN_HOST, "localhost");
@@ -95,7 +95,7 @@ public class SocialAdaptiveExp {
                     ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.MasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileName});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.SocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, socialNetwork[i-1]});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.SocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, socialNetwork[i-1], debugFileName});
                     ac.start();
                 }
 //                ac.start();

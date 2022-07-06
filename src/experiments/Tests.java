@@ -45,10 +45,10 @@ public class Tests {
         costFunction.put(2L, 2L);
         costFunction.put(3L, 3L);
 
-        Map<String, Integer> offeredItems = new LinkedHashMap<>();
-        offeredItems.put ("res1", 10);
-        offeredItems.put ("res2", 10);
-        offeredItems.put ("res3", 10);
+        Map<String, Long> offeredItems = new LinkedHashMap<>();
+        offeredItems.put ("res1", 10L);
+        offeredItems.put ("res2", 10L);
+        offeredItems.put ("res3", 10L);
 
         Offer offer1 = new Offer(bidId, reqId,3, ResourceType.A, costFunction, offeredItems, agent2, agent1);
 
@@ -62,11 +62,11 @@ public class Tests {
         costFunction.put(5L, 50L);
 
         offeredItems = new LinkedHashMap<>();
-        offeredItems.put ("res1", 10);
-        offeredItems.put ("res2", 10);
-        offeredItems.put ("res3", 10);
-        offeredItems.put ("res4", 10);
-        offeredItems.put ("res5", 10);
+        offeredItems.put ("res1", 10L);
+        offeredItems.put ("res2", 10L);
+        offeredItems.put ("res3", 10L);
+        offeredItems.put ("res4", 10L);
+        offeredItems.put ("res5", 10L);
 
         Offer offer2 = new Offer(bidId, reqId,5, ResourceType.A, costFunction, offeredItems, agent3, agent1);
 
@@ -79,10 +79,10 @@ public class Tests {
         costFunction.put(4L, 8L);
 
         offeredItems = new LinkedHashMap<>();
-        offeredItems.put ("res1", 10);
-        offeredItems.put ("res2", 10);
-        offeredItems.put ("res3", 10);
-        offeredItems.put ("res4", 10);
+        offeredItems.put ("res1", 10L);
+        offeredItems.put ("res2", 10L);
+        offeredItems.put ("res3", 10L);
+        offeredItems.put ("res4", 10L);
 
         Offer offer3 = new Offer(bidId, reqId,4, ResourceType.A, costFunction, offeredItems, agent4, agent1);
 

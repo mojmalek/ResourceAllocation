@@ -6,6 +6,7 @@ import java.util.*;
 
 public class SimulationEngine {
 
+    long currentTime;
 
     public SortedSet<Task> findTasks(Agent myAgent) {
 
@@ -44,7 +45,8 @@ public class SimulationEngine {
             utility = utilities[random.nextInt( utilities.length)];
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
-                Task newTask = new Task(id, utility, 20, requiredResources);
+                currentTime = System.currentTimeMillis();
+                Task newTask = new Task(id, utility, currentTime + 300000, requiredResources);
                 tasks.add(newTask);
             } else {
 //                System.out.println(" ");
@@ -67,7 +69,7 @@ public class SimulationEngine {
 //            quantities = new long[] {4};
 //        }
         long quantity;
-        int lifetime;
+        long lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
             quantity = quantities[random.nextInt( quantities.length)];
 //            if (quantity > 0) {
@@ -81,13 +83,14 @@ public class SimulationEngine {
     }
 
 
-    public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, int lifeTime, long quantity) {
+    public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity) {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
         String id;
         for (long i=0; i<quantity; i++) {
             id = UUID.randomUUID().toString();
-            resourceItems.add(new ResourceItem (id, resourceType, lifeTime));
+            currentTime = System.currentTimeMillis();
+            resourceItems.add(new ResourceItem (id, resourceType, currentTime + lifeTime));
         }
         return resourceItems;
     }

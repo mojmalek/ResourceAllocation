@@ -64,7 +64,9 @@ public class TimedSocialAdaptiveExp {
         p.setParameter(Profile.MAIN_HOST, "localhost");
 //        p.setParameter(Profile.GUI, "true");
         ContainerController cc = rt.createMainContainer(p);
-        int numberOfRounds = 100;
+
+        long currentTime = System.currentTimeMillis();
+        long endTime = currentTime + 10000;
         int numberOfAgents = 4;
         double connectivity = 0.0;
 
@@ -90,10 +92,10 @@ public class TimedSocialAdaptiveExp {
             AgentController ac;
             try {
                 if (i == 0) {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.MasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileName});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.TimedMasterAgent", new Object[]{numberOfAgents, endTime, logFileName});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, socialNetwork[i-1], debugFileName});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, socialNetwork[i-1], debugFileName});
                     ac.start();
                 }
 //                ac.start();

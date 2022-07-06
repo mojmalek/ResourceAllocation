@@ -59,7 +59,6 @@ public class NeighborAdaptiveExp {
         SimulationEngine simulationEngine = new SimulationEngine();
 
         String logFileName = "logs/" + "AdaptiveExp-Agent0-" + new Date() + ".txt";
-        File logFile = new File (logFileName);
         Runtime rt = Runtime.instance();
         Profile p = new ProfileImpl();
         p.setParameter(Profile.MAIN_HOST, "localhost");
