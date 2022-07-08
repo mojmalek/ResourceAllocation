@@ -1,21 +1,19 @@
 package model;
 
 import java.util.Comparator;
-import java.util.Date;
 import java.util.Objects;
 
 public class ResourceItem {
 
     private String id;
     private ResourceType type;
-//    private Date expiryDate;
-    private long lifetime;
+    private long expiryTime;
 
 
-    public ResourceItem(String id, ResourceType type, long lifetime) {
+    public ResourceItem(String id, ResourceType type, long expiryTime) {
         this.id = id;
         this.type = type;
-        this.lifetime = lifetime;
+        this.expiryTime = expiryTime;
     }
 
     public String getId() {
@@ -26,12 +24,12 @@ public class ResourceItem {
         return type;
     }
 
-    public long getLifetime() {
-        return lifetime;
+    public long getExpiryTime() {
+        return expiryTime;
     }
 
-    public void setLifetime(long lifetime) {
-        this.lifetime = lifetime;
+    public void setExpiryTime(long expiryTime) {
+        this.expiryTime = expiryTime;
     }
 
     @Override
@@ -39,7 +37,7 @@ public class ResourceItem {
         return "ResourceItem{" +
                 "id='" + id + '\'' +
                 ", type=" + type +
-                ", lifetime=" + lifetime +
+                ", lifetime=" + expiryTime +
                 '}';
     }
 
@@ -60,8 +58,8 @@ public class ResourceItem {
     public static class resourceItemComparator implements Comparator<ResourceItem> {
         public int compare(ResourceItem item1, ResourceItem item2)
         {
-            Long lifetime1 = item1.lifetime;
-            Long lifetime2 = item2.lifetime;
+            Long lifetime1 = item1.expiryTime;
+            Long lifetime2 = item2.expiryTime;
             String id1 = item1.id;
             String id2 = item2.id;
 

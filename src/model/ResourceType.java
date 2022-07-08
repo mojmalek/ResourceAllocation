@@ -4,7 +4,9 @@ import java.util.Random;
 
 public enum ResourceType {
 
-    A, B, C, D;
+//    A, B, C, D;
+    A, B;
+//    A;
 
     private static final ResourceType[] VALUES = values();
     private static final int SIZE = VALUES.length;

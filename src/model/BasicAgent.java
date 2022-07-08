@@ -133,8 +133,8 @@ public class BasicAgent extends Agent {
                 expiredResources.put( resource.getKey(), expiredItems);
             }
             for (ResourceItem item : availableItems) {
-                item.setLifetime( item.getLifetime() - 1);
-                if (item.getLifetime() == 0) {
+                item.setExpiryTime( item.getExpiryTime() - 1);
+                if (item.getExpiryTime() == 0) {
                     expiredItemsInThisRound.add( item);
                     expiredItems.add( item);
                 }
@@ -638,7 +638,7 @@ public class BasicAgent extends Agent {
         long q=1;
         while (q<=offerQuantity) {
             ResourceItem item = itr.next();
-            offeredItems.put(item.getId(), item.getLifetime());
+            offeredItems.put(item.getId(), item.getExpiryTime());
             availableItems.remove( item);
             itr = availableItems.iterator();
             q++;
@@ -952,7 +952,7 @@ public class BasicAgent extends Agent {
         for (var newResource : newResources.entrySet()) {
             JSONObject joItems = new JSONObject();
             for( ResourceItem item : newResource.getValue()) {
-                joItems.put( item.getId(), item.getLifetime());
+                joItems.put( item.getId(), item.getExpiryTime());
             }
             joNewResources.put( newResource.getKey().name(), joItems);
         }

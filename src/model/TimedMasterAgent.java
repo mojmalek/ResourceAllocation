@@ -153,8 +153,8 @@ public class TimedMasterAgent extends Agent {
                 expiredResources.put( resource.getKey(), expiredItems);
             }
             for (ResourceItem item : availableItems) {
-                item.setLifetime( item.getLifetime() - 1);
-                if (item.getLifetime() == 0) {
+                item.setExpiryTime( item.getExpiryTime() - 1);
+                if (item.getExpiryTime() == 0) {
                     expiredItemsInThisRound.add( item);
                     expiredItems.add( item);
                 }

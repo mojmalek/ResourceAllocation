@@ -133,8 +133,8 @@ public class AdaptiveAgent extends Agent {
                 expiredResources.put( resource.getKey(), expiredItems);
             }
             for (ResourceItem item : availableItems) {
-                item.setLifetime( item.getLifetime() - 1);
-                if (item.getLifetime() == 0) {
+                item.setExpiryTime( item.getExpiryTime() - 1);
+                if (item.getExpiryTime() == 0) {
                     expiredItemsInThisRound.add( item);
                     expiredItems.add( item);
                 }
@@ -660,7 +660,7 @@ public class AdaptiveAgent extends Agent {
 
         for (long q=0; q<offerQuantity; q++) {
             ResourceItem item = availableItems.first();
-            offeredItems.put(item.getId(), item.getLifetime());
+            offeredItems.put(item.getId(), item.getExpiryTime());
             availableItems.remove( item);
         }
 
@@ -1102,7 +1102,7 @@ public class AdaptiveAgent extends Agent {
             long q=1;
             while (q <= quantity) {
                 ResourceItem item = itr.next();
-                if (item.getLifetime() > 1) {
+                if (item.getExpiryTime() > 1) {
 //                    exp = exp + ((double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType);
                     exp = exp + (( (double) doneTasksWithThisResourceType.size() / doneTasks.size()) * ( (double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
                 }
@@ -1140,7 +1140,7 @@ public class AdaptiveAgent extends Agent {
         long q=1;
         while (q <= quantity) {
             ResourceItem item = itr.next();
-            if (item.getLifetime() > 1) {
+            if (item.getExpiryTime() > 1) {
                 exp = exp + averageUtil / averageRequiredQuantity;
             }
             q++;
@@ -1213,7 +1213,7 @@ public class AdaptiveAgent extends Agent {
         for (var newResource : newResources.entrySet()) {
             JSONObject joItems = new JSONObject();
             for( ResourceItem item : newResource.getValue()) {
-                joItems.put( item.getId(), item.getLifetime());
+                joItems.put( item.getId(), item.getExpiryTime());
             }
             joNewResources.put( newResource.getKey().name(), joItems);
         }
