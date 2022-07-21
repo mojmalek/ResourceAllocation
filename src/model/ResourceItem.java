@@ -1,5 +1,7 @@
 package model;
 
+import jade.core.AID;
+
 import java.util.Comparator;
 import java.util.Objects;
 
@@ -8,12 +10,20 @@ public class ResourceItem {
     private String id;
     private ResourceType type;
     private long expiryTime;
+    private AID manager;
 
 
     public ResourceItem(String id, ResourceType type, long expiryTime) {
         this.id = id;
         this.type = type;
         this.expiryTime = expiryTime;
+    }
+
+    public ResourceItem(String id, ResourceType type, long expiryTime, AID manager) {
+        this.id = id;
+        this.type = type;
+        this.expiryTime = expiryTime;
+        this.manager = manager;
     }
 
     public String getId() {

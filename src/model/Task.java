@@ -1,5 +1,7 @@
 package model;
 
+import jade.core.AID;
+
 import java.util.*;
 
 public class Task {
@@ -9,6 +11,7 @@ public class Task {
     long deadline;
     Map<ResourceType, Long> requiredResources;
 //    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
+    AID manager;
 
     public Task(String id, long utility, long deadline, Map<ResourceType, Long> requiredResources) {
         this.id = id;
@@ -17,6 +20,13 @@ public class Task {
         this.requiredResources = requiredResources;
     }
 
+    public Task(String id, long utility, long deadline, Map<ResourceType, Long> requiredResources, AID manager) {
+        this.id = id;
+        this.utility = utility;
+        this.deadline = deadline;
+        this.requiredResources = requiredResources;
+        this.manager = manager;
+    }
 
     private double efficiency() {
         int count = 0;

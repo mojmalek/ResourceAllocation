@@ -92,7 +92,7 @@ public class TimedSocialAdaptiveExp {
             AgentController ac;
             try {
                 if (i == 0) {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.TimedMasterAgent", new Object[]{numberOfAgents, endTime, logFileName});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.TimedMasterAgent", new Object[]{numberOfAgents, endTime, socialNetwork, logFileName});
                     ac.start();
                 } else {
                     ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, socialNetwork[i-1], debugFileName});

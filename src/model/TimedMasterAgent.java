@@ -3,6 +3,7 @@ package model;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -16,9 +17,11 @@ public class TimedMasterAgent extends Agent {
     private boolean debugMode = false;
     private String logFileName;
 
-    private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
-    private Map<AID, ArrayList<JSONObject>> resourcesInfo = new LinkedHashMap<>();
-    private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
+//    private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
+//    private Map<AID, ArrayList<JSONObject>> resourcesInfo = new LinkedHashMap<>();
+//    private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
+    private Map<AID, Long> utilitiesInfo = new LinkedHashMap<>();
+
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
@@ -26,9 +29,12 @@ public class TimedMasterAgent extends Agent {
     private long endTime;
     private long currentTime;
     private int numberOfAgents;
+    Integer[][] socialNetwork;
 
-    private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
-    private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
+//    private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
+//    private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
+    private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources = new LinkedHashMap<>();
+    private Map<AID, Map<ResourceType, ArrayList<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
 
 
     @Override
@@ -40,12 +46,14 @@ public class TimedMasterAgent extends Agent {
             numberOfAgents = (int) args[0];
             for (int i = 1; i <= numberOfAgents; i++) {
                 AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
-                tasksInfo.put( aid, new ArrayList<>());
-                resourcesInfo.put( aid, new ArrayList<>());
-                utilitiesInfo.put( aid, new ArrayList<>());
+//                tasksInfo.put( aid, new ArrayList<>());
+//                resourcesInfo.put( aid, new ArrayList<>());
+                utilitiesInfo.put( aid, 0L);
+                agentAvailableResources.put(aid, new LinkedHashMap<>());
             }
             endTime = (long) args[1];
-            logFileName = (String) args[2];
+            socialNetwork = (Integer[][]) args[2];
+            logFileName = (String) args[3];
         }
 
         if (debugMode) {
@@ -75,13 +83,26 @@ public class TimedMasterAgent extends Agent {
             }
         });
 
+
+        addBehaviour (new TickerBehaviour(this, 50) {
+            protected void onTick() {
+                currentTime = System.currentTimeMillis();
+                if (currentTime <= endTime) {
+                    expireResourceItems (myAgent);
+                    expireTasks (myAgent);
+                    performTasks (myAgent);
+                }
+            }
+        });
+
+
         addBehaviour(new CyclicBehaviour() {
             @Override
             public void action() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime > endTime + 1000) {
                     logInf ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
-//                    logInf ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+                    logInf ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
                     block();
                 }
             }
@@ -89,7 +110,7 @@ public class TimedMasterAgent extends Agent {
     }
 
 
-    void findNewTasks (JSONObject joNewTasks) {
+    void findNewTasks (JSONObject joNewTasks, AID agentId) {
 
         SortedSet<Task> newTasks = new TreeSet<>(new Task.taskComparator());
         String id, resourceType;
@@ -108,14 +129,14 @@ public class TimedMasterAgent extends Agent {
                 quantity = (Long) joRequiredResources.get(resourceType);
                 requiredResources.put( ResourceType.valueOf(resourceType), quantity);
             }
-            Task newTask = new Task(id, utility.intValue(), 20, requiredResources);
+            Task newTask = new Task(id, utility.intValue(), 20, requiredResources, agentId);
             newTasks.add( newTask);
         }
         toDoTasks.addAll( newTasks);
     }
 
 
-    void findNewResources (JSONObject joNewResources) {
+    void findNewResources (JSONObject joNewResources, AID agentId) {
 
         String resourceType;
         String id;
@@ -128,11 +149,11 @@ public class TimedMasterAgent extends Agent {
             while (keysIterator2.hasNext()) {
                 id = keysIterator2.next();
                 lifetime = (Long) joItems.get(id);
-                ResourceItem item = new ResourceItem(id, ResourceType.valueOf(resourceType), lifetime.intValue());
-                if (availableResources.containsKey( ResourceType.valueOf(resourceType)) == false) {
-                    availableResources.put(ResourceType.valueOf(resourceType), new TreeSet<>(new ResourceItem.resourceItemComparator()));
+                ResourceItem item = new ResourceItem(id, ResourceType.valueOf(resourceType), lifetime.intValue(), agentId);
+                if (agentAvailableResources.get(agentId).containsKey( ResourceType.valueOf(resourceType)) == false) {
+                    agentAvailableResources.get(agentId).put(ResourceType.valueOf(resourceType), new TreeSet<>(new ResourceItem.resourceItemComparator()));
                 }
-                availableResources.get(ResourceType.valueOf(resourceType)).add(item);
+                agentAvailableResources.get(agentId).get(ResourceType.valueOf(resourceType)).add(item);
             }
         }
     }
@@ -142,55 +163,59 @@ public class TimedMasterAgent extends Agent {
 
         SortedSet<ResourceItem> availableItems;
         ArrayList<ResourceItem> expiredItems;
-        ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
-        for (var resource : availableResources.entrySet()) {
-            expiredItemsInThisRound.clear();
-            availableItems = availableResources.get( resource.getKey());
-            if (expiredResources.containsKey( resource.getKey())) {
-                expiredItems = expiredResources.get( resource.getKey());
-            } else {
-                expiredItems = new ArrayList<>();
-                expiredResources.put( resource.getKey(), expiredItems);
-            }
-            for (ResourceItem item : availableItems) {
-                item.setExpiryTime( item.getExpiryTime() - 1);
-                if (item.getExpiryTime() == 0) {
-                    expiredItemsInThisRound.add( item);
-                    expiredItems.add( item);
+        ArrayList<ResourceItem> expiredItemsNow = new ArrayList<>();
+        for (var agentResources : agentAvailableResources.entrySet()) {
+            for (var resource : agentResources.getValue().entrySet()) {
+                expiredItemsNow.clear();
+                availableItems = agentAvailableResources.get(agentResources.getKey()).get(resource.getKey());
+                if (agentExpiredResources.get(agentResources.getKey()).containsKey(resource.getKey())) {
+                    expiredItems = agentExpiredResources.get(agentResources.getKey()).get(resource.getKey());
+                } else {
+                    expiredItems = new ArrayList<>();
+                    agentExpiredResources.get(agentResources.getKey()).put(resource.getKey(), expiredItems);
                 }
-            }
-            int initialSize = availableItems.size();
-            availableItems.removeAll( expiredItemsInThisRound);
-            if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
-                logInf("Error!!");
+                for (ResourceItem item : availableItems) {
+                    currentTime = System.currentTimeMillis();
+                    if (currentTime > item.getExpiryTime()) {
+                        expiredItemsNow.add(item);
+                        expiredItems.add(item);
+                    }
+                }
+                int initialSize = availableItems.size();
+                availableItems.removeAll(expiredItemsNow);
+                if (initialSize - expiredItemsNow.size() != availableItems.size()) {
+                    System.out.println("Error!!");
+                }
             }
         }
 
-//        for (var entry : expiredResources.entrySet()) {
-//            logInf( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
-//        }
+        if (debugMode) {
+//            for (var entry : expiredResources.entrySet()) {
+//                System.out.println(myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+//            }
+        }
     }
 
 
     void expireTasks(Agent myAgent) {
 
-        SortedSet<Task> lateTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+        SortedSet<Task> lateTasks = new TreeSet<>(new Task.taskComparator());
         int count = 0;
         for (Task task : toDoTasks) {
-                task.deadline--;
-                if (task.deadline == 0) {
-                    lateTasksInThisRound.add( task);
-                    count += 1;
-                }
+            currentTime = System.currentTimeMillis();
+            if (currentTime > task.deadline) {
+                lateTasks.add( task);
+                count += 1;
+            }
         }
 
-        if (lateTasksInThisRound.size() != count) {
-            logInf("Error!!");
+        if (lateTasks.size() != count) {
+            System.out.println("Error!!");
         }
         int initialSize = toDoTasks.size();
-        toDoTasks.removeAll( lateTasksInThisRound);
+        toDoTasks.removeAll( lateTasks);
         if ( initialSize - count != toDoTasks.size()) {
-            logInf("Error!!");
+            System.out.println("Error!!");
         }
     }
 
@@ -220,12 +245,13 @@ public class TimedMasterAgent extends Agent {
 
 //        logInf (myAgent.getLocalName() +  " is performing tasks.");
         int count = 0;
-        SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+        SortedSet<Task> doneTasksNow = new TreeSet<>(new Task.taskComparator());
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
-            if (hasEnoughResources(task, availableResources)) {
+            currentTime = System.currentTimeMillis();
+            if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
                 processTask(task);
-                doneTasksInThisRound.add(task);
+                doneTasksNow.add(task);
                 boolean check = doneTasks.add(task);
                 if (check == false) {
                     logInf("Error!!");
@@ -235,7 +261,7 @@ public class TimedMasterAgent extends Agent {
             }
         }
 
-        if (doneTasksInThisRound.size() != count) {
+        if (doneTasksNow.size() != count) {
             logInf("Error!!");
         }
 
@@ -253,29 +279,83 @@ public class TimedMasterAgent extends Agent {
 
     void processTask (Task task) {
 
-        try {
-            for (var entry : task.requiredResources.entrySet()) {
-                SortedSet<ResourceItem> resourceItems = availableResources.get(entry.getKey());
-                for (int i = 0; i < entry.getValue(); i++) {
-                    ResourceItem item = resourceItems.first();
-                    resourceItems.remove(item);
+        long allocatedQuantity;
+        Set<AID> providers;
+        for (var requiredResource : task.requiredResources.entrySet()) {
+            allocatedQuantity = 0;
+            providers = new HashSet<>();
+            providers.add(task.manager);
+            while (allocatedQuantity < requiredResource.getValue()) {
+                while (isMissingResource( providers, requiredResource.getKey())) {
+                    providers = addNeighbors( providers);
                 }
-                availableResources.replace(entry.getKey(), resourceItems);
+
+                allocateResource (task.manager, providers, requiredResource.getKey());
+
+                allocatedQuantity++;
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
         }
     }
 
 
-    private boolean hasEnoughResources (Task task, Map<ResourceType, SortedSet<ResourceItem>> availableResources) {
-        boolean enough = true;
+    void allocateResource (AID taskManager, Set<AID> providers, ResourceType resourceType) {
 
-        for (var entry : task.requiredResources.entrySet()) {
-            if (availableResources.containsKey(entry.getKey()) == false) {
-                enough = false;
-                break;
-            } else if (entry.getValue() > availableResources.get(entry.getKey()).size()) {
+        SortedSet<ResourceItem> resourceItems;
+        for (AID aid : providers) {
+            if( agentAvailableResources.get(aid).containsKey(resourceType)) {
+                resourceItems = agentAvailableResources.get(aid).get(resourceType);
+                if (resourceItems.size() > 0) {
+                    ResourceItem item = resourceItems.first();
+                    resourceItems.remove((item));
+                    incurTransferCost(taskManager, aid);
+                    break;
+                }
+            }
+        }
+    }
+
+
+    boolean isMissingResource( Set<AID> providers, ResourceType resourceType) {
+        boolean missing = true;
+        for (AID aid : providers) {
+            if( agentAvailableResources.get(aid).containsKey(resourceType)) {
+                if (agentAvailableResources.get(aid).get(resourceType).size() > 0) {
+                    missing = false;
+                    break;
+                }
+            }
+        }
+        return missing;
+    }
+
+
+    Set<AID> addNeighbors(Set<AID> providers) {
+
+
+
+        return providers;
+    }
+
+
+    void incurTransferCost(AID taskManager, AID provider) {
+
+        long distance = 0;
+
+        totalUtil -= distance;
+    }
+
+
+    private boolean hasEnoughResources (Task task, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
+        boolean enough = true;
+        long availableQuantity;
+        for (var requiredResource : task.requiredResources.entrySet()) {
+            availableQuantity = 0;
+            for (var agentResource : agentAvailableResources.entrySet()) {
+                if (agentResource.getValue().containsKey(requiredResource.getKey()) == true) {
+                    availableQuantity += agentResource.getValue().get(requiredResource.getKey()).size();
+                }
+            }
+            if (requiredResource.getValue() > availableQuantity) {
                 enough = false;
                 break;
             }
@@ -298,15 +378,17 @@ public class TimedMasterAgent extends Agent {
         Long totalUtil = (Long) jo.get("totalUtil");
 
         if (joNewTasks != null) {
-            tasksInfo.get(agentId).add( joNewTasks);
+//            tasksInfo.get(agentId).add( joNewTasks);
+            findNewTasks( joNewTasks, agentId);
         }
 
         if (joNewResources != null) {
-            resourcesInfo.get(agentId).add( joNewResources);
+//            resourcesInfo.get(agentId).add( joNewResources);
+            findNewResources( joNewResources, agentId);
         }
 
         if (totalUtil != null) {
-            utilitiesInfo.get(agentId).add( totalUtil);
+            utilitiesInfo.put(agentId, totalUtil);
         }
     }
 
@@ -314,7 +396,7 @@ public class TimedMasterAgent extends Agent {
     long agentUtilitiesSum() {
         long sum = 0;
         for( var utilInfo: utilitiesInfo.entrySet()) {
-            sum += utilInfo.getValue().get( utilInfo.getValue().size() - 1);
+            sum += utilInfo.getValue();
         }
         return sum;
     }

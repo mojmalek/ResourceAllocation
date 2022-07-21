@@ -148,7 +148,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
         toDoTasks.addAll(newTasks);
 
-//        sendNewTasksToMasterAgent (newTasks, myAgent);
+        sendNewTasksToMasterAgent (newTasks, myAgent);
 
 //        System.out.println (myAgent.getLocalName() + " has " + toDoTasks.size() + " tasks to do.");
     }
@@ -177,7 +177,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " available item of type: " + entry.getKey().name());
 //        }
 
-//        sendNewResourcesToMasterAgent (newResources, myAgent);
+        sendNewResourcesToMasterAgent (newResources, myAgent);
     }
 
 
