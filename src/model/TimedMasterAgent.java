@@ -286,11 +286,14 @@ public class TimedMasterAgent extends Agent {
             providers = new HashSet<>();
             providers.add(task.manager);
             while (allocatedQuantity < requiredResource.getValue()) {
-                while (isMissingResource( providers, requiredResource.getKey())) {
-                    providers = addNeighbors( providers);
-                }
 
-                allocateResource (task.manager, providers, requiredResource.getKey());
+                AID selectedProvider = selectBestProvider( providers);
+
+//                while (isMissingResource( providers, requiredResource.getKey())) {
+//                    providers = addNeighbors( providers);
+//                }
+
+                allocateResource (task.manager, selectedProvider, requiredResource.getKey());
 
                 allocatedQuantity++;
             }
@@ -298,20 +301,32 @@ public class TimedMasterAgent extends Agent {
     }
 
 
-    void allocateResource (AID taskManager, Set<AID> providers, ResourceType resourceType) {
+    AID selectBestProvider( Set<AID> providers) {
+
+        AID selectedProvider = null;
+
+        for (AID provider : providers) {
+
+            selectedProvider = provider;
+        }
+
+
+        return selectedProvider;
+    }
+
+
+    void allocateResource (AID taskManager, AID selectedProvider, ResourceType resourceType) {
 
         SortedSet<ResourceItem> resourceItems;
-        for (AID aid : providers) {
-            if( agentAvailableResources.get(aid).containsKey(resourceType)) {
-                resourceItems = agentAvailableResources.get(aid).get(resourceType);
-                if (resourceItems.size() > 0) {
-                    ResourceItem item = resourceItems.first();
-                    resourceItems.remove((item));
-                    incurTransferCost(taskManager, aid);
-                    break;
-                }
-            }
+
+        resourceItems = agentAvailableResources.get(selectedProvider).get(resourceType);
+        if (resourceItems.size() > 0) {
+            ResourceItem item = resourceItems.first();
+            resourceItems.remove((item));
+            incurTransferCost(taskManager, selectedProvider);
         }
+
+
     }
 
 
