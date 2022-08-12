@@ -124,4 +124,53 @@ public class SimulationEngine {
         return socialNetwork;
     }
 
+
+    public Integer[][] computeDistances(Integer[][] socialNetwork) {
+
+        Integer[][] distances = new Integer[socialNetwork.length][socialNetwork.length];
+
+        for (int i=0; i<socialNetwork.length; i++) {
+            for (int j=0; j<socialNetwork[i].length; j++) {
+                if (distances[i][j] == null) {
+                    if (socialNetwork[i][j] == null) {
+                        distances[i][j] = computeShortestDistance(socialNetwork, i, j);
+                    } else {
+                        // when there is an edge, we consider it as the selected path even if it is not the shortest path
+                        distances[i][j] = socialNetwork[i][j];
+                    }
+                }
+            }
+        }
+
+        return distances;
+    }
+
+
+    int computeShortestDistance( Integer[][] socialNetwork, int source, int destination) {
+
+        int shortestDistance = Integer.MAX_VALUE;
+        Map<Integer, Integer> distancesToSource = new HashMap<>();
+        Map<Integer, Integer> previousVisit = new HashMap<>();
+        Set<Integer> visited = new HashSet<>();
+        Set<Integer> unvisited = new HashSet<>();
+
+        for (int i=0; i<socialNetwork.length; i++) {
+            distancesToSource.put(i, Integer.MAX_VALUE);
+            unvisited.add( i);
+        }
+
+        distancesToSource.put(source, 0);
+        visited.add( source);
+        unvisited.remove(source);
+
+        while( unvisited.isEmpty() == false) {
+
+
+
+
+        }
+
+        return shortestDistance;
+    }
+
 }

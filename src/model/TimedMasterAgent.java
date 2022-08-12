@@ -22,7 +22,6 @@ public class TimedMasterAgent extends Agent {
 //    private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
     private Map<AID, Long> utilitiesInfo = new LinkedHashMap<>();
 
-
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
     private long totalUtil;
@@ -79,7 +78,6 @@ public class TimedMasterAgent extends Agent {
                 } else {
                     block();
                 }
-                //TODO: whenever new tasks or new resources arrive, the master agent performs tasks - it needs to have the social network in order to compute the costs of resource allocations
             }
         });
 
@@ -287,46 +285,18 @@ public class TimedMasterAgent extends Agent {
             providers.add(task.manager);
             while (allocatedQuantity < requiredResource.getValue()) {
 
-                AID selectedProvider = selectBestProvider( providers);
+                while (isMissingResource( providers, requiredResource.getKey())) {
+                    providers = addNeighbors( providers);
+                }
 
-//                while (isMissingResource( providers, requiredResource.getKey())) {
-//                    providers = addNeighbors( providers);
-//                }
+                AID selectedProvider = selectBestProvider( providers, requiredResource.getKey());
 
-                allocateResource (task.manager, selectedProvider, requiredResource.getKey());
+                allocateResource (selectedProvider, requiredResource.getKey());
+                incurTransferCost(task.manager, selectedProvider);
 
                 allocatedQuantity++;
             }
         }
-    }
-
-
-    AID selectBestProvider( Set<AID> providers) {
-
-        AID selectedProvider = null;
-
-        for (AID provider : providers) {
-
-            selectedProvider = provider;
-        }
-
-
-        return selectedProvider;
-    }
-
-
-    void allocateResource (AID taskManager, AID selectedProvider, ResourceType resourceType) {
-
-        SortedSet<ResourceItem> resourceItems;
-
-        resourceItems = agentAvailableResources.get(selectedProvider).get(resourceType);
-        if (resourceItems.size() > 0) {
-            ResourceItem item = resourceItems.first();
-            resourceItems.remove((item));
-            incurTransferCost(taskManager, selectedProvider);
-        }
-
-
     }
 
 
@@ -345,14 +315,53 @@ public class TimedMasterAgent extends Agent {
 
 
     Set<AID> addNeighbors(Set<AID> providers) {
-
-
-
+        Set<AID> newNeighbors = new HashSet<>();
+        for (AID aid : providers) {
+            String providerName = aid.getLocalName();
+            int providerId = Integer.valueOf(providerName.replace(numberOfAgents+"Agent", ""));
+            Integer[] providerNeighbors = socialNetwork[providerId-1];
+            for (int i = 0; i < providerNeighbors.length; i++) {
+                if (providerNeighbors[i] != null) {
+                    newNeighbors.add(new AID(numberOfAgents + "Agent" + (i + 1), AID.ISLOCALNAME));
+                }
+            }
+        }
+        providers.addAll( newNeighbors);
         return providers;
     }
 
 
+    AID selectBestProvider( Set<AID> providers, ResourceType resourceType) {
+
+        //TODO: sort the providers by their workload + shortest distance from resource manager
+
+        AID selectedProvider = null;
+
+        for (AID aid : providers) {
+            if( agentAvailableResources.get(aid).containsKey(resourceType)) {
+                if (agentAvailableResources.get(aid).get(resourceType).size() > 0) {
+                    selectedProvider = aid;
+                    break;
+                }
+            }
+        }
+
+        return selectedProvider;
+    }
+
+
+    void allocateResource (AID selectedProvider, ResourceType resourceType) {
+
+        ResourceItem item = agentAvailableResources.get(selectedProvider).get(resourceType).first();
+        agentAvailableResources.get(selectedProvider).get(resourceType).remove((item));
+    }
+
+
     void incurTransferCost(AID taskManager, AID provider) {
+
+//        String requesterName = requester.getLocalName();
+//        int requesterId = Integer.valueOf(requesterName.replace(numberOfAgents+"Agent", ""));
+//        int distance = neighbors[requesterId-1];
 
         long distance = 0;
 
