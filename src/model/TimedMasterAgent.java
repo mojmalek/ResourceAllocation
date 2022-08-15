@@ -5,6 +5,11 @@ import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.interfaces.ShortestPathAlgorithm;
+import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
+import org.jgrapht.graph.DefaultWeightedEdge;
+import org.jgrapht.graph.SimpleWeightedGraph;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -28,7 +33,9 @@ public class TimedMasterAgent extends Agent {
     private long endTime;
     private long currentTime;
     private int numberOfAgents;
-    Integer[][] socialNetwork;
+    Integer[][] adjacency;
+    Graph<String, DefaultWeightedEdge> graph;
+    ShortestPathAlgorithm shortestPathAlgorithm;
 
 //    private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
 //    private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -39,6 +46,9 @@ public class TimedMasterAgent extends Agent {
     @Override
     protected void setup() {
 
+        if (debugMode) {
+            logInf("Hello World. I’m the Master agent! My local-name is " + getAID().getLocalName());
+        }
         // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
@@ -51,13 +61,13 @@ public class TimedMasterAgent extends Agent {
                 agentAvailableResources.put(aid, new LinkedHashMap<>());
             }
             endTime = (long) args[1];
-            socialNetwork = (Integer[][]) args[2];
+            adjacency = (Integer[][]) args[2];
             logFileName = (String) args[3];
         }
 
-        if (debugMode) {
-            logInf("Hello World. I’m the Master agent! My local-name is " + getAID().getLocalName());
-        }
+        graph = createGraph(adjacency);
+
+        shortestPathAlgorithm = new DijkstraShortestPath(graph);
 
         addBehaviour(new CyclicBehaviour() {
             @Override
@@ -319,7 +329,7 @@ public class TimedMasterAgent extends Agent {
         for (AID aid : providers) {
             String providerName = aid.getLocalName();
             int providerId = Integer.valueOf(providerName.replace(numberOfAgents+"Agent", ""));
-            Integer[] providerNeighbors = socialNetwork[providerId-1];
+            Integer[] providerNeighbors = adjacency[providerId-1];
             for (int i = 0; i < providerNeighbors.length; i++) {
                 if (providerNeighbors[i] != null) {
                     newNeighbors.add(new AID(numberOfAgents + "Agent" + (i + 1), AID.ISLOCALNAME));
@@ -359,11 +369,12 @@ public class TimedMasterAgent extends Agent {
 
     void incurTransferCost(AID taskManager, AID provider) {
 
-//        String requesterName = requester.getLocalName();
-//        int requesterId = Integer.valueOf(requesterName.replace(numberOfAgents+"Agent", ""));
-//        int distance = neighbors[requesterId-1];
+        String taskManagerName = taskManager.getLocalName();
+        String taskManagerId = taskManagerName.replace(numberOfAgents+"Agent", "");
+        String providerName = provider.getLocalName();
+        String providerId = providerName.replace(numberOfAgents+"Agent", "");
 
-        long distance = 0;
+        long distance = (long) getDistance( taskManagerId, providerId);
 
         totalUtil -= distance;
     }
@@ -423,6 +434,43 @@ public class TimedMasterAgent extends Agent {
             sum += utilInfo.getValue();
         }
         return sum;
+    }
+
+
+    Graph<String, DefaultWeightedEdge> createGraph(Integer[][] socialNetwork) {
+
+        Graph<String, DefaultWeightedEdge> graph = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
+
+        for (int i=0; i<socialNetwork.length; i++) {
+            graph.addVertex(String.valueOf(i));
+        }
+
+        for (int i=0; i<socialNetwork.length; i++) {
+            for( int j=0; j<socialNetwork.length; j++) {
+                if(socialNetwork[i][j] != null && graph.containsEdge(String.valueOf(i), String.valueOf(j)) == false) {
+                    graph.addEdge(String.valueOf(i), String.valueOf(j));
+                    graph.setEdgeWeight(String.valueOf(i), String.valueOf(j), Double.valueOf(socialNetwork[i][j]));
+                }
+            }
+        }
+
+        return graph;
+    }
+
+
+    double getDistance( String source, String destination) {
+
+        int i = Integer.valueOf(source);
+        int j = Integer.valueOf(destination);
+        double distance;
+        if (adjacency[i][j] == null) {
+            distance = shortestPathAlgorithm.getPathWeight(source, destination);
+        } else {
+            // when there is an edge, we consider it as the selected path even if it is not the shortest path
+            distance = adjacency[i][j];
+        }
+
+        return distance;
     }
 
 

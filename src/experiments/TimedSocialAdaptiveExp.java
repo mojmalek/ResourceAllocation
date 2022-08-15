@@ -72,7 +72,7 @@ public class TimedSocialAdaptiveExp {
 
         Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
 
-        Integer[][] distances = simulationEngine.computeDistances( socialNetwork);
+//        Integer[][] distances = simulationEngine.computeDistances( socialNetwork);
 
         //TODO: save the social network array in a text file in order to re-use it.
 
