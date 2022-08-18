@@ -21,7 +21,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
     private boolean debugMode = true;
-    private String debugFileName;
+    private String logFileName;
 
     private Integer[] neighbors;
     private Map<AID, ProtocolPhase> neighborsPhases = new LinkedHashMap<>();
@@ -55,10 +55,6 @@ public class TimedSocialAdaptiveAgent extends Agent {
     @Override
     protected void setup() {
 
-        if (debugMode) {
-//            System.out.println("Hello World. I’m a Social Adaptive agent! My local-name is " + getAID().getLocalName());
-        }
-        // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
@@ -72,7 +68,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                     neighborsPhases.put(aid, ProtocolPhase.REQUESTING);
                 }
             }
-            debugFileName = (String) args[4];
+            logFileName = (String) args[4];
         }
 
         addBehaviour (new TickerBehaviour(this, 100) {
@@ -1607,6 +1603,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         for (Task task : newTasks) {
             JSONObject joTask = new JSONObject();
             joTask.put("utility", task.utility);
+            joTask.put("deadline", task.deadline);
             JSONObject joRequiredResources = new JSONObject();
             for (var entry : task.requiredResources.entrySet()) {
                 joRequiredResources.put( entry.getKey().name(), entry.getValue());
@@ -1672,7 +1669,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //        System.out.println("Time:" + System.currentTimeMillis() + " " + agentId + " " + msg);
 
         try {
-            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(debugFileName, true)));
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
             out.println("Time:" + System.currentTimeMillis() + " " + agentId + " " + msg);
             out.close();
         } catch (IOException e) {

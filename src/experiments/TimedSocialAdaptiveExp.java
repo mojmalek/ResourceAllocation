@@ -57,8 +57,8 @@ public class TimedSocialAdaptiveExp {
 
         SimulationEngine simulationEngine = new SimulationEngine();
 
-        String logFileName = "logs/" + "TimedSocialAdaptiveExp-Agent0-" + new Date() + ".txt";
-        String debugFileName = "logs/" + "TimedSocialAdaptiveExp-All-" + new Date() + ".txt";
+        String logFileName1 = "logs/" + "TimedSocialAdaptiveExp-Master-" + new Date() + ".txt";
+        String logFileName2 = "logs/" + "TimedSocialAdaptiveExp-All-" + new Date() + ".txt";
         Runtime rt = Runtime.instance();
         Profile p = new ProfileImpl();
         p.setParameter(Profile.MAIN_HOST, "localhost");
@@ -94,10 +94,10 @@ public class TimedSocialAdaptiveExp {
             AgentController ac;
             try {
                 if (i == 0) {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.TimedMasterAgent", new Object[]{numberOfAgents, endTime, socialNetwork, logFileName});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.TimedMasterAgent", new Object[]{numberOfAgents, endTime, socialNetwork, logFileName1});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, socialNetwork[i-1], debugFileName});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, socialNetwork[i-1], logFileName2});
                     ac.start();
                 }
 //                ac.start();

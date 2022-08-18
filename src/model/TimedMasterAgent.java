@@ -14,12 +14,16 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.*;
 
 
 public class TimedMasterAgent extends Agent {
 
-    private boolean debugMode = false;
+    private boolean debugMode = true;
     private String logFileName;
 
 //    private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
@@ -29,7 +33,7 @@ public class TimedMasterAgent extends Agent {
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
-    private long totalUtil;
+    private long totalUtil, transferCost;
     private long endTime;
     private long currentTime;
     private int numberOfAgents;
@@ -46,10 +50,6 @@ public class TimedMasterAgent extends Agent {
     @Override
     protected void setup() {
 
-        if (debugMode) {
-            logInf("Hello World. I’m the Master agent! My local-name is " + getAID().getLocalName());
-        }
-        // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
@@ -59,6 +59,7 @@ public class TimedMasterAgent extends Agent {
 //                resourcesInfo.put( aid, new ArrayList<>());
                 utilitiesInfo.put( aid, 0L);
                 agentAvailableResources.put(aid, new LinkedHashMap<>());
+                agentExpiredResources.put(aid, new LinkedHashMap<>());
             }
             endTime = (long) args[1];
             adjacency = (Integer[][]) args[2];
@@ -109,8 +110,9 @@ public class TimedMasterAgent extends Agent {
             public void action() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime > endTime + 1000) {
-                    logInf ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
-                    logInf ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+                    System.out.println ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
+                    System.out.println ("Master agent total utility: " + totalUtil + " and transfer cost: " + transferCost);
+                    System.out.println ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
                     block();
                 }
             }
@@ -122,7 +124,7 @@ public class TimedMasterAgent extends Agent {
 
         SortedSet<Task> newTasks = new TreeSet<>(new Task.taskComparator());
         String id, resourceType;
-        Long utility, quantity;
+        Long utility, deadline, quantity;
         Map<ResourceType, Long> requiredResources;
         Iterator<String> keysIterator1 = joNewTasks.keySet().iterator();
         while (keysIterator1.hasNext()) {
@@ -130,6 +132,7 @@ public class TimedMasterAgent extends Agent {
             id = keysIterator1.next();
             JSONObject joTask = (JSONObject) joNewTasks.get(id);
             utility = (Long) joTask.get("utility");
+            deadline = (Long) joTask.get("deadline");
             JSONObject joRequiredResources = (JSONObject) joTask.get("requiredResources");
             Iterator<String> keysIterator2 = joRequiredResources.keySet().iterator();
             while (keysIterator2.hasNext()) {
@@ -137,10 +140,15 @@ public class TimedMasterAgent extends Agent {
                 quantity = (Long) joRequiredResources.get(resourceType);
                 requiredResources.put( ResourceType.valueOf(resourceType), quantity);
             }
-            Task newTask = new Task(id, utility.intValue(), 20, requiredResources, agentId);
+            Task newTask = new Task(id, utility, deadline, requiredResources, agentId);
             newTasks.add( newTask);
+            if( debugMode) {
+                logInf("received new task with id: " + newTask.id);
+            }
         }
         toDoTasks.addAll( newTasks);
+        System.out.println( "New tasks size:" + newTasks.size());
+        System.out.println( "ToDo tasks size:" + toDoTasks.size());
     }
 
 
@@ -157,11 +165,14 @@ public class TimedMasterAgent extends Agent {
             while (keysIterator2.hasNext()) {
                 id = keysIterator2.next();
                 lifetime = (Long) joItems.get(id);
-                ResourceItem item = new ResourceItem(id, ResourceType.valueOf(resourceType), lifetime.intValue(), agentId);
+                ResourceItem item = new ResourceItem(id, ResourceType.valueOf(resourceType), lifetime, agentId);
                 if (agentAvailableResources.get(agentId).containsKey( ResourceType.valueOf(resourceType)) == false) {
                     agentAvailableResources.get(agentId).put(ResourceType.valueOf(resourceType), new TreeSet<>(new ResourceItem.resourceItemComparator()));
                 }
                 agentAvailableResources.get(agentId).get(ResourceType.valueOf(resourceType)).add(item);
+                if( debugMode) {
+                    logInf("received new resource item with id: " + item.getId() + " and lifetime: " + item.getExpiryTime());
+                }
             }
         }
     }
@@ -187,6 +198,9 @@ public class TimedMasterAgent extends Agent {
                     if (currentTime > item.getExpiryTime()) {
                         expiredItemsNow.add(item);
                         expiredItems.add(item);
+                        if( debugMode) {
+                            logInf("resource item expired with id: " + item.getId());
+                        }
                     }
                 }
                 int initialSize = availableItems.size();
@@ -214,6 +228,9 @@ public class TimedMasterAgent extends Agent {
             if (currentTime > task.deadline) {
                 lateTasks.add( task);
                 count += 1;
+                if( debugMode) {
+                    logInf("task expired with id: " + task.id);
+                }
             }
         }
 
@@ -294,18 +311,18 @@ public class TimedMasterAgent extends Agent {
             providers = new HashSet<>();
             providers.add(task.manager);
             while (allocatedQuantity < requiredResource.getValue()) {
-
                 while (isMissingResource( providers, requiredResource.getKey())) {
                     providers = addNeighbors( providers);
                 }
-
                 AID selectedProvider = selectBestProvider( providers, requiredResource.getKey());
-
                 allocateResource (selectedProvider, requiredResource.getKey());
                 incurTransferCost(task.manager, selectedProvider);
-
                 allocatedQuantity++;
             }
+        }
+
+        if( debugMode) {
+            logInf("processed task with id: " + task.id + ", manager: " + task.manager.getLocalName() + ", util: " + task.utility);
         }
     }
 
@@ -376,7 +393,12 @@ public class TimedMasterAgent extends Agent {
 
         long distance = (long) getDistance( taskManagerId, providerId);
 
-        totalUtil -= distance;
+        if( debugMode) {
+            logInf("transfer cost from " + provider.getLocalName() + " to " + taskManager.getLocalName() + " : " + distance);
+        }
+
+//        totalUtil -= distance;
+        transferCost += distance;
     }
 
 
@@ -390,6 +412,7 @@ public class TimedMasterAgent extends Agent {
                     availableQuantity += agentResource.getValue().get(requiredResource.getKey()).size();
                 }
             }
+            System.out.println("Available resource quantity: " + availableQuantity);
             if (requiredResource.getValue() > availableQuantity) {
                 enough = false;
                 break;
@@ -442,14 +465,17 @@ public class TimedMasterAgent extends Agent {
         Graph<String, DefaultWeightedEdge> graph = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
 
         for (int i=0; i<socialNetwork.length; i++) {
-            graph.addVertex(String.valueOf(i));
+            graph.addVertex (String.valueOf(i+1));
         }
 
+        String aid1, aid2;
         for (int i=0; i<socialNetwork.length; i++) {
+            aid1 = String.valueOf(i+1);
             for( int j=0; j<socialNetwork.length; j++) {
-                if(socialNetwork[i][j] != null && graph.containsEdge(String.valueOf(i), String.valueOf(j)) == false) {
-                    graph.addEdge(String.valueOf(i), String.valueOf(j));
-                    graph.setEdgeWeight(String.valueOf(i), String.valueOf(j), Double.valueOf(socialNetwork[i][j]));
+                aid2 = String.valueOf(j+1);
+                if(socialNetwork[i][j] != null && graph.containsEdge(aid1, aid2) == false) {
+                    graph.addEdge(aid1, aid2);
+                    graph.setEdgeWeight(aid1, aid2, Double.valueOf(socialNetwork[i][j]));
                 }
             }
         }
@@ -458,16 +484,16 @@ public class TimedMasterAgent extends Agent {
     }
 
 
-    double getDistance( String source, String destination) {
+    double getDistance( String taskManagerId, String providerId) {
 
-        int i = Integer.valueOf(source);
-        int j = Integer.valueOf(destination);
+        int i = Integer.valueOf(taskManagerId);
+        int j = Integer.valueOf(providerId);
         double distance;
-        if (adjacency[i][j] == null) {
-            distance = shortestPathAlgorithm.getPathWeight(source, destination);
+        if (adjacency[i-1][j-1] == null) {
+            distance = shortestPathAlgorithm.getPathWeight (taskManagerId, providerId);
         } else {
             // when there is an edge, we consider it as the selected path even if it is not the shortest path
-            distance = adjacency[i][j];
+            distance = adjacency[i-1][j-1];
         }
 
         return distance;
@@ -476,14 +502,15 @@ public class TimedMasterAgent extends Agent {
 
     protected void logInf(String msg) {
 
-            System.out.println(numberOfAgents + "Agent0: " + msg);
-//            try {
-//                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
-//                out.println(numberOfAgents + "Agent0: " + msg);
-//                out.close();
-//            } catch (IOException e) {
-//                System.err.println("Error writing file..." + e.getMessage());
-//            }
+//      System.out.println("Time:" + System.currentTimeMillis() + " " + numberOfAgents + "Agent0: " + msg);
+
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+            out.println("Time:" + System.currentTimeMillis() + " " + numberOfAgents + "Agent0: " + msg);
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
+        }
     }
 
 
