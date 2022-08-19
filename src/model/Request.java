@@ -8,20 +8,20 @@ import java.util.Set;
 
 public class Request {
 
-    String id;
-    Boolean cascaded;
+    public String id;
+    public Boolean cascaded;
 //    String originalId;
-    long quantity;
-    ResourceType resourceType;
-    Map<Long, Long> utilityFunction;
-    AID sender;
-    AID originalSender;
-    Set<Integer> allReceivers;
+    public long quantity;
+    public ResourceType resourceType;
+    public Map<Long, Long> utilityFunction;
+    public AID sender;
+    public AID originalSender;
+    public Set<Integer> allReceivers;
     // id, lifetime
-    Map<String, Long> reservedItems;
-    long timeSent;
-    long timeout;
-    boolean processed;
+    public Map<String, Long> reservedItems;
+    public long timeSent;
+    public long timeout;
+    public boolean processed;
 
     public Request(String id, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender) {
         this.id = id;

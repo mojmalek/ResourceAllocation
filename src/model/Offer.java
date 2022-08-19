@@ -8,18 +8,18 @@ import java.util.Set;
 
 public class Offer {
 
-    String id;
-    String reqId;
-    long quantity;
-    ResourceType resourceType;
-    Map<Long, Long> costFunction;
+    public String id;
+    public String reqId;
+    public long quantity;
+    public ResourceType resourceType;
+    public Map<Long, Long> costFunction;
     // id, lifetime
-    Map<String, Long> offeredItems;
-    AID sender;
-    AID receiver;
-    Set<Offer> includedOffers;
-    long timeout;
-    boolean processed;
+    public Map<String, Long> offeredItems;
+    public AID sender;
+    public AID receiver;
+    public Set<Offer> includedOffers;
+    public long timeout;
+    public boolean processed;
 
     public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, AID sender, AID receiver) {
         this.id = id;

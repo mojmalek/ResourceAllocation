@@ -38,10 +38,10 @@ public class TimedSocialAdaptiveExp {
                 AgentController ac;
                 try {
                     if (i == 0) {
-                        ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.MasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileName});
+                        ac = cc.createNewAgent(numberOfAgents + "Agent0", "agents.MasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileName});
                         ac.start();
                     } else {
-                        ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.AdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds});
+                        ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "agents.AdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds});
                         ac.start();
                     }
 //                ac.start();
@@ -94,10 +94,10 @@ public class TimedSocialAdaptiveExp {
             AgentController ac;
             try {
                 if (i == 0) {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "model.TimedMasterAgent", new Object[]{numberOfAgents, endTime, socialNetwork, logFileName1});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, socialNetwork, logFileName1});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "model.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, socialNetwork[i-1], logFileName2});
+                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, socialNetwork[i-1], logFileName2});
                     ac.start();
                 }
 //                ac.start();

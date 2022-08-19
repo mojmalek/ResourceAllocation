@@ -1,22 +1,28 @@
-package model;
+package agents;
 
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
+import model.*;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.*;
 
 
-public class NeighborAdaptiveAgent extends Agent {
+public class TimedSocialAdaptiveAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
-    private boolean debugMode = false;
+    private boolean debugMode = true;
+    private String logFileName;
 
     private Integer[] neighbors;
     private Map<AID, ProtocolPhase> neighborsPhases = new LinkedHashMap<>();
@@ -25,7 +31,8 @@ public class NeighborAdaptiveAgent extends Agent {
     private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
     private long totalUtil;
-    private int numberOfRounds;
+    private long endTime;
+    private long currentTime;
     private int numberOfAgents;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
@@ -41,21 +48,19 @@ public class NeighborAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
+
     private int count;
     private int errorCount;
+
 
     @Override
     protected void setup() {
 
-        if (debugMode) {
-            System.out.println("Hello World. I’m a Social Adaptive agent! My local-name is " + getAID().getLocalName());
-        }
-        // Get ids of other agents as arguments
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
             int myId = (int) args[1];
-            numberOfRounds = (int) args[2];
+            endTime = (long) args[2];
             neighbors = (Integer[]) args[3];
 
             for (int i = 0; i < neighbors.length; i++) {
@@ -64,17 +69,67 @@ public class NeighborAdaptiveAgent extends Agent {
                     neighborsPhases.put(aid, ProtocolPhase.REQUESTING);
                 }
             }
+            logFileName = (String) args[4];
         }
 
-        addBehaviour (new TickerBehaviour(this, 1) {
+        addBehaviour (new TickerBehaviour(this, 200) {
             protected void onTick() {
-                if (this.getTickCount() <= numberOfRounds) {
-                        System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
-
+                currentTime = System.currentTimeMillis();
+                if (currentTime <= endTime - 500) {
                     findTasks(myAgent);
                     findResources(myAgent);
+                }
+            }
+        });
+
+        addBehaviour (new TickerBehaviour(this, 50) {
+            protected void onTick() {
+                currentTime = System.currentTimeMillis();
+                if (currentTime <= endTime) {
                     negotiate(myAgent);
                     performTasks(myAgent);
+                }
+            }
+        });
+
+        addBehaviour(new CyclicBehaviour() {
+            @Override
+            public void action() {
+                ACLMessage msg=receive();
+                if (msg != null) {
+                    int performative = msg.getPerformative();
+                    switch (performative) {
+                        case ACLMessage.REQUEST:
+                            try {
+                                storeRequest(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                            break;
+                        case ACLMessage.PROPOSE:
+                            try {
+                                storeOffer(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                            break;
+                        case ACLMessage.CONFIRM:
+                            try {
+                                processConfirmation(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                            break;
+                        case ACLMessage.INFORM:
+                            try {
+                                processNotification(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                            break;
+                    }
+                } else {
+                    block();
                 }
             }
         });
@@ -84,14 +139,12 @@ public class NeighborAdaptiveAgent extends Agent {
     private void findTasks(Agent myAgent) {
 
 //        System.out.println (myAgent.getLocalName() + " is finding tasks.");
-
         expireTasks( myAgent);
-
         SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
-        toDoTasks.addAll(newTasks);
-
-//        sendNewTasksToMasterAgent (newTasks, myAgent);
-
+        if (newTasks.size() > 0) {
+            toDoTasks.addAll(newTasks);
+            sendNewTasksToMasterAgent (newTasks, myAgent);
+        }
 //        System.out.println (myAgent.getLocalName() + " has " + toDoTasks.size() + " tasks to do.");
     }
 
@@ -100,7 +153,6 @@ public class NeighborAdaptiveAgent extends Agent {
 
 //        System.out.println (myAgent.getLocalName() + " is finding resources.");
 
-        // decrease lifetime of remaining resources
         expireResourceItems( myAgent);
 
         Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources( myAgent);
@@ -120,7 +172,7 @@ public class NeighborAdaptiveAgent extends Agent {
 //            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " available item of type: " + entry.getKey().name());
 //        }
 
-//        sendNewResourcesToMasterAgent (newResources, myAgent);
+        sendNewResourcesToMasterAgent (newResources, myAgent);
     }
 
 
@@ -128,9 +180,9 @@ public class NeighborAdaptiveAgent extends Agent {
 
         SortedSet<ResourceItem> availableItems;
         ArrayList<ResourceItem> expiredItems;
-        ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
+        ArrayList<ResourceItem> expiredItemsNow = new ArrayList<>();
         for (var resource : availableResources.entrySet()) {
-            expiredItemsInThisRound.clear();
+            expiredItemsNow.clear();
             availableItems = availableResources.get( resource.getKey());
             if (expiredResources.containsKey( resource.getKey())) {
                 expiredItems = expiredResources.get( resource.getKey());
@@ -139,44 +191,44 @@ public class NeighborAdaptiveAgent extends Agent {
                 expiredResources.put( resource.getKey(), expiredItems);
             }
             for (ResourceItem item : availableItems) {
-                item.setExpiryTime( item.getExpiryTime() - 1);
-                if (item.getExpiryTime() == 0) {
-                    expiredItemsInThisRound.add( item);
+                currentTime = System.currentTimeMillis();
+                if (currentTime > item.getExpiryTime()) {
+                    expiredItemsNow.add( item);
                     expiredItems.add( item);
                 }
             }
             int initialSize = availableItems.size();
-            availableItems.removeAll( expiredItemsInThisRound);
-            if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
+            availableItems.removeAll( expiredItemsNow);
+            if ( initialSize - expiredItemsNow.size() != availableItems.size()) {
                 System.out.println("Error!!");
             }
         }
 
         if (debugMode) {
-            for (var entry : expiredResources.entrySet()) {
-                System.out.println(myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
-            }
+//            for (var entry : expiredResources.entrySet()) {
+//                System.out.println(myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+//            }
         }
     }
 
 
     void expireTasks(Agent myAgent) {
 
-        SortedSet<Task> lateTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+        SortedSet<Task> lateTasks = new TreeSet<>(new Task.taskComparator());
         int count = 0;
         for (Task task : toDoTasks) {
-            task.deadline--;
-            if (task.deadline == 0) {
-                lateTasksInThisRound.add( task);
+            currentTime = System.currentTimeMillis();
+            if (currentTime > task.deadline) {
+                lateTasks.add( task);
                 count += 1;
             }
         }
 
-        if (lateTasksInThisRound.size() != count) {
+        if (lateTasks.size() != count) {
             System.out.println("Error!!");
         }
         int initialSize = toDoTasks.size();
-        toDoTasks.removeAll( lateTasksInThisRound);
+        toDoTasks.removeAll( lateTasks);
         if ( initialSize - count != toDoTasks.size()) {
             System.out.println("Error!!");
         }
@@ -184,43 +236,27 @@ public class NeighborAdaptiveAgent extends Agent {
 
 
     private void negotiate (Agent myAgent) {
-//        System.out.println (myAgent.getLocalName() +  " is negotiating.");
-        resetRound();
+
+//        expireRequests();
         deliberateOnRequesting (myAgent);
-        sendNextPhaseNotification (ProtocolPhase.OFFERING);
-        waitForRequests( myAgent);
-//        if( myAgent.getLocalName().equals("Agent1")) {
-//            System.out.print("");
-//        }
-        if (receivedRequests.size() > 0) {
-//            count++;
-//            System.out.println();
-//            System.out.println(this.getLocalName() + " Count: " + count);
-//            System.out.println();
-            deliberateOnOffering( myAgent);
-        }
-        sendNextPhaseNotification (ProtocolPhase.CONFORMING);
-        waitForOffers( myAgent);
-//        if( myAgent.getLocalName().equals("Agent1")) {
-//            System.out.print("");
-//        }
-        if (receivedOffers.size() > 0) {
-//            count++;
-//            System.out.println();
-//            System.out.println(this.getLocalName() + " Count: " + count);
-//            System.out.println();
-            deliberateOnConfirming( myAgent);
-        }
-        sendNextPhaseNotification (ProtocolPhase.REQUESTING);
-        waitForConfirmations( myAgent);
+        deliberateOnCascadingRequest(myAgent);
+//        expireOffers();
+        deliberateOnOffering( myAgent);
+        deliberateOnCascadingOffers( myAgent);
+        deliberateOnConfirming( myAgent);
     }
 
 
     void deliberateOnRequesting (Agent myAgent) {
 
-//        if( myAgent.getLocalName().equals("Agent1")) {
+//        if( myAgent.getLocalName().equals("4Agent1")) {
 //            System.out.print("");
 //        }
+//        if( myAgent.getLocalName().equals("4Agent2")) {
+//            System.out.print("");
+//        }
+
+        blockedTasks.clear();
 
         Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
 
@@ -238,188 +274,74 @@ public class NeighborAdaptiveAgent extends Agent {
     }
 
 
-    void sendNextPhaseNotification (ProtocolPhase phase) {
+    void expireRequests() {
 
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+        ArrayList<Request> expiredReceivedRequests = new ArrayList<>();
+        for (var requestsForType : receivedRequests.entrySet()) {
+            ArrayList<Request> requests = requestsForType.getValue();
+            expiredReceivedRequests.clear();
+            for (Request request : requests) {
+                currentTime = System.currentTimeMillis();
+                if (currentTime > request.timeout) {
+                    expiredReceivedRequests.add( request);
+                }
+            }
+            requests.removeAll(expiredReceivedRequests);
+        }
 
-        for (int i = 0; i < neighbors.length; i++) {
-            if (neighbors[i] != null) {
-                AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
-                msg.addReceiver(aid);
+        Set<Request> expiredSentRequests = new HashSet<>();
+        for( Request sentRequest : sentRequests.values()) {
+            currentTime = System.currentTimeMillis();
+            if (currentTime > sentRequest.timeout) {
+                if( sentRequest.cascaded == true) {
+                    restoreReservedItems( sentRequest);
+                }
+                expiredSentRequests.add( sentRequest);
             }
         }
-
-        JSONObject jo = new JSONObject();
-        jo.put(Ontology.PROTOCOL_PHASE, phase.name());
-
-        msg.setContent( jo.toJSONString());
-        send(msg);
-    }
-
-
-    void waitForRequests( Agent myAgent) {
-
-        while(inRequestingPhase()) {
-            myAgent.doWait(1);
-            receiveMessages( myAgent, ACLMessage.INFORM);
+        for (Request expiredRequest : expiredSentRequests) {
+            sentRequests.remove( expiredRequest.id);
         }
-        receiveMessages( myAgent, ACLMessage.REQUEST);
     }
 
 
-    void waitForCascadedRequests( Agent myAgent) {
+    void expireOffers() {
 
-        while(inCascadingRequestPhase()) {
-            myAgent.doWait(1);
-            receiveMessages( myAgent, ACLMessage.INFORM);
+        for( var receivedOffer : receivedOffers.entrySet()) {
         }
-        receiveMessages( myAgent, ACLMessage.REQUEST);
-    }
 
-
-    void waitForOffers(Agent myAgent) {
-
-        while(inOfferingPhase()) {
-            myAgent.doWait(1);
-            receiveMessages( myAgent, ACLMessage.INFORM);
-        }
-        receiveMessages( myAgent, ACLMessage.PROPOSE);
-    }
-
-
-    void waitForCascadedOffers(Agent myAgent) {
-
-        while(inCascadingOfferPhase()) {
-            myAgent.doWait(1);
-            receiveMessages( myAgent, ACLMessage.INFORM);
-        }
-        receiveMessages( myAgent, ACLMessage.PROPOSE);
-    }
-
-
-    void waitForConfirmations( Agent myAgent) {
-
-        while(inConfirmingPhase()) {
-            myAgent.doWait(1);
-            receiveMessages( myAgent, ACLMessage.INFORM);
-        }
-        receiveMessages( myAgent, ACLMessage.CONFIRM);
-    }
-
-
-    void waitForCascadedConfirms( Agent myAgent) {
-
-        while(inCascadingConfirmPhase()) {
-            myAgent.doWait(1);
-            receiveMessages( myAgent, ACLMessage.INFORM);
-        }
-        receiveMessages( myAgent, ACLMessage.CONFIRM);
-    }
-
-
-    boolean inRequestingPhase() {
-
-        boolean requesting = false;
-        for (var agentPhase : neighborsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.REQUESTING) {
-                requesting = true;
-                break;
+        Set<Offer> expiredOffersNow = new HashSet<>();
+        for( Offer sentOffer : sentOffers.values()) {
+            currentTime = System.currentTimeMillis();
+            if (currentTime > sentOffer.timeout) {
+                restoreResources( sentOffer.id, sentOffer.resourceType, 0);
+                expiredOffersNow.add( sentOffer);
             }
         }
-        return requesting;
-    }
-
-
-    boolean inCascadingRequestPhase() {
-
-        boolean cascadingRequest = false;
-        for (var agentPhase : neighborsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.CASCADING_REQUEST) {
-                cascadingRequest = true;
-                break;
-            }
+        for (Offer expiredOffer : expiredOffersNow) {
+            sentOffers.remove( expiredOffer.id);
         }
-        return cascadingRequest;
-    }
-
-
-    boolean inOfferingPhase() {
-
-        boolean offering = false;
-        for (var agentPhase : neighborsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.OFFERING) {
-                offering = true;
-            }
-        }
-        return offering;
-    }
-
-
-    boolean inCascadingOfferPhase() {
-
-        boolean cascadingOffer = false;
-        for (var agentPhase : neighborsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.CASCADING_OFFER) {
-                cascadingOffer = true;
-            }
-        }
-        return cascadingOffer;
-    }
-
-
-    boolean inConfirmingPhase() {
-
-        boolean confirming = false;
-        for (var agentPhase : neighborsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.CONFORMING) {
-                confirming = true;
-                break;
-            }
-        }
-        return confirming;
-    }
-
-
-    boolean inCascadingConfirmPhase() {
-
-        boolean cascadingConfirm = false;
-        for (var agentPhase : neighborsPhases.entrySet() ) {
-            if (agentPhase.getValue() == ProtocolPhase.CASCADING_CONFIRM) {
-                cascadingConfirm = true;
-                break;
-            }
-        }
-        return cascadingConfirm;
-    }
-
-
-    void resetRound() {
-
-        blockedTasks.clear();
-        receivedRequests.clear();
-        sentRequests.clear();
-        receivedOffers.clear();
-        sentOffers.clear();
     }
 
 
     private void performTasks(Agent myAgent) {
 
-//        if( myAgent.getLocalName().equals("Agent1")) {
+//        if( myAgent.getLocalName().equals("4Agent1")) {
 //            System.out.print("");
 //        }
 
         if (debugMode) {
-            System.out.println(myAgent.getLocalName() + " Number of To Do Tasks: " + toDoTasks.size());
+//            System.out.println(myAgent.getLocalName() + " Number of To Do Tasks: " + toDoTasks.size());
 //        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
         }
         int count = 0;
-        SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+        SortedSet<Task> doneTasksNow = new TreeSet<>(new Task.taskComparator());
         // Greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
-            if (hasEnoughResources(task, availableResources)) {
+            currentTime = System.currentTimeMillis();
+            if (currentTime <= task.deadline && hasEnoughResources(task, availableResources)) {
                 processTask(task);
-                doneTasksInThisRound.add(task);
+                doneTasksNow.add(task);
                 boolean check = doneTasks.add(task);
                 if (check == false) {
                     System.out.println("Error!!");
@@ -429,7 +351,7 @@ public class NeighborAdaptiveAgent extends Agent {
             }
         }
 
-        if (doneTasksInThisRound.size() != count) {
+        if (doneTasksNow.size() != count) {
             System.out.println("Error!!");
         }
 
@@ -442,7 +364,7 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         if (debugMode) {
-            System.out.println(myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+//            System.out.println(myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
         }
 
         sendTotalUtilToMasterAgent (totalUtil, myAgent);
@@ -488,10 +410,15 @@ public class NeighborAdaptiveAgent extends Agent {
 
         // creates a request based on the missing quantity for each resource type
         Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
+        long requestTimeout = Long.MAX_VALUE;
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
                 totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+            }
+            //TODO: minimum or maximum task deadline
+            if( task.deadline < requestTimeout) {
+                requestTimeout = task.deadline;
             }
         }
 
@@ -505,10 +432,10 @@ public class NeighborAdaptiveAgent extends Agent {
                 missingQuantity = resourceTypeQuantity.getValue();
             }
 
-            if (missingQuantity > 0) {
+            if (missingQuantity > 0 && !hasSentRequest(resourceTypeQuantity.getKey())) {
                 Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, resourceTypeQuantity.getKey(), remainingResources, missingQuantity);
-                Set<Integer> allReceivers = new TreeSet<>();
-                Set<AID> receiverIds = new TreeSet<>();
+                Set<Integer> allReceivers = new HashSet<>();
+                Set<AID> receiverIds = new HashSet<>();
                 for (int i = 0; i < neighbors.length; i++) {
                     if (neighbors[i] != null) {
                         allReceivers.add(i+1);
@@ -517,10 +444,26 @@ public class NeighborAdaptiveAgent extends Agent {
                     }
                 }
                 String reqId = UUID.randomUUID().toString();
-                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, allReceivers, receiverIds);
-                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, allReceivers, null));
+                currentTime = System.currentTimeMillis();
+                if( debugMode) {
+                    logInf(this.getLocalName(), "created request with id " + reqId + " with quantity: " + missingQuantity + " for resourceType: " + resourceTypeQuantity.getKey().name() + " to " + getReceiverNames(receiverIds));
+                }
+                sendRequest( reqId, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, allReceivers, receiverIds, currentTime, requestTimeout);
+                sentRequests.put( reqId, new Request(reqId, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, allReceivers, null, currentTime, requestTimeout));
             }
         }
+    }
+
+
+    boolean hasSentRequest (ResourceType resourceType) {
+        boolean hasSent = false;
+        for( Request sentRequest : sentRequests.values()) {
+            if (sentRequest.resourceType.equals(resourceType) && sentRequest.cascaded == false && sentRequest.processed == false) {
+                hasSent = true;
+                break;
+            }
+        }
+        return hasSent;
     }
 
 
@@ -556,7 +499,7 @@ public class NeighborAdaptiveAgent extends Agent {
         for (long q=1; q<=offerQuantity; q++) {
             cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
 
-            cost += distance * 1;
+//            cost += distance * 1;
 
             if (cost == 0) {
                 expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
@@ -617,7 +560,7 @@ public class NeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> allReceivers, Set<AID> receiverIds) {
+    private void sendRequest (String reqId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> allReceivers, Set<AID> receiverIds, long timeSent, long timeout) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
@@ -631,12 +574,21 @@ public class NeighborAdaptiveAgent extends Agent {
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.REQUEST_UTILITY_FUNCTION, utilityFunction);
         jo.put(Ontology.ALL_RECEIVERS, allReceivers);
+        jo.put(Ontology.REQUEST_TIME_SENT, timeSent);
+        jo.put(Ontology.REQUEST_TIMEOUT, timeout);
 
         msg.setContent( jo.toJSONString());
 //      msg.setReplyByDate();
         send(msg);
+    }
 
-//        System.out.println( this.getLocalName() + " sent a request with quantity: " + missingQuantity + " for resourceType: " + resourceType.name());
+
+    Set<String> getReceiverNames (Set<AID> receiverIds) {
+        Set<String> names = new HashSet<>();
+        for(AID aid : receiverIds) {
+            names.add( aid.getLocalName());
+        }
+        return names;
     }
 
 
@@ -655,15 +607,18 @@ public class NeighborAdaptiveAgent extends Agent {
 
         JSONArray joReceivers = (JSONArray) jo.get("allReceivers");
 
-        Set<Integer> receivers = new TreeSet<>();
+        Set<Integer> allReceivers = new HashSet<>();
         for (int i=0; i<joReceivers.size(); i++) {
             Long value = (Long) joReceivers.get(i);
-            receivers.add(Integer.valueOf(value.intValue()));
+            allReceivers.add(Integer.valueOf(value.intValue()));
         }
 
         JSONObject joUtilityFunction = (JSONObject) jo.get(Ontology.REQUEST_UTILITY_FUNCTION);
 
+        if( debugMode) {
 //        System.out.println( myAgent.getLocalName() + " received request with quantity " + requestedQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+            logInf(myAgent.getLocalName(), "received request with id " + reqId + " with quantity " + requestedQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+        }
 
         Map<Long, Long> utilityFunction = new LinkedHashMap<>();
         Iterator<String> keysIterator = joUtilityFunction.keySet().iterator();
@@ -673,64 +628,107 @@ public class NeighborAdaptiveAgent extends Agent {
             utilityFunction.put( Long.valueOf(key), value);
         }
 
-        Request request = new Request(reqId, null, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), null, receivers, null);
+        long timeSent = (long) jo.get("requestTimeSent");
+        long timeout = (long) jo.get("requestTimeout");
+
+        Request request = new Request(reqId, null, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), null, allReceivers, null, timeSent, timeout);
 
         if ( receivedRequests.containsKey(resourceType) == false) {
             receivedRequests.put(resourceType, new ArrayList<>());
         }
+
+        for (Request req : receivedRequests.get(resourceType)) {
+            if (req.id.equals(reqId)) {
+                errorCount++;
+                System.out.println(this.getLocalName() + " storeRequest-receivedRequests errorCount: " + errorCount);
+            }
+        }
+
+        if (sentRequests.keySet().contains(reqId) == true) {
+                errorCount++;
+                System.out.println(this.getLocalName() + " storeRequest-sentRequests errorCount: " + errorCount);
+        }
+
         receivedRequests.get(resourceType).add(request);
     }
 
 
     private void deliberateOnCascadingRequest(Agent myAgent) {
 
+//        if( myAgent.getLocalName().equals("4Agent1")) {
+//            System.out.print("");
+//        }
+//        if( myAgent.getLocalName().equals("4Agent2")) {
+//            System.out.print("");
+//        }
+
         long offerQuantity;
+        Set<AID> receiverIds;
+        Request selectedRequest;
+        ArrayList<Request> cascadedRequests = new ArrayList<>();
         for (var requestsForType : receivedRequests.entrySet()) {
             ArrayList<Request> requests = requestsForType.getValue();
+            ArrayList<Request> copyOfRequests = new ArrayList<>(requests);
+            cascadedRequests.clear();
             if (availableResources.get(requestsForType.getKey()) != null) {
                 long availableQuantity = availableResources.get(requestsForType.getKey()).size();
-                while (availableQuantity > 0 && requests.size() > 0) {
+                while (availableQuantity > 0 && copyOfRequests.size() > 0) {
                     // Greedy approach
-                    Request selectedRequest = selectBestRequest( requests, availableQuantity);
-                    if (availableQuantity < selectedRequest.quantity) {
-                        offerQuantity = availableQuantity;
-                        cascadeRequest( selectedRequest, offerQuantity);
-                        availableQuantity = availableQuantity - offerQuantity;
-                    } else {
-                        offerQuantity = selectedRequest.quantity;
-                        Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
-                        long cost = costFunction.get(offerQuantity);
-                        long benefit = selectedRequest.utilityFunction.get(offerQuantity);
-                        if (cost < benefit) {
-//                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
-//                            availableQuantity = availableQuantity - offerQuantity;
+                    selectedRequest = selectBestRequest( copyOfRequests, availableQuantity);
+                    receiverIds = findNeighborsToCascadeRequest( selectedRequest);
+                    currentTime = System.currentTimeMillis();
+                    if(currentTime < selectedRequest.timeout && receiverIds.size() > 0) {
+                        if (availableQuantity < selectedRequest.quantity) {
+                            offerQuantity = availableQuantity;
+                            cascadeRequest(selectedRequest, offerQuantity, receiverIds);
+                            cascadedRequests.add( selectedRequest);
+                            availableQuantity = availableQuantity - offerQuantity;
                         } else {
-                            cascadeRequest( selectedRequest, 0);
+                            offerQuantity = selectedRequest.quantity;
+                            Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
+                            long cost = costFunction.get(offerQuantity);
+                            long benefit = selectedRequest.utilityFunction.get(offerQuantity);
+                            if (cost >= benefit) {
+                                cascadeRequest(selectedRequest, 0, receiverIds);
+                                cascadedRequests.add( selectedRequest);
+                            }
                         }
                     }
-                    requests.remove( selectedRequest);
+                    copyOfRequests.remove(selectedRequest);
                 }
-                for (Request request : requests) {
-                    cascadeRequest( request, 0);
+                for (Request request : copyOfRequests) {
+                    receiverIds = findNeighborsToCascadeRequest( request);
+                    currentTime = System.currentTimeMillis();
+                    if(currentTime < request.timeout && receiverIds.size() > 0) {
+                        cascadeRequest(request, 0, receiverIds);
+                        cascadedRequests.add( request);
+                    }
                 }
             } else {
-                for (Request request : requests) {
-                    cascadeRequest( request, 0);
+                for (Request request : copyOfRequests) {
+                    receiverIds = findNeighborsToCascadeRequest( request);
+                    currentTime = System.currentTimeMillis();
+                    if(currentTime < request.timeout && receiverIds.size() > 0) {
+                        cascadeRequest(request, 0, receiverIds);
+                        cascadedRequests.add( request);
+                    }
                 }
             }
+            requests.removeAll( cascadedRequests);
         }
     }
+
 
     private void deliberateOnOffering(Agent myAgent) {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
-        // the bidder can wait for other requests before bidding.
+        // the offerer can wait for other requests before offering. (TODO: how long ?!)
 
         // if the rounds are synchronous, there can be more than one request, then we can consider two approaches:
 
         // Greedy approach:
         // sort requests based on their utilities, and while there are available resources,
-        // create bid for request with the highest utility.
+        // create offer for request with the highest utility.
 
         // Optimal:
         // select the optimal combination of requests to maximize the utility.
@@ -740,47 +738,47 @@ public class NeighborAdaptiveAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
-//        if( myAgent.getLocalName().equals("Agent1")) {
-//            System.out.print("");
-//        }
-
         long offerQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
             ArrayList<Request> requests = requestsForType.getValue();
+            ArrayList<Request> copyOfRequests = new ArrayList<>(requests);
             if (availableResources.get(requestsForType.getKey()) != null) {
                 long availableQuantity = availableResources.get(requestsForType.getKey()).size();
-                while (availableQuantity > 0 && requests.size() > 0) {
+                while (availableQuantity > 0 && copyOfRequests.size() > 0) {
                     // Greedy approach
-                    Request selectedRequest = selectBestRequest( requests, availableQuantity);
-                    if (availableQuantity >= selectedRequest.quantity) {
+                    Request selectedRequest = selectBestRequest( copyOfRequests, availableQuantity);
+                    currentTime = System.currentTimeMillis();
+                    if (currentTime < selectedRequest.timeout && availableQuantity >= selectedRequest.quantity) {
                         offerQuantity = selectedRequest.quantity;
                         Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
                         long cost = costFunction.get(offerQuantity);
                         long benefit = selectedRequest.utilityFunction.get(offerQuantity);
-
-//                        count++;
-//                        System.out.println();
-//                        System.out.println(this.getLocalName() + " Count: " + count);
-//                        System.out.println();
-
+//                        if( myAgent.getLocalName().equals("4Agent4")) {
+//                            logInf( myAgent.getLocalName(), "Cost: " + cost + " Benefit: " + benefit);
+//                        }
                         if (cost < benefit) {
-                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType), selectedRequest.timeout);
                             availableQuantity = availableQuantity - offerQuantity;
+                            requests.remove( selectedRequest);
                         }
                     }
-                    requests.remove( selectedRequest);
+                    copyOfRequests.remove( selectedRequest);
                 }
             }
         }
     }
 
 
-    void cascadeRequest (Request request, long offerQuantity) {
+    void cascadeRequest (Request request, long offerQuantity, Set<AID> receiverIds) {
 
         long missingQuantity = request.quantity - offerQuantity;
         Map<Long, Long> utilityFunction = new LinkedHashMap<>();
+        long currentUtil = 0;
+        if( offerQuantity > 0) {
+            currentUtil = request.utilityFunction.get(offerQuantity);
+        }
         for (long i=1; i<=missingQuantity; i++) {
-            utilityFunction.put(i, request.utilityFunction.get(i+offerQuantity));
+            utilityFunction.put(i, request.utilityFunction.get(offerQuantity+i) - currentUtil);
         }
 
         SortedSet<ResourceItem> availableItems = availableResources.get(request.resourceType);
@@ -791,19 +789,33 @@ public class NeighborAdaptiveAgent extends Agent {
             availableItems.remove( item);
         }
 
-        Set<Integer> allReceivers = new TreeSet<>();
-        Set<AID> receiverIds = new TreeSet<>();
+        Set<Integer> allReceivers = new HashSet<>();
         allReceivers.addAll( request.allReceivers);
+        for (AID aid : receiverIds) {
+            int receiver = Integer.valueOf(aid.getLocalName().replace(numberOfAgents+"Agent", ""));
+            allReceivers.add( receiver);
+        }
+
+//        String reqId = UUID.randomUUID().toString();
+        if( debugMode) {
+            logInf(this.getLocalName(), "cascaded request with id " + request.id + " with quantity: " + missingQuantity + " for resourceType: " + request.resourceType.name() + " to " + getReceiverNames(receiverIds));
+        }
+        sendRequest(request.id, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds, request.timeSent, request.timeout);
+        sentRequests.put(request.id, new Request(request.id, true, missingQuantity, request.resourceType, request.utilityFunction, this.getAID(), request.sender, allReceivers, reservedItems, request.timeSent, request.timeout));
+    }
+
+
+    Set<AID> findNeighborsToCascadeRequest( Request request) {
+
+        Set<AID> receiverIds = new HashSet<>();
         for (int i = 0; i < neighbors.length; i++) {
-            if (neighbors[i] != null && !request.allReceivers.contains(i+1)) {
-                allReceivers.add(i+1);
-                AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
+            AID aid = new AID(numberOfAgents+"Agent"+(i+1), AID.ISLOCALNAME);
+            if (neighbors[i] != null && !request.allReceivers.contains(i+1) && !request.sender.equals(aid)) {
                 receiverIds.add(aid);
             }
         }
-        String reqId = UUID.randomUUID().toString();
-        sendRequest( reqId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds);
-        sentRequests.put( reqId, new Request(reqId, true, missingQuantity, request.resourceType, utilityFunction, this.getAID(), request.sender, allReceivers, reservedItems));
+
+        return receiverIds;
     }
 
 
@@ -832,7 +844,7 @@ public class NeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems) {
+    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems, long requestTimeout) {
 
         Map<String, Long> offeredItems = new LinkedHashMap<>();
 
@@ -843,15 +855,18 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         String offerId = UUID.randomUUID().toString();
-        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, offerer, requester);
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, offerer, requester, null, requestTimeout);
         sentOffers.put( offerId, offer);
 
-        sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems);
-//        System.out.println( "createBid for resourceType: " + resourceType.name() + " with offerQuantity: " + offerQuantity);
+        sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems, requestTimeout);
+
+        if( debugMode) {
+            logInf(this.getLocalName(), "created offer with id " + offerId + " for reqId " + reqId + " for resourceType: " + resourceType.name() + " with quantity: " + offerQuantity + " to " + requester.getLocalName());
+        }
     }
 
 
-    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, Map<String, Long> offeredItems) {
+    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, Map<String, Long> offeredItems, long offerTimeout) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -864,6 +879,7 @@ public class NeighborAdaptiveAgent extends Agent {
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.OFFER_COST_FUNCTION, costFunction);
         jo.put(Ontology.OFFERED_ITEMS, offeredItems);
+        jo.put(Ontology.OFFER_TIMEOUT, offerTimeout);
 
         msg.setContent( jo.toJSONString());
 
@@ -876,7 +892,7 @@ public class NeighborAdaptiveAgent extends Agent {
     private void storeOffer(Agent myAgent, ACLMessage msg) throws ParseException {
 
         // if agents operate and communicate asynchronously, then a bid might be received at any time.
-        // the requester can wait for other bids before confirming.
+        // the requester can wait for other bids before confirming. (TODO: how long ?!)
 
         String content = msg.getContent();
 
@@ -891,9 +907,12 @@ public class NeighborAdaptiveAgent extends Agent {
         ResourceType resourceType = ResourceType.valueOf(rt);
         JSONObject joCostFunction = (JSONObject) jo.get(Ontology.OFFER_COST_FUNCTION);
         JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.OFFERED_ITEMS);
+
         if (debugMode) {
-            System.out.println(myAgent.getLocalName() + " received offer with quantity " + offerQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+//            System.out.println(myAgent.getLocalName() + " received offer with quantity " + offerQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
+            logInf(myAgent.getLocalName(), "received offer with id " + offerId + " with quantity " + offerQuantity + " for reqId " + reqId + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
         }
+
         Map<Long, Long> costFunction = new LinkedHashMap<>();
         Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
         while (keysIterator1.hasNext()) {
@@ -910,7 +929,9 @@ public class NeighborAdaptiveAgent extends Agent {
             offeredItems.put( key, value);
         }
 
-        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
+        long offerTimeout = (long) jo.get("offerTimeout");
+
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID(), null, offerTimeout);
 
         Set<Offer> offers = receivedOffers.get(reqId);
         if (offers == null) {
@@ -919,20 +940,22 @@ public class NeighborAdaptiveAgent extends Agent {
         offers.add(offer);
         receivedOffers.put( reqId, offers);
 
+
         if( sentRequests.keySet().contains(reqId) == false) {
             errorCount++;
-            System.out.println(this.getLocalName() + " errorCount: " + errorCount);
+            System.out.println(this.getLocalName() + " storeOffer-sentRequests errorCount: " + errorCount);
         }
     }
 
 
-    void deliberateOnCascadingOffer(Agent myAgent) {
+    void deliberateOnCascadingOffers(Agent myAgent) {
 
         for (var request : sentRequests.entrySet()) {
-            if (request.getValue().cascaded == true) {
-//                if (receivedOffers.containsKey(request.getKey())) {
-                    cascadeOffers( request.getValue());
-//                }
+            if (request.getValue().cascaded == true && request.getValue().processed == false) {
+                currentTime = System.currentTimeMillis();
+                if (currentTime < request.getValue().timeout) {
+                    cascadeOffers(request.getValue());
+                }
             }
         }
     }
@@ -941,9 +964,13 @@ public class NeighborAdaptiveAgent extends Agent {
     private void cascadeOffers(Request cascadedRequest) {
 
         long availableQuantity = availableResources.get(cascadedRequest.resourceType).size();
-        Map<Long, Long> costFunction = computeOfferCostFunction(cascadedRequest.resourceType, availableQuantity, cascadedRequest.reservedItems.size(), cascadedRequest.originalSender);
-
         long offerQuantity = cascadedRequest.reservedItems.size();
+
+        Map<Long, Long> costFunction = computeOfferCostFunction(cascadedRequest.resourceType, availableQuantity + offerQuantity, offerQuantity, cascadedRequest.originalSender);
+
+//        if( this.getLocalName().equals("4Agent3")) {
+//            System.out.print("");
+//        }
 
         Map<String, Long> offeredItems = new LinkedHashMap<>();
         for (var item : cascadedRequest.reservedItems.entrySet()) {
@@ -951,46 +978,55 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         Set<Offer> offers = null;
+        Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
         if (receivedOffers.containsKey(cascadedRequest.id)) {
             offers = receivedOffers.get(cascadedRequest.id);
             String requesterName = cascadedRequest.originalSender.getLocalName();
             int requesterId = Integer.valueOf(requesterName.replace(numberOfAgents+"Agent", ""));
             int distance = neighbors[requesterId-1];
-
-            Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
-
             long minCost, cost;
             Offer lowCostOffer;
             for (Offer offer : offers) {
-                offerQuantities.put(offer, 0L);
+                currentTime = System.currentTimeMillis();
+                if(currentTime < offer.timeout) {
+                    offerQuantities.put(offer, 0L);
+                }
             }
-
-            for (long q=cascadedRequest.reservedItems.size()+1; q<= cascadedRequest.quantity; q++) {
+//            if( this.getLocalName().equals("4Agent3")) {
+//                System.out.print("");
+//            }
+            for (long q=offerQuantity+1; q<=offerQuantity+cascadedRequest.quantity; q++) {
                 minCost = Integer.MAX_VALUE;
                 cost = 0;
                 lowCostOffer = null;
                 for (Offer offer : offers) {
-                    if (hasExtraItem(offer, offerQuantities)) {
-                        cost = totalCost(offer, offerQuantities);
-                        if (cost < minCost) {
-                            minCost = cost;
-                            lowCostOffer = offer;
+                    currentTime = System.currentTimeMillis();
+                    if (currentTime < offer.timeout) {
+                        if (hasExtraItem(offer, offerQuantities)) {
+                            cost = totalCost(offer, offerQuantities);
+                            if (cost < minCost) {
+                                minCost = cost;
+                                lowCostOffer = offer;
+                            }
                         }
                     }
                 }
                 if (lowCostOffer != null) {
-                    cost += distance * 1;
-                    costFunction.put(q, cost);
+//                    cost += distance * 1;
+                    if(q > 1) {
+//                        costFunction.put(q, cost + costFunction.get(q-1));
+                        costFunction.put(q, cost);
+                    } else {
+                        costFunction.put(q, cost);
+                    }
                     offerQuantities.put(lowCostOffer, offerQuantities.get(lowCostOffer) + 1);
                 } else {
                     break;
                 }
             }
-
             for ( var offer : offerQuantities.entrySet()) {
                 offerQuantity += offer.getValue();
             }
-
             for ( var offer : offerQuantities.entrySet()) {
                 Iterator itr = offer.getKey().offeredItems.keySet().iterator();
                 long q=1;
@@ -1003,46 +1039,67 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         if (offerQuantity > 0) {
-            String offerId = UUID.randomUUID().toString();
-            Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, this.getAID(), cascadedRequest.originalSender, offers);
-            sentOffers.put(offerId, offer);
-            sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems);
+//            if( this.getLocalName().equals("4Agent3")) {
+//                System.out.print("");
+//            }
+//            long cost = costFunction.get(offerQuantity);
+//            long benefit = cascadedRequest.utilityFunction.get(offerQuantity);
+//            if (cost < benefit) {
+                String offerId = UUID.randomUUID().toString();
+                Offer offer = new Offer(offerId, cascadedRequest.id, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, this.getAID(), cascadedRequest.originalSender, offers, cascadedRequest.timeout);
+                sentOffers.put(offerId, offer);
+                sendOffer(cascadedRequest.id, offerId, cascadedRequest.originalSender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems, cascadedRequest.timeout);
+                if( debugMode) {
+                    logInf(this.getLocalName(), "cascaded offer with id " + offerId + " for reqId " + cascadedRequest.id + " for resourceType: " + cascadedRequest.resourceType.name() + " with quantity: " + offerQuantity + " to " + cascadedRequest.originalSender.getLocalName());
+                }
+//            } else {
+//                restoreReservedItems( cascadedRequest);
+//            }
+            cascadedRequest.processed = true;
         }
+    }
+
+
+    void restoreReservedItems (Request cascadedRequest) {
+        // create a sorted set of reserved items
+        SortedSet<ResourceItem> reserevedItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+        for (var offeredItem : cascadedRequest.reservedItems.entrySet()) {
+            reserevedItems.add(new ResourceItem(offeredItem.getKey(), cascadedRequest.resourceType, offeredItem.getValue()));
+        }
+        availableResources.get(cascadedRequest.resourceType).addAll(reserevedItems);
     }
 
 
     void deliberateOnConfirming( Agent myAgent) {
 
-//        if( myAgent.getLocalName().equals("Agent1")) {
+//        if( myAgent.getLocalName().equals("4Agent1")) {
 //            System.out.print("");
 //        }
 
         Map<Request, Map<Offer, Long>> selectedOffersForAllRequests = new LinkedHashMap<>();
 
         for (var request : sentRequests.entrySet()) {
-            if ( receivedOffers.containsKey(request.getKey())) {
-                Map<Offer, Long> confirmQuantities = processOffers( request.getValue());
-                if (confirmQuantities.size() == 0) {
-                    System.out.println("Error!!");
+            currentTime = System.currentTimeMillis();
+//            if (currentTime < request.getValue().timeout && currentTime - request.getValue().timeSent > 10) {
+            if (currentTime < request.getValue().timeout) {
+                if (request.getValue().cascaded == false && request.getValue().processed == false && receivedOffers.containsKey(request.getKey())) {
+                    Map<Offer, Long> confirmQuantities = processOffers(request.getValue());
+                    if (confirmQuantities.size() == 0) {
+                        System.out.println("Error!!");
+                    }
+                    selectedOffersForAllRequests.put(request.getValue(), confirmQuantities);
+                    request.getValue().processed = true;
                 }
-                selectedOffersForAllRequests.put(request.getValue(), confirmQuantities);
             }
         }
 
         if (selectedOffersForAllRequests.size() > 0) {
-
-            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
-
-//                count++;
-//                System.out.println();
-//                System.out.println(this.getLocalName() + " Count: " + count);
-//                System.out.println();
-
+//            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
                 createConfirmation( selectedOffersForAllRequests);
                 addResourceItemsInOffers(selectedOffersForAllRequests);
-            } else {
-                createRejection( selectedOffersForAllRequests);
-            }
+//            } else {
+//                createRejection( selectedOffersForAllRequests);
+//            }
         }
     }
 
@@ -1075,7 +1132,7 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         // TODO: decrease the cost of transfer between sender and receiver from totalUtil
-
+        // since we compute social welfare of all agents, we can decrease the cost of transfer locally
     }
 
 
@@ -1116,6 +1173,8 @@ public class NeighborAdaptiveAgent extends Agent {
                 maxCost = cost;
             }
         }
+
+        logInf(this.getLocalName(), "totalUtilityAfterConfirm: " + totalUtilityAfterConfirm + " totalUtilityBeforeConfirm: " + totalUtilityBeforeConfirm + " maxCost: " + maxCost);
 
         if (totalUtilityAfterConfirm - totalUtilityBeforeConfirm > maxCost) {
 //        if (totalUtilityAfterConfirm - totalUtilityBeforeConfirm > 0) {
@@ -1162,18 +1221,24 @@ public class NeighborAdaptiveAgent extends Agent {
         Offer lowCostOffer;
         Map<Offer, Long> confirmQuantities = new LinkedHashMap<>();
         for (Offer offer : offers) {
-            confirmQuantities.put(offer, 0L);
+            currentTime = System.currentTimeMillis();
+            if(currentTime < offer.timeout) {
+                confirmQuantities.put(offer, 0L);
+            }
         }
 
         for (long q=1; q<=request.quantity; q++) {
             minCost = Integer.MAX_VALUE;
             lowCostOffer = null;
             for (Offer offer : offers) {
-                if (hasExtraItem(offer, confirmQuantities)) {
-                    cost = totalCost(offer, confirmQuantities);
-                    if (cost < minCost) {
-                        minCost = cost;
-                        lowCostOffer = offer;
+                currentTime = System.currentTimeMillis();
+                if(currentTime < offer.timeout) {
+                    if (hasExtraItem(offer, confirmQuantities)) {
+                        cost = totalCost(offer, confirmQuantities);
+                        if (cost < minCost) {
+                            minCost = cost;
+                            lowCostOffer = offer;
+                        }
                     }
                 }
             }
@@ -1221,7 +1286,7 @@ public class NeighborAdaptiveAgent extends Agent {
 
         for (var entry : tempQuantities.entrySet()) {
             if (entry.getKey().costFunction.get(entry.getValue()) == null) {
-                System.out.println( "ERROR!!");
+                System.out.println( "Error!!");
             }
             totalCost = totalCost + entry.getKey().costFunction.get(entry.getValue());
         }
@@ -1255,6 +1320,10 @@ public class NeighborAdaptiveAgent extends Agent {
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
                 sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
+
+                if( debugMode) {
+                    logInf(this.getLocalName(), "created confirmation with quantity " + offerQuantity.getValue() + " for offerId  " + offerQuantity.getKey().id + " for resource type " + offerQuantity.getKey().resourceType.name() + " to " + offerQuantity.getKey().sender.getLocalName());
+                }
             }
         }
     }
@@ -1265,6 +1334,10 @@ public class NeighborAdaptiveAgent extends Agent {
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
                 sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, 0);
+
+                if( debugMode) {
+                    logInf(this.getLocalName(), "created rejection with quantity 0 for offerId  " + offerQuantity.getKey().id + " for resource type " + offerQuantity.getKey().resourceType.name() + " to " + offerQuantity.getKey().sender.getLocalName());
+                }
             }
         }
     }
@@ -1283,12 +1356,17 @@ public class NeighborAdaptiveAgent extends Agent {
 
         msg.setContent( jo.toJSONString());
         send(msg);
-
-//        System.out.println( myAgent.getLocalName() + " sent confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " to offerer " + offerer.getLocalName());
     }
 
 
     private void processConfirmation (Agent myAgent, ACLMessage confirmation) throws ParseException {
+
+//        if( myAgent.getLocalName().equals("4Agent3")) {
+//            System.out.print("");
+//        }
+//        if( myAgent.getLocalName().equals("4Agent4")) {
+//            System.out.print("");
+//        }
 
         String content = confirmation.getContent();
         Object obj = new JSONParser().parse(content);
@@ -1300,10 +1378,17 @@ public class NeighborAdaptiveAgent extends Agent {
         Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
 
         if (debugMode) {
-            System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+//            System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+            logInf (myAgent.getLocalName(), "received confirmation with quantity " + confirmQuantity + " for offerId  " + offerId + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
         }
 
         Offer sentOffer = sentOffers.get(offerId);
+
+        if( sentOffer == null) {
+            logInf(this.getLocalName(), "sentOffer is null !!!");
+            logInf(this.getLocalName(), "sentOffers size: " + sentOffers.size());
+        }
+
         Set<Offer> includedOffers = sentOffer.includedOffers;
         Request cascadedRequest = sentRequests.get(sentOffer.reqId);
 
@@ -1338,13 +1423,20 @@ public class NeighborAdaptiveAgent extends Agent {
         }
 
         restoreResources(offerId, resourceType, confirmQuantity);
+        sentOffers.remove( offerId);
     }
 
 
     private void cascadePartialConfirmations(Map<Offer, Long> offerQuantities) {
 
+        // TODO: decrease the cost of transfer between sender and receiver from totalUtil when cascading confirmations
+
         for (var offerQuantity : offerQuantities.entrySet()) {
             sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
+
+            if( debugMode) {
+                logInf(this.getLocalName(), "cascaded confirmation with quantity " + offerQuantity.getValue() + " for offerId  " + offerQuantity.getKey().id + " for resource type " + offerQuantity.getKey().resourceType.name() + " to " + offerQuantity.getKey().sender.getLocalName());
+            }
         }
     }
 
@@ -1352,10 +1444,10 @@ public class NeighborAdaptiveAgent extends Agent {
     private void restoreResources(String offerId, ResourceType resourceType, long confirmQuantity) {
 
         Offer sentOffer = sentOffers.get( offerId);
-        Set<Offer> includedOffers = sentOffer.includedOffers;
+//        Set<Offer> includedOffers = sentOffer.includedOffers;
         Request cascadedRequest = sentRequests.get(sentOffer.reqId);
 
-        if (includedOffers != null) {
+        if (cascadedRequest != null) {
             if (confirmQuantity < cascadedRequest.reservedItems.size()) {
                 // create a sorted set of offered items
                 SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
@@ -1510,6 +1602,7 @@ public class NeighborAdaptiveAgent extends Agent {
         for (Task task : newTasks) {
             JSONObject joTask = new JSONObject();
             joTask.put("utility", task.utility);
+            joTask.put("deadline", task.deadline);
             JSONObject joRequiredResources = new JSONObject();
             for (var entry : task.requiredResources.entrySet()) {
                 joRequiredResources.put( entry.getKey().name(), entry.getValue());
@@ -1570,79 +1663,17 @@ public class NeighborAdaptiveAgent extends Agent {
     }
 
 
-    void receiveMessages(Agent myAgent, int performative) {
+    protected void logInf (String agentId, String msg) {
 
-//        if( myAgent.getLocalName().equals("Agent1")) {
-//            System.out.print("");
-//        }
+//        System.out.println("Time:" + System.currentTimeMillis() + " " + agentId + " " + msg);
 
-        MessageTemplate mt = MessageTemplate.MatchPerformative( performative);
-
-        ACLMessage msg = myAgent.receive( mt);
-
-        while (msg != null) {
-            String content = msg.getContent();
-
-            switch (performative) {
-                case ACLMessage.REQUEST:
-//                    System.out.println(myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName());
-
-                    try {
-                        storeRequest(myAgent, msg);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-
-                    break;
-
-                case ACLMessage.PROPOSE:
-//                    System.out.println(myAgent.getLocalName() + " received a BID message from " + msg.getSender().getLocalName());
-
-                    try {
-                        storeOffer(myAgent, msg);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-
-                    break;
-
-                case ACLMessage.CONFIRM:
-//                    System.out.println(myAgent.getLocalName() + " received a CONFIRM message from " + msg.getSender().getLocalName());
-
-                    try {
-                        processConfirmation(myAgent, msg);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-
-                    break;
-
-                case ACLMessage.REFUSE:
-                    System.out.println(myAgent.getLocalName() + " received a REFUSE message from " + msg.getSender().getLocalName());
-
-                    break;
-
-                case ACLMessage.REJECT_PROPOSAL:
-                    System.out.println(myAgent.getLocalName() + " received a REJECT_PROPOSAL message from " + msg.getSender().getLocalName());
-
-
-                    break;
-
-                case ACLMessage.INFORM:
-//                    System.out.println(myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
-
-                    try {
-                        processNotification(myAgent, msg);
-                    } catch (ParseException e) {
-                        e.printStackTrace();
-                    }
-                    break;
-            }
-
-            msg = myAgent.receive( mt);
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+            out.println("Time:" + System.currentTimeMillis() + " " + agentId + " " + msg);
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
         }
-
-//        System.out.println( "This is the end!");
     }
 
 }

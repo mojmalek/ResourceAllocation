@@ -3,7 +3,7 @@ package experiments;
 import jade.core.AID;
 import model.Offer;
 import model.Request;
-import model.AdaptiveAgent;
+import agents.AdaptiveAgent;
 import model.ResourceType;
 
 import java.util.*;

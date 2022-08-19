@@ -1,18 +1,19 @@
-package model;
+package agents;
 
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 import java.util.*;
 
+import jade.lang.acl.MessageTemplate;
+import model.*;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.*;
 
-public class BasicAgent extends Agent {
+
+public class AdaptiveAgent extends Agent {
 
     SimulationEngine simulationEngine = new SimulationEngine();
     private boolean debugMode = false;
@@ -43,7 +44,7 @@ public class BasicAgent extends Agent {
     protected void setup() {
 
         if (debugMode) {
-            System.out.println("Hello World. I’m a Basic agent! My local-name is " + getAID().getLocalName());
+            System.out.println("Hello World. I’m an Adaptive agent! My local-name is " + getAID().getLocalName());
         }
         // Get ids of other agents as arguments
         Object[] args = getArguments();
@@ -63,7 +64,7 @@ public class BasicAgent extends Agent {
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 if (this.getTickCount() <= numberOfRounds) {
-                    System.out.println( myAgent.getLocalName() + " Round: " + this.getTickCount());
+                        System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                     findTasks(myAgent);
                     findResources(myAgent);
@@ -184,11 +185,17 @@ public class BasicAgent extends Agent {
         deliberateOnRequesting (myAgent);
         sendNextPhaseNotification (ProtocolPhase.OFFERING);
         waitForRequests( myAgent);
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
         if (receivedRequests.size() > 0) {
             deliberateOnOffering( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForOffers( myAgent);
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
         if (receivedOffers.size() > 0) {
             deliberateOnConfirming( myAgent);
         }
@@ -198,6 +205,10 @@ public class BasicAgent extends Agent {
 
 
     void deliberateOnRequesting (Agent myAgent) {
+
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
 
         Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
 
@@ -312,7 +323,14 @@ public class BasicAgent extends Agent {
 
     private void performTasks(Agent myAgent) {
 
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
+
+        if (debugMode) {
+            System.out.println(myAgent.getLocalName() + " Number of To Do Tasks: " + toDoTasks.size());
 //        System.out.println (myAgent.getLocalName() +  " is performing tasks.");
+        }
         int count = 0;
         SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
         // Greedy algorithm: tasks are sorted by utility in toDoTasks
@@ -358,7 +376,6 @@ public class BasicAgent extends Agent {
                     ResourceItem item = resourceItems.first();
                     resourceItems.remove(item);
                 }
-//                remainingResources.replace(entry.getKey(), resourceItems);
             }
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -388,7 +405,6 @@ public class BasicAgent extends Agent {
     private void createRequests (SortedSet<Task> blockedTasks, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, Agent myAgent) {
 
         // creates a request based on the missing quantity for each resource type
-
         Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
 
         for (Task task : blockedTasks) {
@@ -408,14 +424,14 @@ public class BasicAgent extends Agent {
             }
 
             if (missingQuantity > 0) {
-                Map<Long, Long> utilityFunction = computeUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
+                Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, entry.getKey(), remainingResources, missingQuantity);
                 sendRequest(entry.getKey(), missingQuantity, utilityFunction, myAgent);
             }
         }
     }
 
 
-    Map<Long, Long> computeUtilityFunction (SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, long missingQuantity) {
+    Map<Long, Long> computeRequestUtilityFunction(SortedSet<Task> blockedTasks, ResourceType resourceType, Map<ResourceType, SortedSet<ResourceItem>> remainingResources, long missingQuantity) {
 
         Map<Long, Long> utilityFunction = new LinkedHashMap<>();
         for (long i=1; i<=missingQuantity; i++) {
@@ -432,6 +448,71 @@ public class BasicAgent extends Agent {
             utilityFunction.put(i, totalUtility);
         }
         return utilityFunction;
+    }
+
+
+    Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity) {
+
+        long cost, expectedCost = 0;
+        Map<Long, Long> offerCostFunction = new LinkedHashMap<>();
+        for (long q=1; q<=offerQuantity; q++) {
+            cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
+            if (cost == 0) {
+                expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
+//                System.out.println( expectedCost);
+            }
+            offerCostFunction.put(q, (long) (cost + 0.05 * expectedCost));
+        }
+
+        return offerCostFunction;
+    }
+
+
+    long utilityOfResources (ResourceType resourceType, long quantity) {
+
+        long totalUtility = 0;
+//        for (Task task : toDoTasks) {
+//            if (task.requiredResources.containsKey(resourceType)) {
+//                if (quantity >= task.requiredResources.get(resourceType)) {
+//                    totalUtility += task.utility;
+//                    quantity = quantity - task.requiredResources.get(resourceType);
+//                }
+//            }
+//        }
+
+        // determine the utility of tasks that can be done given all types of available resources
+        Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
+        Map<ResourceType, Long> resourceQuantities = new LinkedHashMap<>();
+        for (var entry: resources.entrySet()) {
+            if (entry.getKey() == resourceType) {
+                resourceQuantities.put(entry.getKey(), quantity);
+            } else {
+                resourceQuantities.put(entry.getKey(), (long) entry.getValue().size());
+            }
+        }
+
+        for (Task task : toDoTasks) {
+            boolean enough = true;
+            if (task.requiredResources.containsKey(resourceType)) {
+                for (var entry: task.requiredResources.entrySet()) {
+                    if (resourceQuantities.containsKey(entry.getKey()) == false) {
+                        enough = false;
+                        break;
+                    } else if (entry.getValue() > resourceQuantities.get(entry.getKey())) {
+                        enough = false;
+                        break;
+                    }
+                }
+                if (enough == true ) {
+                    totalUtility += task.utility;
+                    for (var entry: task.requiredResources.entrySet()) {
+                        resourceQuantities.put( entry.getKey(), resourceQuantities.get(entry.getKey()) - entry.getValue());
+                    }
+                }
+            }
+        }
+
+        return totalUtility;
     }
 
 
@@ -513,6 +594,10 @@ public class BasicAgent extends Agent {
         //  1 < j < qi
         // SUM xi <= 1
 
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
+
         long offerQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
             if (availableResources.get(requestsForType.getKey()) != null) {
@@ -526,10 +611,11 @@ public class BasicAgent extends Agent {
                     } else {
                         offerQuantity = selectedRequest.quantity;
                     }
-                    long cost = computeOfferCost(selectedRequest.resourceType, availableQuantity, offerQuantity);
+                    Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity);
+                    long cost = costFunction.get(offerQuantity);
                     long benefit = selectedRequest.utilityFunction.get(offerQuantity);
                     if (cost < benefit) {
-                        createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, availableResources.get(selectedRequest.resourceType));
+                        createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
                         availableQuantity = availableQuantity - offerQuantity;
                     } else {
                         // reject or cascade the request
@@ -541,62 +627,6 @@ public class BasicAgent extends Agent {
             // reject or cascade the requests
             }
         }
-    }
-
-
-    long computeOfferCost(ResourceType resourceType, long availableQuantity, long offerQuantity) {
-
-        long offerCost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - offerQuantity);
-
-        return offerCost;
-    }
-
-
-    long utilityOfResources (ResourceType resourceType, long quantity) {
-
-        long totalUtility = 0;
-//        for (Task task : toDoTasks) {
-//            if (task.requiredResources.containsKey(resourceType)) {
-//                if (quantity >= task.requiredResources.get(resourceType)) {
-//                    totalUtility += task.utility;
-//                    quantity = quantity - task.requiredResources.get(resourceType);
-//                }
-//            }
-//        }
-
-        // determine the utility of tasks that can be done given all types of available resources
-        Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
-        Map<ResourceType, Long> resourceQuantities = new LinkedHashMap<>();
-        for (var entry: resources.entrySet()) {
-            if (entry.getKey() == resourceType) {
-                resourceQuantities.put(entry.getKey(), quantity);
-            } else {
-                resourceQuantities.put(entry.getKey(), (long) entry.getValue().size());
-            }
-        }
-
-        for (Task task : toDoTasks) {
-            boolean enough = true;
-            if (task.requiredResources.containsKey(resourceType)) {
-                for (var entry: task.requiredResources.entrySet()) {
-                    if (resourceQuantities.containsKey(entry.getKey()) == false) {
-                        enough = false;
-                        break;
-                    } else if (entry.getValue() > resourceQuantities.get(entry.getKey())) {
-                        enough = false;
-                        break;
-                    }
-                }
-                if (enough == true ) {
-                    totalUtility += task.utility;
-                    for (var entry: task.requiredResources.entrySet()) {
-                        resourceQuantities.put( entry.getKey(), resourceQuantities.get(entry.getKey()) - entry.getValue());
-                    }
-                }
-            }
-        }
-
-        return totalUtility;
     }
 
 
@@ -625,38 +655,26 @@ public class BasicAgent extends Agent {
     }
 
 
-    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, SortedSet<ResourceItem> availableItems) {
-
-//        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-//        for (int q=1; q<=offerQuantity; q++) {
-//            int cost = computeExpectedUtilityOfResources(resourceType, q, availableItems);
-//            costFunction.put(q, cost);
-//        }
+    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems) {
 
         Map<String, Long> offeredItems = new LinkedHashMap<>();
-        Iterator<ResourceItem> itr = availableItems.iterator();
-        long q=1;
-        while (q<=offerQuantity) {
-            ResourceItem item = itr.next();
+
+        for (long q=0; q<offerQuantity; q++) {
+            ResourceItem item = availableItems.first();
             offeredItems.put(item.getId(), item.getExpiryTime());
             availableItems.remove( item);
-            itr = availableItems.iterator();
-            q++;
         }
 
         String offerId = UUID.randomUUID().toString();
-        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, null, offeredItems, offerer, requester);
-
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, offerer, requester);
         sentOffers.put( offerId, offer);
-//        availableResources.put( resourceType, availableItems);
 
-        sendOffer(reqId, offerId, requester, resourceType, offerQuantity, null, offeredItems);
-
+        sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems);
 //        System.out.println( "createBid for resourceType: " + resourceType.name() + " with offerQuantity: " + offerQuantity);
     }
 
 
-    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Integer, Integer> costFunction, Map<String, Long> offeredItems) {
+    private void sendOffer(String reqId, String offerId, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, Map<String, Long> offeredItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
 
@@ -667,7 +685,7 @@ public class BasicAgent extends Agent {
         jo.put("offerId", offerId);
         jo.put(Ontology.RESOURCE_OFFER_QUANTITY, offerQuantity);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
-//        jo.put(Ontology.BID_COST_FUNCTION, costFunction);
+        jo.put(Ontology.OFFER_COST_FUNCTION, costFunction);
         jo.put(Ontology.OFFERED_ITEMS, offeredItems);
 
         msg.setContent( jo.toJSONString());
@@ -694,20 +712,18 @@ public class BasicAgent extends Agent {
         String offerId = (String) jo.get("offerId");
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-//        JSONObject joCostFunction = (JSONObject) jo.get(Ontology.BID_COST_FUNCTION);
+        JSONObject joCostFunction = (JSONObject) jo.get(Ontology.OFFER_COST_FUNCTION);
         JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.OFFERED_ITEMS);
-
         if (debugMode) {
             System.out.println(myAgent.getLocalName() + " received offer with quantity " + offerQuantity + " for resource type " + resourceType.name() + " from " + msg.getSender().getLocalName());
         }
-
-//        Map<Integer, Integer> costFunction = new LinkedHashMap<>();
-//        Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
-//        while (keysIterator1.hasNext()) {
-//            String key = keysIterator1.next();
-//            Long value = (Long) joCostFunction.get(key);
-//            costFunction.put( Integer.valueOf(key), value.intValue());
-//        }
+        Map<Long, Long> costFunction = new LinkedHashMap<>();
+        Iterator<String> keysIterator1 = joCostFunction.keySet().iterator();
+        while (keysIterator1.hasNext()) {
+            String key = keysIterator1.next();
+            Long value = (Long) joCostFunction.get(key);
+            costFunction.put( Long.valueOf(key), value);
+        }
 
         Map<String, Long> offeredItems = new LinkedHashMap<>();
         Iterator<String> keysIterator2 = joOfferedItems.keySet().iterator();
@@ -717,7 +733,7 @@ public class BasicAgent extends Agent {
             offeredItems.put( key, value);
         }
 
-        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, null, offeredItems, msg.getSender(), myAgent.getAID());
+        Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, msg.getSender(), myAgent.getAID());
 
         Set<Offer> offers = receivedOffers.get(reqId);
         if (offers == null) {
@@ -730,73 +746,250 @@ public class BasicAgent extends Agent {
 
     void deliberateOnConfirming( Agent myAgent) {
 
-        for (var reqIdRequest : sentRequests.entrySet()) {
-            if ( receivedOffers.containsKey( reqIdRequest.getKey())) {
-                // select the bid with highest quantity
-                Offer selectedOffer = selectBestOffer( reqIdRequest.getValue());
-                createConfirmation( myAgent, selectedOffer);
-                addResourceItemsInOffer(selectedOffer);
-                // reject the other bids
-                Set<Offer> offers = receivedOffers.get(reqIdRequest.getValue().id);
-                offers.remove(selectedOffer);
-                for (Offer offer : offers) {
-                    createRejection( myAgent, offer);
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
+
+        Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests = new LinkedHashMap<>();
+
+        for (var request : sentRequests.entrySet()) {
+            if ( receivedOffers.containsKey(request.getKey())) {
+                Map<Offer, Long> confirmQuantities = processOffers( request.getValue());
+                if (confirmQuantities.size() == 0) {
+                    System.out.println("Error!!");
+                }
+                confirmQuantitiesForAllRequests.put(request.getValue(), confirmQuantities);
+            }
+        }
+
+        if (confirmQuantitiesForAllRequests.size() > 0) {
+            if (thereIsBenefitToConfirmOffers( confirmQuantitiesForAllRequests)) {
+                createConfirmation( myAgent, confirmQuantitiesForAllRequests);
+                addResourceItemsInOffers(confirmQuantitiesForAllRequests);
+            } else {
+                createRejection( myAgent, confirmQuantitiesForAllRequests);
+            }
+        }
+    }
+
+
+    void addResourceItemsInOffers(Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+
+        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
+            SortedSet<ResourceItem> resourceItems;
+            if (availableResources.containsKey(confirmQuantitiesForReq.getKey().resourceType)) {
+                resourceItems = availableResources.get( confirmQuantitiesForReq.getKey().resourceType);
+            } else {
+                resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+            }
+            for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
+                // create a sorted set of offered items
+                SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+                for (var itemIdLifetime : offerQuantity.getKey().offeredItems.entrySet()) {
+                    offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), offerQuantity.getKey().resourceType, itemIdLifetime.getValue()));
+                }
+                Iterator<ResourceItem> itr = offeredItems.iterator();
+                long q=1;
+                while (q<=offerQuantity.getValue()) {
+                    ResourceItem item = itr.next();
+                    resourceItems.add(item);
+                    q++;
+                }
+            }
+
+            availableResources.put( confirmQuantitiesForReq.getKey().resourceType, resourceItems);
+        }
+    }
+
+
+    boolean thereIsBenefitToConfirmOffers(Map<Request, Map<Offer, Long>> selectedOffersForAllRequests) {
+
+        Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
+        Map<ResourceType, Long> resourceQuantities = new LinkedHashMap<>();
+        for (var entry: resources.entrySet()) {
+            resourceQuantities.put(entry.getKey(), (long) entry.getValue().size());
+        }
+        long totalUtilityBeforeConfirm = totalUtilityOfResources( resourceQuantities);
+
+        long sum;
+        for (var selectedOffersForReq : selectedOffersForAllRequests.entrySet()) {
+            sum = 0;
+            for (var offerQuantity: selectedOffersForReq.getValue().entrySet()) {
+                sum += offerQuantity.getValue();
+            }
+            if (resourceQuantities.containsKey(selectedOffersForReq.getKey().resourceType)) {
+                resourceQuantities.put(selectedOffersForReq.getKey().resourceType, resourceQuantities.get(selectedOffersForReq.getKey().resourceType) + sum);
+            } else {
+                resourceQuantities.put(selectedOffersForReq.getKey().resourceType, sum);
+            }
+        }
+
+        long totalUtilityAfterConfirm = totalUtilityOfResources( resourceQuantities);
+
+        // find the max cost of bids per request
+        long maxCost = 0, cost;
+        for (var selectedOffersForReq : selectedOffersForAllRequests.entrySet()) {
+            cost = 0;
+            for (var offerQuantity : selectedOffersForReq.getValue().entrySet()) {
+                if (offerQuantity.getValue() > 0) {
+                    cost = cost + offerQuantity.getKey().costFunction.get(offerQuantity.getValue());
+                }
+            }
+            if (cost > maxCost) {
+                maxCost = cost;
+            }
+        }
+
+        if (totalUtilityAfterConfirm - totalUtilityBeforeConfirm > maxCost) {
+//        if (totalUtilityAfterConfirm - totalUtilityBeforeConfirm > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+
+    long totalUtilityOfResources (Map<ResourceType, Long> resourceQuantities) {
+
+        long totalUtility = 0;
+        for (Task task : toDoTasks) {
+            boolean enough = true;
+            for (var entry: task.requiredResources.entrySet()) {
+                if (resourceQuantities.containsKey(entry.getKey()) == false) {
+                    enough = false;
+                    break;
+                } else if (entry.getValue() > resourceQuantities.get(entry.getKey())) {
+                    enough = false;
+                    break;
+                }
+            }
+            if (enough == true ) {
+                totalUtility += task.utility;
+                for (var entry: task.requiredResources.entrySet()) {
+                    resourceQuantities.put( entry.getKey(), resourceQuantities.get(entry.getKey()) - entry.getValue());
                 }
             }
         }
+        return totalUtility;
     }
 
 
-    Offer selectBestOffer(Request request) {
+    public Map<Offer, Long> processOffers(Request request) {
+
+        // the requester selects the combination of bids that maximizes the difference between the utility of request and the total cost of all selected bids.
+        // it is allowed to take partial amounts of oﬀered resources in multiple bids up to the requested amount.
+        // a greedy approach: we add 1 item from one bid in a loop up to the requested amount, without backtracking.
 
         Set<Offer> offers = receivedOffers.get(request.id);
-        long max = 0;
-        Offer bestOffer = null;
+        long minCost, cost;
+        Offer lowCostOffer;
+        Map<Offer, Long> confirmQuantities = new LinkedHashMap<>();
         for (Offer offer : offers) {
-            if (offer.quantity > max) {
-                max = offer.quantity;
-                bestOffer = offer;
+            confirmQuantities.put(offer, 0L);
+        }
+
+        for (long q=1; q<=request.quantity; q++) {
+            minCost = Integer.MAX_VALUE;
+            lowCostOffer = null;
+            for (Offer offer : offers) {
+                if (hasExtraItem(offer, confirmQuantities)) {
+                    cost = totalCost(offer, confirmQuantities);
+                    if (cost < minCost) {
+                        minCost = cost;
+                        lowCostOffer = offer;
+                    }
+                }
             }
-
+            if (lowCostOffer != null) {
+                    confirmQuantities.put(lowCostOffer, confirmQuantities.get(lowCostOffer) + 1);
+            } else {
+                break;
+            }
         }
-        return bestOffer;
+
+        return confirmQuantities;
     }
 
 
-    void addResourceItemsInOffer(Offer selectedOffer) {
+    private boolean hasExtraItem (Offer offer, Map<Offer, Long> confirmQuantities) {
 
-        SortedSet<ResourceItem> resourceItems;
-        if (availableResources.containsKey(selectedOffer.resourceType)) {
-            resourceItems = availableResources.get( selectedOffer.resourceType);
+//        if ( confirmQuantities.containsKey(bid)) {
+            if (confirmQuantities.get(offer) < offer.quantity) {
+                return true;
+            } else {
+                return false;
+            }
+//        } else {
+//            return true;
+//        }
+    }
+
+
+    private long totalCost(Offer offer, Map<Offer, Long> confirmQuantities) {
+
+        long totalCost = 0;
+
+        Map<Offer, Long> tempQuantities =  new LinkedHashMap<>();
+        for (var entry : confirmQuantities.entrySet()) {
+            if (entry.getValue() > 0) {
+                tempQuantities.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        if (tempQuantities.containsKey(offer)) {
+            tempQuantities.put(offer, tempQuantities.get(offer) + 1);
         } else {
-            resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-        }
-        // create a sorted set of offered items
-        SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-        for (var itemIdLifetime : selectedOffer.offeredItems.entrySet()) {
-            offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), selectedOffer.resourceType, itemIdLifetime.getValue()));
-        }
-        Iterator<ResourceItem> itr = offeredItems.iterator();
-        long q=1;
-        while (q<= selectedOffer.quantity) {
-            ResourceItem item = itr.next();
-            resourceItems.add(item);
-            q++;
+            tempQuantities.put(offer, 1L);
         }
 
-        availableResources.put( selectedOffer.resourceType, resourceItems);
+        for (var entry : tempQuantities.entrySet()) {
+            if (entry.getKey().costFunction.get(entry.getValue()) == null) {
+                System.out.println( "ERROR!!");
+            }
+            totalCost = totalCost + entry.getKey().costFunction.get(entry.getValue());
+        }
+
+        return totalCost;
     }
 
 
-    private void createConfirmation (Agent myAgent, Offer selectedOffer) {
+    public Set<Set<Offer>> getSubsets(Set<Offer> set) {
+        if (set.isEmpty()) {
+            return Collections.singleton(Collections.emptySet());
+        }
 
-        sendConfirmation(myAgent, selectedOffer.id, selectedOffer.sender, selectedOffer.resourceType, selectedOffer.quantity);
+        Set<Set<Offer>> subSets = set.stream().map(item -> {
+                    Set<Offer> clone = new HashSet<>(set);
+                    clone.remove(item);
+                    return clone;
+                }).map(group -> getSubsets(group))
+                .reduce(new HashSet<>(), (x, y) -> {
+                    x.addAll(y);
+                    return x;
+                });
+
+        subSets.add(set);
+        return subSets;
     }
 
 
-    private void createRejection (Agent myAgent, Offer offer) {
+    private void createConfirmation (Agent myAgent, Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
 
-        sendConfirmation(myAgent, offer.id, offer.sender, offer.resourceType, 0);
+        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
+            for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
+                sendConfirmation (myAgent, offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
+            }
+        }
+    }
+
+
+    private void createRejection (Agent myAgent, Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+
+        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
+            for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
+                sendConfirmation (myAgent, offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, 0);
+            }
+        }
     }
 
 
@@ -821,18 +1014,19 @@ public class BasicAgent extends Agent {
     private void processConfirmation (Agent myAgent, ACLMessage confirmation) throws ParseException {
 
         String content = confirmation.getContent();
+
         Object obj = new JSONParser().parse(content);
         JSONObject jo = (JSONObject) obj;
 
         String offerId = (String) jo.get("offerId");
+
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
-        Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
 
+        Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
         if (debugMode) {
             System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
         }
-
         restoreResources(offerId, resourceType, confirmQuantity.intValue());
     }
 
@@ -886,6 +1080,74 @@ public class BasicAgent extends Agent {
         }
 
         return enough;
+    }
+
+
+    long computeExpectedUtilityOfResources ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
+
+        double exp = 0.0;
+        ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
+        long totalUtilityWithThisResourceType = 0;
+        long totalQuantityOfThisResourceType = 0;
+
+        for (Task task : doneTasks) {
+            if (task.requiredResources.containsKey(resourceType)) {
+                doneTasksWithThisResourceType.add( task);
+                totalUtilityWithThisResourceType = totalUtilityWithThisResourceType + task.utility;
+                totalQuantityOfThisResourceType = totalQuantityOfThisResourceType + task.requiredResources.get(resourceType);
+            }
+        }
+
+        if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
+            Iterator<ResourceItem> itr = resourceItems.iterator();
+            long q=1;
+            while (q <= quantity) {
+                ResourceItem item = itr.next();
+                if (item.getExpiryTime() > 1) {
+//                    exp = exp + ((double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType);
+                    exp = exp + (( (double) doneTasksWithThisResourceType.size() / doneTasks.size()) * ( (double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+                }
+//                exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
+                q++;
+            }
+        }
+
+        return Math.round(exp);
+    }
+
+
+    long computeExpectedCost ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
+
+        Set<String> requesters = Set.of("8Agent1", "8Agent2", "8Agent3", "8Agent4");
+        Set<String> bidders = Set.of("8Agent5", "8Agent6", "8Agent7", "8Agent8");
+
+        double exp = 0.0;
+        double averageRequiredQuantity;
+        double averageUtil;
+
+//        if( bidders.contains(this.getLocalName()) && resourceType == ResourceType.A ) {
+//            averageRequiredQuantity = 4.5 / 2 + 4.5 ;
+//        } else {
+            averageRequiredQuantity = 3;
+//        }
+
+//        if( bidders.contains(this.getLocalName())) {
+//            averageUtil = 22.5;
+//        } else {
+            averageUtil = 18.14;
+//        }
+
+        Iterator<ResourceItem> itr = resourceItems.iterator();
+        long q=1;
+        while (q <= quantity) {
+            ResourceItem item = itr.next();
+            if (item.getExpiryTime() > 1) {
+                exp = exp + averageUtil / averageRequiredQuantity;
+            }
+            q++;
+        }
+
+        return Math.round(exp);
     }
 
 
@@ -984,6 +1246,10 @@ public class BasicAgent extends Agent {
 
 
     void receiveMessages(Agent myAgent, int performative) {
+
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
 
         MessageTemplate mt = MessageTemplate.MatchPerformative( performative);
 

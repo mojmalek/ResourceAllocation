@@ -6,12 +6,12 @@ import java.util.*;
 
 public class Task {
 
-    String id;
-    long utility;
-    long deadline;
-    Map<ResourceType, Long> requiredResources;
+    public String id;
+    public long utility;
+    public long deadline;
+    public Map<ResourceType, Long> requiredResources;
 //    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
-    AID manager;
+    public AID manager;
 
     public Task(String id, long utility, long deadline, Map<ResourceType, Long> requiredResources) {
         this.id = id;
