@@ -13,13 +13,13 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of("4Agent1");
-        int[] taskNums = new int[] {0};
-        if( requesters.contains(myAgent.getLocalName())) {
-            taskNums = new int[] {1, 2};
-        }
+//        Set<String> requesters = Set.of("4Agent1");
+        int[] taskNums = new int[] {0, 1, 2};
+//        if( requesters.contains(myAgent.getLocalName())) {
+//            taskNums = new int[] {1, 2};
+//        }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] quantities = new long[] {1, 2, 4};
+        long[] quantities = new long[] {0, 2, 4, 8};
 //        long minUtil = 10;
 //        long utilVariation = 5;
         long[] utilities = new long[] {1, 2, 4, 8, 16, 32, 64};
@@ -45,7 +45,7 @@ public class SimulationEngine {
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
                 currentTime = System.currentTimeMillis();
-                Task newTask = new Task(id, utility, currentTime + 200000000, requiredResources);
+                Task newTask = new Task(id, utility, currentTime + 1000, requiredResources);
                 tasks.add(newTask);
             } else {
 //                System.out.println(" ");
@@ -61,12 +61,12 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {0};
-        long[] lifetimes = new long[] {400000000};
-        Set<String> offerers = Set.of("4Agent4");
-        if( offerers.contains(myAgent.getLocalName())) {
-            quantities = new long[] {8};
-        }
+        long[] quantities = new long[] {0, 2, 4, 8};
+        long[] lifetimes = new long[] {2000};
+//        Set<String> offerers = Set.of("4Agent4");
+//        if( offerers.contains(myAgent.getLocalName())) {
+//            quantities = new long[] {8};
+//        }
         long quantity;
         long lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {

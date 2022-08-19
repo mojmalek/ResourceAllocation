@@ -68,7 +68,7 @@ public class TimedSocialAdaptiveExp {
         long currentTime = System.currentTimeMillis();
         long endTime = currentTime + 10000;
         int numberOfAgents = 4;
-        double connectivity = 0.0;
+        double connectivity = 0.4;
 
         Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
 

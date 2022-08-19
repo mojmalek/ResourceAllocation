@@ -499,10 +499,10 @@ public class TimedSocialAdaptiveAgent extends Agent {
         for (long q=1; q<=offerQuantity; q++) {
             cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
 
-//            cost += distance * 1;
+            cost += distance * 1;
 
             if (cost == 0) {
-                expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
+//                expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
 //                System.out.println( expectedCost);
             }
             offerCostFunction.put(q, (long) (cost + 0.05 * expectedCost));
@@ -1012,7 +1012,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                     }
                 }
                 if (lowCostOffer != null) {
-//                    cost += distance * 1;
+                    cost += distance * 1;
                     if(q > 1) {
 //                        costFunction.put(q, cost + costFunction.get(q-1));
                         costFunction.put(q, cost);
