@@ -45,7 +45,7 @@ public class SimulationEngine {
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
                 currentTime = System.currentTimeMillis();
-                Task newTask = new Task(id, utility, currentTime + 2000, requiredResources);
+                Task newTask = new Task(id, utility, currentTime + 200000000, requiredResources);
                 tasks.add(newTask);
             } else {
 //                System.out.println(" ");
@@ -62,7 +62,7 @@ public class SimulationEngine {
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         long[] quantities = new long[] {0};
-        long[] lifetimes = new long[] {4000};
+        long[] lifetimes = new long[] {400000000};
         Set<String> offerers = Set.of("4Agent4");
         if( offerers.contains(myAgent.getLocalName())) {
             quantities = new long[] {8};

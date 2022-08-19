@@ -67,7 +67,6 @@ public class TimedMasterAgent extends Agent {
         }
 
         graph = createGraph(adjacency);
-
         shortestPathAlgorithm = new DijkstraShortestPath(graph);
 
         addBehaviour(new CyclicBehaviour() {
@@ -109,7 +108,7 @@ public class TimedMasterAgent extends Agent {
             @Override
             public void action() {
                 currentTime = System.currentTimeMillis();
-                if (currentTime > endTime + 1000) {
+                if (currentTime > endTime + 500) {
                     System.out.println ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
                     System.out.println ("Master agent total utility: " + totalUtil + " and transfer cost: " + transferCost);
                     System.out.println ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
@@ -147,8 +146,11 @@ public class TimedMasterAgent extends Agent {
             }
         }
         toDoTasks.addAll( newTasks);
-        System.out.println( "New tasks size:" + newTasks.size());
-        System.out.println( "ToDo tasks size:" + toDoTasks.size());
+//        System.out.println( "New tasks size:" + newTasks.size());
+//        System.out.println( "To Do tasks size:" + toDoTasks.size());
+        if (newTasks.size() == 0) {
+           System.out.println("Error!!");
+        }
     }
 
 
@@ -297,7 +299,6 @@ public class TimedMasterAgent extends Agent {
         if ( initialSize - count != toDoTasks.size()) {
             logInf("Error!!");
         }
-
 //        logInf( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
     }
 
@@ -412,7 +413,7 @@ public class TimedMasterAgent extends Agent {
                     availableQuantity += agentResource.getValue().get(requiredResource.getKey()).size();
                 }
             }
-            System.out.println("Available resource quantity: " + availableQuantity);
+//            System.out.println("Available resource quantity: " + availableQuantity);
             if (requiredResource.getValue() > availableQuantity) {
                 enough = false;
                 break;
