@@ -10,6 +10,7 @@ public class Ontology {
     public final static String OFFERED_ITEMS = "offeredItems";
     public final static String RESOURCE_CONFIRM_QUANTITY = "confirmQuantity";
     public final static String PROTOCOL_PHASE = "protocolPhase";
+    public final static String ORIGINAL_SENDER = "originalSender";
     public final static String ALL_RECEIVERS = "allReceivers";
     public final static String REQUEST_TIME_SENT = "requestTimeSent";
     public final static String REQUEST_TIMEOUT = "requestTimeout";

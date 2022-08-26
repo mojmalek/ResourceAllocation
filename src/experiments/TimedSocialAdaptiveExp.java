@@ -66,9 +66,9 @@ public class TimedSocialAdaptiveExp {
         ContainerController cc = rt.createMainContainer(p);
 
         long currentTime = System.currentTimeMillis();
-        long endTime = currentTime + 10000;
+        long endTime = currentTime + 30000;
         int numberOfAgents = 4;
-        double connectivity = 0.4;
+        double connectivity = 0.2;
 
         Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
 

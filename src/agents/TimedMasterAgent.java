@@ -29,9 +29,6 @@ public class TimedMasterAgent extends Agent {
     private boolean debugMode = true;
     private String logFileName;
 
-//    private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
-//    private Map<AID, ArrayList<JSONObject>> resourcesInfo = new LinkedHashMap<>();
-//    private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
     private Map<AID, Long> utilitiesInfo = new LinkedHashMap<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
@@ -44,8 +41,6 @@ public class TimedMasterAgent extends Agent {
     Graph<String, DefaultWeightedEdge> graph;
     ShortestPathAlgorithm shortestPathAlgorithm;
 
-//    private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
-//    private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
     private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources = new LinkedHashMap<>();
     private Map<AID, Map<ResourceType, ArrayList<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
 
@@ -58,8 +53,6 @@ public class TimedMasterAgent extends Agent {
             numberOfAgents = (int) args[0];
             for (int i = 1; i <= numberOfAgents; i++) {
                 AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
-//                tasksInfo.put( aid, new ArrayList<>());
-//                resourcesInfo.put( aid, new ArrayList<>());
                 utilitiesInfo.put( aid, 0L);
                 agentAvailableResources.put(aid, new LinkedHashMap<>());
                 agentExpiredResources.put(aid, new LinkedHashMap<>());
@@ -95,13 +88,13 @@ public class TimedMasterAgent extends Agent {
         });
 
 
-        addBehaviour (new TickerBehaviour(this, 50) {
+        addBehaviour (new TickerBehaviour(this, 5000) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
                     expireResourceItems (myAgent);
                     expireTasks (myAgent);
-                    performTasks (myAgent);
+//                    performTasks (myAgent);
                 }
             }
         });
@@ -111,7 +104,8 @@ public class TimedMasterAgent extends Agent {
             @Override
             public void action() {
                 currentTime = System.currentTimeMillis();
-                if (currentTime > endTime + 500) {
+                if (currentTime > endTime + 600) {
+                    performTasks (myAgent);
                     System.out.println ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
                     System.out.println ("Master agent total utility: " + totalUtil + " and transfer cost: " + transferCost);
                     System.out.println ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
@@ -248,27 +242,6 @@ public class TimedMasterAgent extends Agent {
             System.out.println("Error!!");
         }
     }
-
-
-//    boolean receivedInfoFromAll() {
-//
-//        for (var taskInfo : tasksInfo.entrySet() ) {
-//            if (taskInfo.getValue().size() < numberOfRounds) {
-//                return false;
-//            }
-//        }
-//        for (var taskInfo : resourcesInfo.entrySet() ) {
-//            if (taskInfo.getValue().size() < numberOfRounds) {
-//                return false;
-//            }
-//        }
-//        for (var taskInfo : utilitiesInfo.entrySet() ) {
-//            if (taskInfo.getValue().size() < numberOfRounds) {
-//                return false;
-//            }
-//        }
-//        return true;
-//    }
 
 
     private void performTasks(Agent myAgent) {
@@ -440,12 +413,10 @@ public class TimedMasterAgent extends Agent {
         Long totalUtil = (Long) jo.get("totalUtil");
 
         if (joNewTasks != null) {
-//            tasksInfo.get(agentId).add( joNewTasks);
             findNewTasks( joNewTasks, agentId);
         }
 
         if (joNewResources != null) {
-//            resourcesInfo.get(agentId).add( joNewResources);
             findNewResources( joNewResources, agentId);
         }
 
