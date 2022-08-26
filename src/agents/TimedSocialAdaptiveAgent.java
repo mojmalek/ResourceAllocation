@@ -72,7 +72,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             }
         });
 
-        addBehaviour (new TickerBehaviour(this, 30) {
+        addBehaviour (new TickerBehaviour(this, 20) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime < endTime) {
@@ -81,27 +81,25 @@ public class TimedSocialAdaptiveAgent extends Agent {
             }
         });
 
-//        addBehaviour (new TickerBehaviour(this, 5000) {
-//            protected void onTick() {
-//                currentTime = System.currentTimeMillis();
-//                if (currentTime <= endTime) {
-//                    performTasks(myAgent);
-//                }
-//            }
-//        });
-
-
-        addBehaviour(new CyclicBehaviour() {
-            @Override
-            public void action() {
+        addBehaviour (new TickerBehaviour(this, 100) {
+            protected void onTick() {
                 currentTime = System.currentTimeMillis();
-                if (currentTime > endTime + 100) {
-                    performTasks (myAgent);
-                    block();
+                if (currentTime <= endTime) {
+                    performTasks(myAgent);
                 }
             }
         });
 
+//        addBehaviour(new CyclicBehaviour() {
+//            @Override
+//            public void action() {
+//                currentTime = System.currentTimeMillis();
+//                if (currentTime > endTime + 100) {
+//                    performTasks (myAgent);
+//                    block();
+//                }
+//            }
+//        });
 
         addBehaviour(new CyclicBehaviour() {
             @Override
@@ -342,20 +340,24 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //            System.out.println(myAgent.getLocalName() + " Number of To Do Tasks: " + toDoTasks.size());
 //            System.out.println (myAgent.getLocalName() +  " is performing tasks.");
         }
+        boolean performed = false;
         int count = 0;
         SortedSet<Task> doneTasksNow = new TreeSet<>(new Task.taskComparator());
         // Greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             currentTime = System.currentTimeMillis();
-            if (currentTime <= task.deadline && hasEnoughResources(task, availableResources)) {
-                processTask(task);
-                doneTasksNow.add(task);
-                boolean check = doneTasks.add(task);
-                if (check == false) {
-                    System.out.println("Error!!");
+            if (task.deadline - currentTime < 200) {
+                if (currentTime <= task.deadline && hasEnoughResources(task, availableResources)) {
+                    processTask(task);
+                    doneTasksNow.add(task);
+                    boolean check = doneTasks.add(task);
+                    if (check == false) {
+                        System.out.println("Error!!");
+                    }
+                    totalUtil = totalUtil + task.utility;
+                    count += 1;
+                    performed = true;
                 }
-                totalUtil = totalUtil + task.utility;
-                count += 1;
             }
         }
 
@@ -375,7 +377,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //            System.out.println(myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
         }
 
-        sendTotalUtilToMasterAgent (totalUtil, myAgent);
+        if (performed == true) {
+            sendTotalUtilToMasterAgent(totalUtil, myAgent);
+        }
     }
 
 
@@ -761,8 +765,12 @@ public class TimedSocialAdaptiveAgent extends Agent {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( copyOfRequests, availableQuantity);
                     currentTime = System.currentTimeMillis();
-                    if (currentTime < selectedRequest.timeout && availableQuantity >= selectedRequest.quantity) {
-                        offerQuantity = selectedRequest.quantity;
+                    if (currentTime < selectedRequest.timeout) {
+                        if( availableQuantity < selectedRequest.quantity) {
+                            offerQuantity = availableQuantity;
+                        } else {
+                            offerQuantity = selectedRequest.quantity;
+                        }
                         Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
                         long cost = costFunction.get(offerQuantity);
                         long benefit = selectedRequest.utilityFunction.get(offerQuantity);

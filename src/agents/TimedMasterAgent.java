@@ -88,13 +88,13 @@ public class TimedMasterAgent extends Agent {
         });
 
 
-        addBehaviour (new TickerBehaviour(this, 5000) {
+        addBehaviour (new TickerBehaviour(this, 100) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
                     expireResourceItems (myAgent);
                     expireTasks (myAgent);
-//                    performTasks (myAgent);
+                    performTasks (myAgent);
                 }
             }
         });
@@ -104,8 +104,7 @@ public class TimedMasterAgent extends Agent {
             @Override
             public void action() {
                 currentTime = System.currentTimeMillis();
-                if (currentTime > endTime + 600) {
-                    performTasks (myAgent);
+                if (currentTime > endTime + 500) {
                     System.out.println ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
                     System.out.println ("Master agent total utility: " + totalUtil + " and transfer cost: " + transferCost);
                     System.out.println ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
@@ -252,15 +251,17 @@ public class TimedMasterAgent extends Agent {
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             currentTime = System.currentTimeMillis();
-            if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
-                processTask(task);
-                doneTasksNow.add(task);
-                boolean check = doneTasks.add(task);
-                if (check == false) {
-                    logInf("Error!!");
+            if (task.deadline - currentTime < 200) {
+                if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
+                    processTask(task);
+                    doneTasksNow.add(task);
+                    boolean check = doneTasks.add(task);
+                    if (check == false) {
+                        logInf("Error!!");
+                    }
+                    totalUtil = totalUtil + task.utility;
+                    count += 1;
                 }
-                totalUtil = totalUtil + task.utility;
-                count += 1;
             }
         }
 
