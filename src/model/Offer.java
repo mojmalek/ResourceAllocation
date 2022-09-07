@@ -10,6 +10,7 @@ public class Offer {
 
     public String id;
     public String reqId;
+    public String originalReqId;
     public long quantity;
     public ResourceType resourceType;
     public Map<Long, Long> costFunction;
@@ -19,7 +20,7 @@ public class Offer {
     public AID receiver;
     public Set<Offer> includedOffers;
     public long timeout;
-    public boolean processed;
+
 
     public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, AID sender, AID receiver) {
         this.id = id;

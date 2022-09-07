@@ -9,8 +9,9 @@ import java.util.Set;
 public class Request {
 
     public String id;
+    public String previousId;
+    public String originalId;
     public Boolean cascaded;
-//    String originalId;
     public long quantity;
     public ResourceType resourceType;
     public Map<Long, Long> utilityFunction;
@@ -22,6 +23,7 @@ public class Request {
     public long timeSent;
     public long timeout;
     public boolean processed;
+
 
     public Request(String id, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender) {
         this.id = id;
@@ -43,8 +45,10 @@ public class Request {
         this.reservedItems = reservedItems;
     }
 
-    public Request(String id, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, AID originalSender, Set<Integer> allReceivers, Map<String, Long> reservedItems, long timeSent, long timeout) {
+    public Request(String id, String previousId, String originalId, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, AID originalSender, Set<Integer> allReceivers, Map<String, Long> reservedItems, long timeSent, long timeout) {
         this.id = id;
+        this.previousId = previousId;
+        this.originalId = originalId;
         this.cascaded = cascaded;
         this.quantity = quantity;
         this.resourceType = resourceType;

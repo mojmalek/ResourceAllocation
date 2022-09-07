@@ -13,10 +13,10 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of("4Agent1");
+        Set<String> requesters = Set.of("8Agent1", "8Agent2", "8Agent3", "8Agent4");
         int[] taskNums = new int[] {0};
         if( requesters.contains(myAgent.getLocalName())) {
-            taskNums = new int[] {2};
+            taskNums = new int[] {1};
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
         long[] quantities = new long[] {4};
@@ -45,7 +45,7 @@ public class SimulationEngine {
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
                 currentTime = System.currentTimeMillis();
-                Task newTask = new Task(id, utility, currentTime + 2000, requiredResources);
+                Task newTask = new Task(id, utility, currentTime + 5000, requiredResources);
                 tasks.add(newTask);
             } else {
 //                System.out.println(" ");
@@ -62,10 +62,10 @@ public class SimulationEngine {
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         long[] quantities = new long[] {0};
-        long[] lifetimes = new long[] {2000};
-        Set<String> offerers = Set.of("4Agent4");
+        long[] lifetimes = new long[] {5000};
+        Set<String> offerers = Set.of("8Agent5", "8Agent6", "8Agent7", "8Agent8");
         if( offerers.contains(myAgent.getLocalName())) {
-            quantities = new long[] {4};
+            quantities = new long[] {2};
         }
         long quantity;
         long lifetime;

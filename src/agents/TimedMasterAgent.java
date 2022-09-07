@@ -4,6 +4,7 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
+import jade.core.behaviours.WakerBehaviour;
 import jade.lang.acl.ACLMessage;
 import model.ResourceItem;
 import model.ResourceType;
@@ -42,7 +43,7 @@ public class TimedMasterAgent extends Agent {
     ShortestPathAlgorithm shortestPathAlgorithm;
 
     private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources = new LinkedHashMap<>();
-    private Map<AID, Map<ResourceType, ArrayList<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
+    private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
 
 
     @Override
@@ -65,30 +66,17 @@ public class TimedMasterAgent extends Agent {
         graph = createGraph(adjacency);
         shortestPathAlgorithm = new DijkstraShortestPath(graph);
 
-        addBehaviour(new CyclicBehaviour() {
-            @Override
-            public void action() {
-                ACLMessage msg = myAgent.receive();
-                if (msg != null) {
-                    String content = msg.getContent();
-                    switch (msg.getPerformative()) {
-                        case ACLMessage.INFORM:
-//                            logInf( myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
-                            try {
-                                storeInfo(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-                            break;
-                    }
-                } else {
-                    block();
-                }
+
+        addBehaviour (new WakerBehaviour(this, new Date(endTime + 500)) {
+            protected void onWake() {
+                System.out.println ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
+                System.out.println ("Master agent total utility: " + totalUtil + " and transfer cost: " + transferCost);
+                System.out.println ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
             }
-        });
+        } );
 
 
-        addBehaviour (new TickerBehaviour(this, 100) {
+        addBehaviour (new TickerBehaviour(this, 400) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
@@ -103,11 +91,19 @@ public class TimedMasterAgent extends Agent {
         addBehaviour(new CyclicBehaviour() {
             @Override
             public void action() {
-                currentTime = System.currentTimeMillis();
-                if (currentTime > endTime + 500) {
-                    System.out.println ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
-                    System.out.println ("Master agent total utility: " + totalUtil + " and transfer cost: " + transferCost);
-                    System.out.println ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+                ACLMessage msg = myAgent.receive();
+                if (msg != null) {
+                    String content = msg.getContent();
+                    switch (msg.getPerformative()) {
+                        case ACLMessage.INFORM:
+                            try {
+                                storeInfo(myAgent, msg);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                            break;
+                    }
+                } else {
                     block();
                 }
             }
@@ -179,8 +175,8 @@ public class TimedMasterAgent extends Agent {
     void expireResourceItems(Agent myAgent) {
 
         SortedSet<ResourceItem> availableItems;
-        ArrayList<ResourceItem> expiredItems;
-        ArrayList<ResourceItem> expiredItemsNow = new ArrayList<>();
+        SortedSet<ResourceItem> expiredItems;
+        SortedSet<ResourceItem> expiredItemsNow = new TreeSet<>(new ResourceItem.resourceItemComparator());
         for (var agentResources : agentAvailableResources.entrySet()) {
             for (var resource : agentResources.getValue().entrySet()) {
                 expiredItemsNow.clear();
@@ -188,7 +184,7 @@ public class TimedMasterAgent extends Agent {
                 if (agentExpiredResources.get(agentResources.getKey()).containsKey(resource.getKey())) {
                     expiredItems = agentExpiredResources.get(agentResources.getKey()).get(resource.getKey());
                 } else {
-                    expiredItems = new ArrayList<>();
+                    expiredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
                     agentExpiredResources.get(agentResources.getKey()).put(resource.getKey(), expiredItems);
                 }
                 for (ResourceItem item : availableItems) {
@@ -245,13 +241,12 @@ public class TimedMasterAgent extends Agent {
 
     private void performTasks(Agent myAgent) {
 
-//        logInf (myAgent.getLocalName() +  " is performing tasks.");
         int count = 0;
         SortedSet<Task> doneTasksNow = new TreeSet<>(new Task.taskComparator());
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             currentTime = System.currentTimeMillis();
-            if (task.deadline - currentTime < 200) {
+            if (task.deadline - currentTime < 3000) {
                 if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
                     processTask(task);
                     doneTasksNow.add(task);

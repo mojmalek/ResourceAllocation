@@ -66,17 +66,35 @@ public class TimedSocialAdaptiveExp {
         ContainerController cc = rt.createMainContainer(p);
 
         long currentTime = System.currentTimeMillis();
-        long endTime = currentTime + 300000;
-        int numberOfAgents = 4;
-        double connectivity = 0.2;
+        long endTime = currentTime + 60000;
+        int numberOfAgents = 8;
+        double connectivity = 0.4;
 
-        Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
+//        Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
 
 //        Integer[][] distances = simulationEngine.computeDistances( socialNetwork);
 
         //TODO: save the social network array in a text file in order to re-use it.
 
-        System.out.println("Agent social network adjacency matrix: ");
+        Integer[][] socialNetwork = {{null, 1, 1, null, null, null, 1, 1},
+                                     {1, null, 1, null, 1, null, null, 1},
+                                     {1, 1, null, 1, null, null, 1, null},
+                                     {null, null, 1, null, 1, null, null, 1},
+                                     {null, 1, null, 1, null, 1, null, 1},
+                                     {null, null, null, null, 1, null, 1, null},
+                                     {1, null, 1, null, null, 1, null, 1},
+                                     {1, 1, null, 1, 1, null, 1, null}};
+
+//                0, 1, 1, 0, 0, 0, 1, 1,
+//                1, 0, 1, 0, 1, 0, 0, 1,
+//                1, 1, 0, 1, 0, 0, 1, 0,
+//                0, 0, 1, 0, 1, 0, 0, 1,
+//                0, 1, 0, 1, 0, 1, 0, 1,
+//                0, 0, 0, 0, 1, 0, 1, 0,
+//                1, 0, 1, 0, 0, 1, 0, 1,
+//                1, 1, 0, 1, 1, 0, 1, 0,
+
+                System.out.println("Agent social network adjacency matrix: ");
         for (int i=0; i<socialNetwork.length; i++) {
             for (int j=0; j<socialNetwork[i].length; j++) {
                 if(socialNetwork[i][j] == null) {
