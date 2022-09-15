@@ -68,15 +68,15 @@ public class ResourceItem {
     public static class resourceItemComparator implements Comparator<ResourceItem> {
         public int compare(ResourceItem item1, ResourceItem item2)
         {
-            Long lifetime1 = item1.expiryTime;
-            Long lifetime2 = item2.expiryTime;
+            Long expiryTime1 = item1.expiryTime;
+            Long expiryTime2 = item2.expiryTime;
             String id1 = item1.id;
             String id2 = item2.id;
 
-            if (lifetime1.equals(lifetime2)) {
+            if (expiryTime1.equals(expiryTime2)) {
                 return id1.compareTo(id2);
             } else {
-                return lifetime1.compareTo(lifetime2);
+                return expiryTime1.compareTo(expiryTime2);
             }
         }
     }
