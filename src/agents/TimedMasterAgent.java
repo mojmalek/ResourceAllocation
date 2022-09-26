@@ -53,17 +53,18 @@ public class TimedMasterAgent extends Agent {
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
             for (int i = 1; i <= numberOfAgents; i++) {
-                AID aid = new AID(numberOfAgents + "Agent" + i, AID.ISLOCALNAME);
+                AID aid = new AID("A" + i, AID.ISLOCALNAME);
                 utilitiesInfo.put( aid, 0L);
                 agentAvailableResources.put(aid, new LinkedHashMap<>());
                 agentExpiredResources.put(aid, new LinkedHashMap<>());
             }
             endTime = (long) args[1];
-            adjacency = (Integer[][]) args[2];
-            logFileName = (String) args[3];
+            graph = (Graph) args[2];
+            adjacency = (Integer[][]) args[3];
+            logFileName = (String) args[4];
         }
 
-        graph = createGraph(adjacency);
+//        graph = createGraph(adjacency);
         shortestPathAlgorithm = new DijkstraShortestPath(graph);
 
 
@@ -318,11 +319,11 @@ public class TimedMasterAgent extends Agent {
         Set<AID> newNeighbors = new HashSet<>();
         for (AID aid : providers) {
             String providerName = aid.getLocalName();
-            int providerId = Integer.valueOf(providerName.replace(numberOfAgents+"Agent", ""));
+            int providerId = Integer.valueOf(providerName.replace("A", ""));
             Integer[] providerNeighbors = adjacency[providerId-1];
             for (int i = 0; i < providerNeighbors.length; i++) {
                 if (providerNeighbors[i] != null) {
-                    newNeighbors.add(new AID(numberOfAgents + "Agent" + (i + 1), AID.ISLOCALNAME));
+                    newNeighbors.add(new AID("A" + (i+1), AID.ISLOCALNAME));
                 }
             }
         }
@@ -360,18 +361,30 @@ public class TimedMasterAgent extends Agent {
     void incurTransferCost(AID taskManager, AID provider) {
 
         String taskManagerName = taskManager.getLocalName();
-        String taskManagerId = taskManagerName.replace(numberOfAgents+"Agent", "");
+        String taskManagerId = taskManagerName.replace("A", "");
         String providerName = provider.getLocalName();
-        String providerId = providerName.replace(numberOfAgents+"Agent", "");
+        String providerId = providerName.replace("A", "");
 
-        long distance = (long) getDistance( taskManagerId, providerId);
+        int i = Integer.valueOf(taskManagerId);
+        int j = Integer.valueOf(providerId);
+        double distance = 0;
+        if (adjacency[i-1][j-1] == null) {
+            try {
+                distance = shortestPathAlgorithm.getPathWeight (taskManagerName, providerName);
+            } catch (Exception e) {
+                System.out.println("");
+            }
+        } else {
+            // when there is an edge, we consider it as the selected path even if it is not the shortest path
+            distance = adjacency[i-1][j-1];
+        }
 
         if( debugMode) {
             logInf("transfer cost from " + provider.getLocalName() + " to " + taskManager.getLocalName() + " : " + distance);
         }
 
-//        totalUtil -= distance;
-        transferCost += distance;
+//        totalUtil -= (long) distance;
+        transferCost += (long) distance;
     }
 
 
@@ -431,22 +444,22 @@ public class TimedMasterAgent extends Agent {
     }
 
 
-    Graph<String, DefaultWeightedEdge> createGraph(Integer[][] socialNetwork) {
+    Graph<String, DefaultWeightedEdge> createGraph(Integer[][] adjacency) {
 
         Graph<String, DefaultWeightedEdge> graph = new SimpleWeightedGraph<>(DefaultWeightedEdge.class);
 
-        for (int i=0; i<socialNetwork.length; i++) {
+        for (int i=0; i<adjacency.length; i++) {
             graph.addVertex (String.valueOf(i+1));
         }
 
         String aid1, aid2;
-        for (int i=0; i<socialNetwork.length; i++) {
+        for (int i=0; i<adjacency.length; i++) {
             aid1 = String.valueOf(i+1);
-            for( int j=0; j<socialNetwork.length; j++) {
+            for( int j=0; j<adjacency.length; j++) {
                 aid2 = String.valueOf(j+1);
-                if(socialNetwork[i][j] != null && graph.containsEdge(aid1, aid2) == false) {
+                if(adjacency[i][j] != null && graph.containsEdge(aid1, aid2) == false) {
                     graph.addEdge(aid1, aid2);
-                    graph.setEdgeWeight(aid1, aid2, Double.valueOf(socialNetwork[i][j]));
+                    graph.setEdgeWeight(aid1, aid2, Double.valueOf(adjacency[i][j]));
                 }
             }
         }
@@ -455,29 +468,13 @@ public class TimedMasterAgent extends Agent {
     }
 
 
-    double getDistance( String taskManagerId, String providerId) {
-
-        int i = Integer.valueOf(taskManagerId);
-        int j = Integer.valueOf(providerId);
-        double distance;
-        if (adjacency[i-1][j-1] == null) {
-            distance = shortestPathAlgorithm.getPathWeight (taskManagerId, providerId);
-        } else {
-            // when there is an edge, we consider it as the selected path even if it is not the shortest path
-            distance = adjacency[i-1][j-1];
-        }
-
-        return distance;
-    }
-
-
     protected void logInf(String msg) {
 
-//      System.out.println("Time:" + System.currentTimeMillis() + " " + numberOfAgents + "Agent0: " + msg);
+//      System.out.println("Time:" + System.currentTimeMillis() + " " + "A0: " + msg);
 
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
-            out.println("Time:" + System.currentTimeMillis() + " " + numberOfAgents + "Agent0: " + msg);
+            out.println("Time:" + System.currentTimeMillis() + " " + "A0: " + msg);
             out.close();
         } catch (IOException e) {
             System.err.println("Error writing file..." + e.getMessage());

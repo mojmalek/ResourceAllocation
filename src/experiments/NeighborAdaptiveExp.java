@@ -6,7 +6,6 @@ import jade.core.Runtime;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
-import model.ResourceType;
 import model.SimulationEngine;
 
 import java.io.File;
@@ -68,7 +67,7 @@ public class NeighborAdaptiveExp {
         int numberOfAgents = 16;
         double connectivity = 0.5;
 
-        Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
+        Integer[][] socialNetwork = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
 
         //TODO: save the social network array in a text file in order to re-use it.
 

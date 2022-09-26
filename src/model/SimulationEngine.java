@@ -1,6 +1,8 @@
 package model;
 
 import jade.core.Agent;
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultWeightedEdge;
 
 import java.util.*;
 
@@ -13,13 +15,13 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of("8Agent1", "8Agent2", "8Agent3", "8Agent4");
-        int[] taskNums = new int[] {0};
+        Set<String> requesters = Set.of("A1", "A2", "A3", "A4");
+        int[] taskNums = new int[] {0, 1};
         if( requesters.contains(myAgent.getLocalName())) {
-            taskNums = new int[] {1};
+            taskNums = new int[] {1, 2};
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] quantities = new long[] {4};
+        long[] quantities = new long[] {2};
 //        long minUtil = 10;
 //        long utilVariation = 5;
         long[] utilities = new long[] {10};
@@ -61,11 +63,11 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {0};
+        long[] quantities = new long[] {0, 1, 2};
         long[] lifetimes = new long[] {5000};
-        Set<String> offerers = Set.of("8Agent5", "8Agent6", "8Agent7", "8Agent8");
+        Set<String> offerers = Set.of("A7", "A8");
         if( offerers.contains(myAgent.getLocalName())) {
-            quantities = new long[] {2};
+            quantities = new long[] {4};
         }
         long quantity;
         long lifetime;
@@ -73,7 +75,7 @@ public class SimulationEngine {
             quantity = quantities[random.nextInt( quantities.length)];
 //            if (quantity > 0) {
                 lifetime = lifetimes[random.nextInt( lifetimes.length)];
-                SortedSet<ResourceItem> items = findResourceItems(resourceTypeValues[i], lifetime, quantity);
+                SortedSet<ResourceItem> items = findResourceItems(resourceTypeValues[i], lifetime, quantity, myAgent.getLocalName());
                 resources.put(resourceTypeValues[i], items);
 //            }
         }
@@ -82,12 +84,12 @@ public class SimulationEngine {
     }
 
 
-    public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity) {
+    public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, String agentName) {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
         String id;
         for (long i=0; i<quantity; i++) {
-            id = UUID.randomUUID().toString();
+            id = UUID.randomUUID().toString() + '-' + agentName;
             currentTime = System.currentTimeMillis();
             resourceItems.add(new ResourceItem (id, resourceType, currentTime + lifeTime));
         }
@@ -95,9 +97,9 @@ public class SimulationEngine {
     }
 
 
-    public Integer[][] generateSocialNetwork( int numberOfAgents, double connectivity) {
+    public Integer[][] generateRandomAdjacencyMatrix(int numberOfAgents, double connectivity) {
 
-        Integer[][] socialNetwork = new Integer[numberOfAgents][numberOfAgents];
+        Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
         Random random = new Random();
         int[] weights = new int[] {1};
         int weight;
@@ -105,8 +107,8 @@ public class SimulationEngine {
         // first connect each agent to its next
         for (int i = 0; i < numberOfAgents-1; i++) {
             weight = weights[random.nextInt( weights.length)];
-            socialNetwork[i][i+1] = weight;
-            socialNetwork[i+1][i] = weight;
+            adjacency[i][i+1] = weight;
+            adjacency[i+1][i] = weight;
         }
 
         // then consider connecting more agents based on the degree of connectivity
@@ -115,13 +117,32 @@ public class SimulationEngine {
                 double r = random.nextDouble();
                 if (r < connectivity) {
                     weight = weights[random.nextInt( weights.length)];
-                    socialNetwork[i][j] = weight;
-                    socialNetwork[j][i] = weight;
+                    adjacency[i][j] = weight;
+                    adjacency[j][i] = weight;
                 }
             }
         }
 
-        return socialNetwork;
+        return adjacency;
+    }
+
+
+    public Integer[][] generateAdjacencyMatrixFromGraph (Graph<String, DefaultWeightedEdge > graph, int numberOfAgents) {
+
+        Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
+
+        for (int i = 1; i <= numberOfAgents; i++) {
+            for (int j = i + 1; j <= numberOfAgents; j++) {
+                DefaultWeightedEdge edge = graph.getEdge("A"+i, "A"+j);
+                if (edge != null) {
+//                    System.out.println(graph.getEdgeWeight(edge));
+                    adjacency[i-1][j-1] = (int) graph.getEdgeWeight(edge);
+                    adjacency[j-1][i-1] = (int) graph.getEdgeWeight(edge);
+                }
+            }
+        }
+
+        return adjacency;
     }
 
 

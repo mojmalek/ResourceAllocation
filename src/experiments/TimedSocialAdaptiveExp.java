@@ -7,9 +7,21 @@ import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
 import model.SimulationEngine;
+import org.jgrapht.Graph;
+import org.jgrapht.generate.ScaleFreeGraphGenerator;
+import org.jgrapht.generate.WattsStrogatzGraphGenerator;
+import org.jgrapht.generate.WindmillGraphsGenerator;
+import org.jgrapht.graph.DefaultWeightedEdge;
+import org.jgrapht.graph.SimpleWeightedGraph;
+import org.jgrapht.traverse.DepthFirstIterator;
+import org.jgrapht.util.SupplierUtil;
 
 import java.io.File;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.function.Supplier;
+
+import static org.jgrapht.generate.WindmillGraphsGenerator.Mode.DUTCHWINDMILL;
 
 public class TimedSocialAdaptiveExp {
 
@@ -68,39 +80,58 @@ public class TimedSocialAdaptiveExp {
         long currentTime = System.currentTimeMillis();
         long endTime = currentTime + 60000;
         int numberOfAgents = 8;
-        double connectivity = 0.4;
 
-//        Integer[][] socialNetwork = simulationEngine.generateSocialNetwork(numberOfAgents, connectivity);
+//        double connectivity = 0.0;
+//        Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
 
-//        Integer[][] distances = simulationEngine.computeDistances( socialNetwork);
+        Supplier<String> vSupplier = new Supplier<String>() {
+            private int id = 1;
+            @Override
+            public String get() {
+                return "A" + id++;
+            }
+        };
+
+        Graph<String, DefaultWeightedEdge> graph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
+
+        // Small-world graph
+//        WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.4);
+
+        // Scale-free graph
+//        ScaleFreeGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
+
+        // Friendship graph
+        WindmillGraphsGenerator<String, DefaultWeightedEdge> graphGenerator = new WindmillGraphsGenerator<>(DUTCHWINDMILL, 10, 3);
+
+        graphGenerator.generateGraph(graph);
+        numberOfAgents = graph.vertexSet().size();
+
+        Iterator<String> iter = new DepthFirstIterator<>(graph);
+        while (iter.hasNext()) {
+            String vertex = iter.next();
+            System.out.println(vertex + " is connected to: " + graph.edgesOf(vertex).toString());
+        }
+
+        Integer[][] adjacency = simulationEngine.generateAdjacencyMatrixFromGraph(graph, numberOfAgents);
 
         //TODO: save the social network array in a text file in order to re-use it.
+//        Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
+//                                     {1, null, 1, null, 1, null, null, 1},
+//                                     {1, 1, null, 1, null, null, 1, null},
+//                                     {null, null, 1, null, 1, null, null, 1},
+//                                     {null, 1, null, 1, null, 1, null, 1},
+//                                     {null, null, null, null, 1, null, 1, null},
+//                                     {1, null, 1, null, null, 1, null, 1},
+//                                     {1, 1, null, 1, 1, null, 1, null}};
 
-        Integer[][] socialNetwork = {{null, 1, 1, null, null, null, 1, 1},
-                                     {1, null, 1, null, 1, null, null, 1},
-                                     {1, 1, null, 1, null, null, 1, null},
-                                     {null, null, 1, null, 1, null, null, 1},
-                                     {null, 1, null, 1, null, 1, null, 1},
-                                     {null, null, null, null, 1, null, 1, null},
-                                     {1, null, 1, null, null, 1, null, 1},
-                                     {1, 1, null, 1, 1, null, 1, null}};
 
-//                0, 1, 1, 0, 0, 0, 1, 1,
-//                1, 0, 1, 0, 1, 0, 0, 1,
-//                1, 1, 0, 1, 0, 0, 1, 0,
-//                0, 0, 1, 0, 1, 0, 0, 1,
-//                0, 1, 0, 1, 0, 1, 0, 1,
-//                0, 0, 0, 0, 1, 0, 1, 0,
-//                1, 0, 1, 0, 0, 1, 0, 1,
-//                1, 1, 0, 1, 1, 0, 1, 0,
-
-                System.out.println("Agent social network adjacency matrix: ");
-        for (int i=0; i<socialNetwork.length; i++) {
-            for (int j=0; j<socialNetwork[i].length; j++) {
-                if(socialNetwork[i][j] == null) {
+        System.out.println("Agent social network adjacency matrix: ");
+        for (int i=0; i<adjacency.length; i++) {
+            for (int j=0; j<adjacency[i].length; j++) {
+                if(adjacency[i][j] == null) {
                     System.out.print("0, ");
                 } else {
-                    System.out.print(socialNetwork[i][j] + ", ");
+                    System.out.print(adjacency[i][j] + ", ");
                 }
             }
             System.out.println();
@@ -112,10 +143,10 @@ public class TimedSocialAdaptiveExp {
             AgentController ac;
             try {
                 if (i == 0) {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent0", "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, socialNetwork, logFileName1});
+                    ac = cc.createNewAgent("A0", "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, graph, adjacency, logFileName1});
                     ac.start();
                 } else {
-                    ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, socialNetwork[i-1], logFileName2});
+                    ac = cc.createNewAgent("A" + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, adjacency[i-1], logFileName2});
                     ac.start();
                 }
 //                ac.start();
