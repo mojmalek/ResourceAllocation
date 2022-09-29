@@ -11,11 +11,14 @@ public class Offer {
     public String id;
     public String reqId;
     public String originalReqId;
+    public Boolean cascaded;
     public long quantity;
     public ResourceType resourceType;
     public Map<Long, Long> costFunction;
     // id, lifetime
     public Map<String, Long> offeredItems;
+    // id, lifetime
+    public Map<String, Long> reservedItems;
     public AID sender;
     public AID receiver;
     public Set<Offer> includedOffers;
@@ -45,13 +48,16 @@ public class Offer {
         this.includedOffers = includedOffers;
     }
 
-    public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, AID sender, AID receiver, Set<Offer> includedOffers, long timeout) {
+    public Offer(String id, String reqId, String originalReqId, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, Map<String, Long> reservedItems, AID sender, AID receiver, Set<Offer> includedOffers, long timeout) {
         this.id = id;
         this.reqId = reqId;
+        this.originalReqId = originalReqId;
+        this.cascaded = cascaded;
         this.quantity = quantity;
         this.resourceType = resourceType;
         this.costFunction = costFunction;
         this.offeredItems = offeredItems;
+        this.reservedItems = reservedItems;
         this.sender = sender;
         this.receiver = receiver;
         this.includedOffers = includedOffers;

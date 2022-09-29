@@ -474,7 +474,7 @@ public class TimedMasterAgent extends Agent {
 
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
-            out.println("Time:" + System.currentTimeMillis() + " " + "A0: " + msg);
+            out.println(System.currentTimeMillis() + " " + "A0: " + msg);
             out.close();
         } catch (IOException e) {
             System.err.println("Error writing file..." + e.getMessage());

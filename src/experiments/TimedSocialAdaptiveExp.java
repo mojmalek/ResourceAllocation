@@ -79,7 +79,7 @@ public class TimedSocialAdaptiveExp {
 
         long currentTime = System.currentTimeMillis();
         long endTime = currentTime + 60000;
-        int numberOfAgents = 8;
+        int numberOfAgents = 32;
 
 //        double connectivity = 0.0;
 //        Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
@@ -95,13 +95,13 @@ public class TimedSocialAdaptiveExp {
         Graph<String, DefaultWeightedEdge> graph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
 
         // Small-world graph
-//        WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.4);
+        WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.4);
 
         // Scale-free graph
 //        ScaleFreeGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
 
         // Friendship graph
-        WindmillGraphsGenerator<String, DefaultWeightedEdge> graphGenerator = new WindmillGraphsGenerator<>(DUTCHWINDMILL, 10, 3);
+//        WindmillGraphsGenerator<String, DefaultWeightedEdge> graphGenerator = new WindmillGraphsGenerator<>(DUTCHWINDMILL, 20, 3);
 
         graphGenerator.generateGraph(graph);
         numberOfAgents = graph.vertexSet().size();
