@@ -15,6 +15,7 @@ public class Ontology {
     public final static String ALL_RECEIVERS = "allReceivers";
     public final static String REQUEST_TIME_SENT = "requestTimeSent";
     public final static String REQUEST_TIMEOUT = "requestTimeout";
+    public final static String ORIGINAL_REQUEST_TIMEOUT = "originalRequestTimeout";
     public final static String OFFER_TIMEOUT = "offerTimeout";
 
 }

@@ -27,7 +27,7 @@ import java.util.*;
 
 public class TimedMasterAgent extends Agent {
 
-    private boolean debugMode = true;
+    private boolean debugMode = false;
     private String logFileName;
 
     private Map<AID, Long> utilitiesInfo = new LinkedHashMap<>();
@@ -77,7 +77,7 @@ public class TimedMasterAgent extends Agent {
         } );
 
 
-        addBehaviour (new TickerBehaviour(this, 400) {
+        addBehaviour (new TickerBehaviour(this, 10) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
@@ -247,7 +247,7 @@ public class TimedMasterAgent extends Agent {
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             currentTime = System.currentTimeMillis();
-            if (task.deadline - currentTime < 3000) {
+            if (task.deadline - currentTime < 400) {
                 if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
                     processTask(task);
                     doneTasksNow.add(task);

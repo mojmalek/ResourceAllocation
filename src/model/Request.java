@@ -22,6 +22,7 @@ public class Request {
     public Map<String, Long> reservedItems;
     public long timeSent;
     public long timeout;
+    public Long originalTimeout;
     public boolean processed;
 
 
@@ -45,7 +46,7 @@ public class Request {
         this.reservedItems = reservedItems;
     }
 
-    public Request(String id, String previousId, String originalId, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, AID originalSender, Set<Integer> allReceivers, Map<String, Long> reservedItems, long timeSent, long timeout) {
+    public Request(String id, String previousId, String originalId, Boolean cascaded, long quantity, ResourceType resourceType, Map<Long, Long> utilityFunction, AID sender, AID originalSender, Set<Integer> allReceivers, Map<String, Long> reservedItems, long timeSent, long timeout, Long originalTimeout) {
         this.id = id;
         this.previousId = previousId;
         this.originalId = originalId;
@@ -59,6 +60,7 @@ public class Request {
         this.reservedItems = reservedItems;
         this.timeSent = timeSent;
         this.timeout = timeout;
+        this.originalTimeout = originalTimeout;
     }
 
     @Override
