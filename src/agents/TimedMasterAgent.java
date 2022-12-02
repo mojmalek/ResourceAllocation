@@ -28,7 +28,7 @@ import java.util.*;
 public class TimedMasterAgent extends Agent {
 
     private boolean debugMode = false;
-    private String logFileName;
+    private String logFileName, resultFileName;
 
     private Map<AID, Long> utilitiesInfo = new LinkedHashMap<>();
 
@@ -62,6 +62,7 @@ public class TimedMasterAgent extends Agent {
             graph = (Graph) args[2];
             adjacency = (Integer[][]) args[3];
             logFileName = (String) args[4];
+            resultFileName = (String) args[5];
         }
 
 //        graph = createGraph(adjacency);
@@ -70,14 +71,17 @@ public class TimedMasterAgent extends Agent {
 
         addBehaviour (new WakerBehaviour(this, new Date(endTime + 500)) {
             protected void onWake() {
-                System.out.println ("Sum of " + numberOfAgents + " agents utilities: " + agentUtilitiesSum());
-                System.out.println ("Master agent total utility: " + totalUtil + " and transfer cost: " + transferCost);
-                System.out.println ("Efficiency of the protocol for " + numberOfAgents + " agents: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+                System.out.println ("Centralized total util: " + totalUtil);
+//                System.out.println ("transfer cost: " + transferCost);
+                System.out.println ("Decentralized total util: " + agentUtilitiesSum());
+                System.out.println ("Percentage ratio: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+                System.out.println ("");
+                logResults( String.valueOf(agentUtilitiesSum()));
             }
         } );
 
 
-        addBehaviour (new TickerBehaviour(this, 10) {
+        addBehaviour (new TickerBehaviour(this, 5) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
@@ -247,7 +251,7 @@ public class TimedMasterAgent extends Agent {
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             currentTime = System.currentTimeMillis();
-            if (task.deadline - currentTime < 400) {
+            if (task.deadline - currentTime < 200) {
                 if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
                     processTask(task);
                     doneTasksNow.add(task);
@@ -290,7 +294,7 @@ public class TimedMasterAgent extends Agent {
                 }
                 AID selectedProvider = selectBestProvider( providers, requiredResource.getKey());
                 allocateResource (selectedProvider, requiredResource.getKey());
-                incurTransferCost(task.manager, selectedProvider);
+//                incurTransferCost(task.manager, selectedProvider);
                 allocatedQuantity++;
             }
         }
@@ -372,7 +376,7 @@ public class TimedMasterAgent extends Agent {
             try {
                 distance = shortestPathAlgorithm.getPathWeight (taskManagerName, providerName);
             } catch (Exception e) {
-                System.out.println("");
+                System.out.println("Exception: incurTransferCost " + e.getMessage());
             }
         } else {
             // when there is an edge, we consider it as the selected path even if it is not the shortest path
@@ -475,6 +479,20 @@ public class TimedMasterAgent extends Agent {
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
             out.println(System.currentTimeMillis() + " " + "A0: " + msg);
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
+        }
+    }
+
+
+    protected void logResults(String msg) {
+
+//        System.out.println(msg);
+
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(resultFileName, true)));
+            out.println(msg);
             out.close();
         } catch (IOException e) {
             System.err.println("Error writing file..." + e.getMessage());

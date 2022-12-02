@@ -22,8 +22,8 @@ import java.util.*;
 
 public class TimedSocialAdaptiveAgent extends Agent {
 
-    SimulationEngine simulationEngine = new SimulationEngine();
-    private boolean debugMode = true;
+    SimulationEngine simulationEngine;
+    private boolean debugMode = false;
     private String logFileName;
     String agentLogFileName;
 
@@ -66,6 +66,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             endTime = (long) args[2];
             neighbors = (Integer[]) args[3];
             logFileName = (String) args[4];
+            simulationEngine = (SimulationEngine) args[5];
 
             for (ResourceType resourceType : ResourceType.getValues()) {
                 availableResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
@@ -81,7 +82,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                 for (var resource : availableResources.entrySet()) {
                     totalAvailable += resource.getValue().size();
                 }
-                System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
+//                System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
                 if (totalReceivedResources - totalConsumedResource - totalExpiredResource != totalAvailable ) {
                     int difference = totalReceivedResources - totalConsumedResource - totalExpiredResource - totalAvailable;
                     System.out.println ("Error!! " + myAgent.getLocalName() + " has INCORRECT number of resources left. Diff: " + difference);
@@ -93,18 +94,18 @@ public class TimedSocialAdaptiveAgent extends Agent {
         addBehaviour (new OneShotBehaviour() {
             @Override
             public void action() {
-                System.out.println("0");
+//                System.out.println("0");
                 findTasks(myAgent);
                 findResources(myAgent);
             }
         });
 
 
-        addBehaviour (new TickerBehaviour(this, 5000) {
+        addBehaviour (new TickerBehaviour(this, 2000) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
-                if (currentTime <= endTime - 6000) {
-                    System.out.println(getTickCount());
+                if (currentTime <= endTime - 3000) {
+//                    System.out.println(getTickCount());
                     findTasks(myAgent);
                     findResources(myAgent);
                 }
@@ -112,7 +113,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         });
 
 
-        addBehaviour (new TickerBehaviour(this, 10) {
+        addBehaviour (new TickerBehaviour(this, 5) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
@@ -291,7 +292,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             expiredReceivedRequests.clear();
             for (Request request : requests) {
                 currentTime = System.currentTimeMillis();
-                if (currentTime > request.timeout + 500) {
+                if (currentTime > request.timeout + 200) {
                     expiredReceivedRequests.add( request);
                 }
             }
@@ -301,7 +302,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         Set<Request> expiredSentRequests = new HashSet<>();
         for( Request sentRequest : sentRequests.values()) {
             currentTime = System.currentTimeMillis();
-            if (currentTime > sentRequest.timeout + 500) {
+            if (currentTime > sentRequest.timeout + 200) {
 //                if( sentRequest.cascaded == true) {
 //                    restoreReservedItems( sentRequest);
 //                }
@@ -325,7 +326,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         Set<Offer> expiredSentOffers = new HashSet<>();
         for( Offer sentOffer : sentOffers.values()) {
             currentTime = System.currentTimeMillis();
-            if (currentTime > sentOffer.timeout + 500) {
+            if (currentTime > sentOffer.timeout + 200) {
                 expiredSentOffers.add( sentOffer);
             }
         }
@@ -361,7 +362,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         // Greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             currentTime = System.currentTimeMillis();
-            if (task.deadline - currentTime < 400) {
+            if (task.deadline - currentTime < 200) {
                 if (currentTime <= task.deadline && hasEnoughResources(task, availableResources)) {
                     processTask(task);
                     doneTasksNow.add(task);
@@ -435,7 +436,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         // creates a request based on the missing quantity for each resource type
         Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
         currentTime = System.currentTimeMillis();
-        long requestTimeout = currentTime + 1000;
+        long requestTimeout = currentTime + 500;
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
@@ -1025,7 +1026,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         for (var request : sentRequests.entrySet()) {
             if (request.getValue().cascaded == true && request.getValue().processed == false) {
                 currentTime = System.currentTimeMillis();
-                if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < 200) {
+                if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < 100) {
                     cascadeOffers(request.getValue());
                 }
             }
@@ -1185,7 +1186,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
         for (var request : sentRequests.entrySet()) {
             currentTime = System.currentTimeMillis();
-            if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < 50) {
+            if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < 20) {
 //            if (currentTime < request.getValue().timeout) {
                 if (request.getValue().cascaded == false && receivedOffers.containsKey(request.getKey())) {
                     Map<Offer, Long> confirmQuantities = processOffers(request.getValue());

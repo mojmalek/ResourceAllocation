@@ -10,18 +10,17 @@ import model.SimulationEngine;
 import org.jgrapht.Graph;
 import org.jgrapht.generate.ScaleFreeGraphGenerator;
 import org.jgrapht.generate.WattsStrogatzGraphGenerator;
-import org.jgrapht.generate.WindmillGraphsGenerator;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
 import org.jgrapht.traverse.DepthFirstIterator;
 import org.jgrapht.util.SupplierUtil;
 
-import java.io.File;
+import java.io.*;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.function.Supplier;
-
-import static org.jgrapht.generate.WindmillGraphsGenerator.Mode.DUTCHWINDMILL;
 
 public class TimedSocialAdaptiveExp {
 
@@ -65,57 +64,69 @@ public class TimedSocialAdaptiveExp {
     }
 
 
-    public static void runSimulation2() {
+    public static void runSimulation2() throws StaleProxyException {
 
-        SimulationEngine simulationEngine = new SimulationEngine();
+        int numberOfAgents = 8;
+        long duration = 60000;
+        long currentTime, endTime;
+        SimulationEngine simulationEngine;
+        Set<AgentController> agentControllers = new HashSet<>();
 
-        String logFileName1 = "logs/" + "TimedSocialAdaptiveExp-Master-" + new Date() + ".txt";
-        String logFileName2 = "logs/" + "TimedSocialAdaptiveExp-All-" + new Date() + ".txt";
-        Runtime rt = Runtime.instance();
-        Profile p = new ProfileImpl();
-        p.setParameter(Profile.MAIN_HOST, "localhost");
-//        p.setParameter(Profile.GUI, "true");
-        ContainerController cc = rt.createMainContainer(p);
+        String resultFileName = "logs/results/" + "runSimulation2-results-" + new Date() + ".txt";
 
-        long currentTime = System.currentTimeMillis();
-        long endTime = currentTime + 60000;
-        int numberOfAgents = 32;
+        for (long param = 2; param <= 10; param++) {
+            logResults(resultFileName, "");
+            logResults(resultFileName, "param = " + param);
+            logResults(resultFileName, "");
+            simulationEngine = new SimulationEngine( param);
+            for (int exp = 1; exp <= 10; exp++) {
+                agentControllers.clear();
+                String logFileName1 = "logs/" + "TimedSocialAdaptiveExp-Master-" + "param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileName2 = "logs/" + "TimedSocialAdaptiveExp-All-" + "param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                Runtime rt = Runtime.instance();
+                Profile profile = new ProfileImpl();
+                profile.setParameter(Profile.MAIN_HOST, "localhost");
+//              profile.setParameter(Profile.GUI, "true");
+                ContainerController containerController = rt.createMainContainer(profile);
 
-//        double connectivity = 0.0;
-//        Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
+                currentTime = System.currentTimeMillis();
+                endTime = currentTime + duration;
 
-        Supplier<String> vSupplier = new Supplier<String>() {
-            private int id = 1;
-            @Override
-            public String get() {
-                return "A" + id++;
-            }
-        };
+//              double connectivity = 0.0;
+//              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
 
-        Graph<String, DefaultWeightedEdge> graph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
+                Supplier<String> vSupplier = new Supplier<String>() {
+                    private int id = 1;
+                    @Override
+                    public String get() {
+                        return "A" + id++;
+                    }
+                };
 
-        // Small-world graph
-        WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.4);
+                Graph<String, DefaultWeightedEdge> graph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
 
-        // Scale-free graph
-//        ScaleFreeGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
+                // Small-world graph
+                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.05);
 
-        // Friendship graph
-//        WindmillGraphsGenerator<String, DefaultWeightedEdge> graphGenerator = new WindmillGraphsGenerator<>(DUTCHWINDMILL, 20, 3);
+                // Scale-free graph
+//              ScaleFreeGraphGenerator<String, DefaultWeightedEdge> graphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
 
-        graphGenerator.generateGraph(graph);
-        numberOfAgents = graph.vertexSet().size();
+                // Friendship graph
+//              WindmillGraphsGenerator<String, DefaultWeightedEdge> graphGenerator = new WindmillGraphsGenerator<>(DUTCHWINDMILL, 20, 3);
 
-        Iterator<String> iter = new DepthFirstIterator<>(graph);
-        while (iter.hasNext()) {
-            String vertex = iter.next();
-            System.out.println(vertex + " is connected to: " + graph.edgesOf(vertex).toString());
-        }
+                graphGenerator.generateGraph(graph);
+//              numberOfAgents = graph.vertexSet().size();
 
-        Integer[][] adjacency = simulationEngine.generateAdjacencyMatrixFromGraph(graph, numberOfAgents);
+                Iterator<String> iter = new DepthFirstIterator<>(graph);
+                while (iter.hasNext()) {
+                    String vertex = iter.next();
+                    System.out.println(vertex + " is connected to: " + graph.edgesOf(vertex).toString());
+                }
 
-        //TODO: save the social network array in a text file in order to re-use it.
-//        Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
+                Integer[][] adjacency = simulationEngine.generateAdjacencyMatrixFromGraph(graph, numberOfAgents);
+
+                //TODO: save the social network array in a text file in order to re-use it.
+//              Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
 //                                     {1, null, 1, null, 1, null, null, 1},
 //                                     {1, 1, null, 1, null, null, 1, null},
 //                                     {null, null, 1, null, 1, null, null, 1},
@@ -124,35 +135,57 @@ public class TimedSocialAdaptiveExp {
 //                                     {1, null, 1, null, null, 1, null, 1},
 //                                     {1, 1, null, 1, 1, null, 1, null}};
 
+//                System.out.println("Agent social network adjacency matrix: ");
+//                for (int i = 0; i < adjacency.length; i++) {
+//                    for (int j = 0; j < adjacency[i].length; j++) {
+//                        if (adjacency[i][j] == null) {
+//                            System.out.print("0, ");
+//                        } else {
+//                            System.out.print(adjacency[i][j] + ", ");
+//                        }
+//                    }
+//                    System.out.println();
+//                }
+                System.out.println();
 
-        System.out.println("Agent social network adjacency matrix: ");
-        for (int i=0; i<adjacency.length; i++) {
-            for (int j=0; j<adjacency[i].length; j++) {
-                if(adjacency[i][j] == null) {
-                    System.out.print("0, ");
-                } else {
-                    System.out.print(adjacency[i][j] + ", ");
+                for (int i = 0; i <= numberOfAgents; i++) {
+                    AgentController agentController;
+                    try {
+                        if (i == 0) {
+                            agentController = containerController.createNewAgent("A0", "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, graph, adjacency, logFileName1, resultFileName});
+                            agentController.start();
+                        } else {
+                            agentController = containerController.createNewAgent("A" + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, adjacency[i - 1], logFileName2, simulationEngine});
+                            agentController.start();
+                        }
+                        agentControllers.add( agentController);
+                    } catch (StaleProxyException e) {
+                        e.printStackTrace();
+                    }
                 }
+
+                while (currentTime < endTime + 1500) {
+                    currentTime = System.currentTimeMillis();
+                }
+                for( AgentController agentController : agentControllers) {
+                    agentController.kill();
+                }
+//                containerController.kill();
             }
-            System.out.println();
         }
+    }
 
-        System.out.println();
 
-        for (int i = 0; i <= numberOfAgents; i++) {
-            AgentController ac;
-            try {
-                if (i == 0) {
-                    ac = cc.createNewAgent("A0", "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, graph, adjacency, logFileName1});
-                    ac.start();
-                } else {
-                    ac = cc.createNewAgent("A" + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, adjacency[i-1], logFileName2});
-                    ac.start();
-                }
-//                ac.start();
-            } catch (StaleProxyException e) {
-                e.printStackTrace();
-            }
+    protected static void logResults(String resultFileName, String msg) {
+
+        System.out.println(msg);
+
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(resultFileName, true)));
+            out.println(msg);
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
         }
     }
 }

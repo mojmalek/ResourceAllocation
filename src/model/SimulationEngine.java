@@ -8,6 +8,15 @@ import java.util.*;
 
 public class SimulationEngine {
 
+    long parameter;
+
+    public SimulationEngine() {
+    }
+
+    public SimulationEngine(long parameter) {
+        this.parameter = parameter;
+    }
+
     long currentTime;
 
     public SortedSet<Task> findTasks(Agent myAgent) {
@@ -15,13 +24,13 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of("A1", "A2", "A3", "A4");
-        int[] taskNums = new int[] {0, 1};
+        Set<String> requesters = Set.of("A1", "A2");
+        int[] taskNums = new int[] {1};
         if( requesters.contains(myAgent.getLocalName())) {
-            taskNums = new int[] {1, 2};
+            taskNums = new int[] {2};
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] quantities = new long[] {2};
+        long[] quantities = new long[] {4};
 //        long minUtil = 10;
 //        long utilVariation = 5;
         long[] utilities = new long[] {10};
@@ -47,7 +56,7 @@ public class SimulationEngine {
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
                 currentTime = System.currentTimeMillis();
-                Task newTask = new Task(id, utility, currentTime + 5000, requiredResources);
+                Task newTask = new Task(id, utility, currentTime + 2000, requiredResources);
                 tasks.add(newTask);
             } else {
 //                System.out.println(" ");
@@ -63,11 +72,11 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {0, 1, 2};
-        long[] lifetimes = new long[] {5000};
-        Set<String> offerers = Set.of("A7", "A8");
+        long[] quantities = new long[] {1};
+        long[] lifetimes = new long[] {10000};
+        Set<String> offerers = Set.of("A5", "A6");
         if( offerers.contains(myAgent.getLocalName())) {
-            quantities = new long[] {4};
+            quantities = new long[] {parameter};
         }
         long quantity;
         long lifetime;
