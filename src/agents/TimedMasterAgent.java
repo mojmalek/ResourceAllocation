@@ -29,6 +29,7 @@ public class TimedMasterAgent extends Agent {
 
     private boolean debugMode = false;
     private String logFileName, resultFileName;
+    private String agentType;
 
     private Map<AID, Long> utilitiesInfo = new LinkedHashMap<>();
 
@@ -52,17 +53,19 @@ public class TimedMasterAgent extends Agent {
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
-            for (int i = 1; i <= numberOfAgents; i++) {
-                AID aid = new AID("A" + i, AID.ISLOCALNAME);
-                utilitiesInfo.put( aid, 0L);
-                agentAvailableResources.put(aid, new LinkedHashMap<>());
-                agentExpiredResources.put(aid, new LinkedHashMap<>());
-            }
             endTime = (long) args[1];
             graph = (Graph) args[2];
             adjacency = (Integer[][]) args[3];
             logFileName = (String) args[4];
             resultFileName = (String) args[5];
+            agentType = (String) args[6];
+        }
+
+        for (int i = 1; i <= numberOfAgents; i++) {
+            AID aid = new AID(agentType + i, AID.ISLOCALNAME);
+            utilitiesInfo.put( aid, 0L);
+            agentAvailableResources.put(aid, new LinkedHashMap<>());
+            agentExpiredResources.put(aid, new LinkedHashMap<>());
         }
 
 //        graph = createGraph(adjacency);
@@ -71,10 +74,10 @@ public class TimedMasterAgent extends Agent {
 
         addBehaviour (new WakerBehaviour(this, new Date(endTime + 500)) {
             protected void onWake() {
-                System.out.println ("Centralized total util: " + totalUtil);
+                System.out.println ("Centralized total util for " + agentType + " : " + totalUtil);
 //                System.out.println ("transfer cost: " + transferCost);
-                System.out.println ("Decentralized total util: " + agentUtilitiesSum());
-                System.out.println ("Percentage ratio: " + ((double) agentUtilitiesSum() / totalUtil * 100));
+                System.out.println ("Decentralized total util for " + agentType + " : " + agentUtilitiesSum());
+                System.out.println ("Percentage ratio for " + agentType + " : " + ((double) agentUtilitiesSum() / totalUtil * 100));
                 System.out.println ("");
                 logResults( String.valueOf(agentUtilitiesSum()));
             }
@@ -323,11 +326,11 @@ public class TimedMasterAgent extends Agent {
         Set<AID> newNeighbors = new HashSet<>();
         for (AID aid : providers) {
             String providerName = aid.getLocalName();
-            int providerId = Integer.valueOf(providerName.replace("A", ""));
+            int providerId = Integer.valueOf(providerName.replace(agentType, ""));
             Integer[] providerNeighbors = adjacency[providerId-1];
             for (int i = 0; i < providerNeighbors.length; i++) {
                 if (providerNeighbors[i] != null) {
-                    newNeighbors.add(new AID("A" + (i+1), AID.ISLOCALNAME));
+                    newNeighbors.add(new AID(agentType + (i+1), AID.ISLOCALNAME));
                 }
             }
         }
@@ -365,16 +368,16 @@ public class TimedMasterAgent extends Agent {
     void incurTransferCost(AID taskManager, AID provider) {
 
         String taskManagerName = taskManager.getLocalName();
-        String taskManagerId = taskManagerName.replace("A", "");
+        String taskManagerId = taskManagerName.replace(agentType, "");
         String providerName = provider.getLocalName();
-        String providerId = providerName.replace("A", "");
+        String providerId = providerName.replace(agentType, "");
 
         int i = Integer.valueOf(taskManagerId);
         int j = Integer.valueOf(providerId);
         double distance = 0;
         if (adjacency[i-1][j-1] == null) {
             try {
-                distance = shortestPathAlgorithm.getPathWeight (taskManagerName, providerName);
+                distance = shortestPathAlgorithm.getPathWeight (taskManagerId, providerId);
             } catch (Exception e) {
                 System.out.println("Exception: incurTransferCost " + e.getMessage());
             }
@@ -474,11 +477,11 @@ public class TimedMasterAgent extends Agent {
 
     protected void logInf(String msg) {
 
-//      System.out.println("Time:" + System.currentTimeMillis() + " " + "A0: " + msg);
+//      System.out.println("Time:" + System.currentTimeMillis() + " " + agentType + "0: " + msg);
 
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
-            out.println(System.currentTimeMillis() + " " + "A0: " + msg);
+            out.println(System.currentTimeMillis() + " " + agentType + "0: " + msg);
             out.close();
         } catch (IOException e) {
             System.err.println("Error writing file..." + e.getMessage());

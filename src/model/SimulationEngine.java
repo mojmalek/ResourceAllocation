@@ -9,12 +9,14 @@ import java.util.*;
 public class SimulationEngine {
 
     long parameter;
+    String agentType;
 
     public SimulationEngine() {
     }
 
-    public SimulationEngine(long parameter) {
+    public SimulationEngine(long parameter, String agentType) {
         this.parameter = parameter;
+        this.agentType = agentType;
     }
 
     long currentTime;
@@ -24,7 +26,7 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of("A1", "A2");
+        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
         int[] taskNums = new int[] {1};
         if( requesters.contains(myAgent.getLocalName())) {
             taskNums = new int[] {2};
@@ -74,7 +76,7 @@ public class SimulationEngine {
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         long[] quantities = new long[] {1};
         long[] lifetimes = new long[] {10000};
-        Set<String> offerers = Set.of("A5", "A6");
+        Set<String> offerers = Set.of(agentType + "5", agentType + "6");
         if( offerers.contains(myAgent.getLocalName())) {
             quantities = new long[] {parameter};
         }
@@ -142,7 +144,7 @@ public class SimulationEngine {
 
         for (int i = 1; i <= numberOfAgents; i++) {
             for (int j = i + 1; j <= numberOfAgents; j++) {
-                DefaultWeightedEdge edge = graph.getEdge("A"+i, "A"+j);
+                DefaultWeightedEdge edge = graph.getEdge(""+i, ""+j);
                 if (edge != null) {
 //                    System.out.println(graph.getEdgeWeight(edge));
                     adjacency[i-1][j-1] = (int) graph.getEdgeWeight(edge);

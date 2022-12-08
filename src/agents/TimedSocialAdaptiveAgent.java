@@ -23,9 +23,10 @@ import java.util.*;
 public class TimedSocialAdaptiveAgent extends Agent {
 
     SimulationEngine simulationEngine;
-    private boolean debugMode = false;
-    private String logFileName;
-    String agentLogFileName;
+    private boolean debugMode = true;
+    private boolean cascading = true;
+    private String logFileName, agentLogFileName;
+    private String agentType;
 
     private Integer[] neighbors;
 
@@ -67,11 +68,13 @@ public class TimedSocialAdaptiveAgent extends Agent {
             neighbors = (Integer[]) args[3];
             logFileName = (String) args[4];
             simulationEngine = (SimulationEngine) args[5];
+            cascading = (boolean) args[6];
+            agentType = (String) args[7];
+        }
 
-            for (ResourceType resourceType : ResourceType.getValues()) {
-                availableResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
-                expiredResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
-            }
+        for (ResourceType resourceType : ResourceType.getValues()) {
+            availableResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
+            expiredResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
         }
 
         agentLogFileName = "logs/" + this.getLocalName() + "-" + new Date() + ".txt";
@@ -250,10 +253,14 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
         expireRequests();
         deliberateOnRequesting (myAgent);
-        deliberateOnCascadingRequest(myAgent);
+        if(cascading) {
+            deliberateOnCascadingRequest(myAgent);
+        }
         expireOffers();
         deliberateOnOffering( myAgent);
-        deliberateOnCascadingOffers( myAgent);
+        if(cascading) {
+            deliberateOnCascadingOffers( myAgent);
+        }
         deliberateOnConfirming( myAgent);
     }
 
@@ -465,7 +472,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                 for (int i = 0; i < neighbors.length; i++) {
                     if (neighbors[i] != null) {
                         allReceivers.add(i+1);
-                        AID aid = new AID("A" + (i+1), AID.ISLOCALNAME);
+                        AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
                         receiverIds.add(aid);
                     }
                 }
@@ -522,9 +529,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity, AID requester) {
 
-        String requesterName = requester.getLocalName();
-        int requesterId = Integer.valueOf(requesterName.replace("A", ""));
-        int distance = neighbors[requesterId-1];
+//        String requesterName = requester.getLocalName();
+//        int requesterId = Integer.valueOf(requesterName.replace(agentType, ""));
+//        int distance = neighbors[requesterId-1];
 
         long cost;
         long expectedCost = 0;
@@ -840,7 +847,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         Set<Integer> allReceivers = new HashSet<>();
         allReceivers.addAll( request.allReceivers);
         for (AID aid : receiverIds) {
-            int receiver = Integer.valueOf(aid.getLocalName().replace("A", ""));
+            int receiver = Integer.valueOf(aid.getLocalName().replace(agentType, ""));
             allReceivers.add( receiver);
         }
 
@@ -863,7 +870,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
         Set<AID> receiverIds = new HashSet<>();
         for (int i = 0; i < neighbors.length; i++) {
-            AID aid = new AID("A"+(i+1), AID.ISLOCALNAME);
+            AID aid = new AID(agentType+(i+1), AID.ISLOCALNAME);
             if (neighbors[i] != null && !request.allReceivers.contains(i+1) && !request.sender.equals(aid)) {
                 receiverIds.add(aid);
             }
@@ -1062,9 +1069,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
         Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
         if (receivedOffers.containsKey(cascadedRequest.id)) {
             offers = receivedOffers.get(cascadedRequest.id);
-            String requesterName = cascadedRequest.sender.getLocalName();
-            int requesterId = Integer.valueOf(requesterName.replace("A", ""));
-            int distance = neighbors[requesterId-1];
+//            String requesterName = cascadedRequest.sender.getLocalName();
+//            int requesterId = Integer.valueOf(requesterName.replace(agentType, ""));
+//            int distance = neighbors[requesterId-1];
             long minCost, cost;
             Offer lowCostOffer;
             for (Offer offer : offers) {
@@ -1684,7 +1691,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
     void sendNewTasksToMasterAgent (SortedSet<Task> newTasks, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("A0", AID.ISLOCALNAME);
+        AID aid = new AID(agentType + "0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewTasks = new JSONObject();
@@ -1714,7 +1721,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
     void sendNewResourcesToMasterAgent (Map<ResourceType, SortedSet<ResourceItem>> newResources, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("A0", AID.ISLOCALNAME);
+        AID aid = new AID(agentType + "0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewResources = new JSONObject();
@@ -1740,7 +1747,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
     void sendTotalUtilToMasterAgent (long totalUtil, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID("A0", AID.ISLOCALNAME);
+        AID aid = new AID(agentType + "0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject jo = new JSONObject();
