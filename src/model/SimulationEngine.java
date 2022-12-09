@@ -26,10 +26,10 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
+        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "9", agentType + "10");
         int[] taskNums = new int[] {1};
         if( requesters.contains(myAgent.getLocalName())) {
-            taskNums = new int[] {2};
+            taskNums = new int[] {4};
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
         long[] quantities = new long[] {4};
@@ -74,9 +74,9 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {1};
+        long[] quantities = new long[] {2};
         long[] lifetimes = new long[] {10000};
-        Set<String> offerers = Set.of(agentType + "5", agentType + "6");
+        Set<String> offerers = Set.of(agentType + "17", agentType + "18", agentType + "22", agentType + "23");
         if( offerers.contains(myAgent.getLocalName())) {
             quantities = new long[] {parameter};
         }

@@ -84,7 +84,7 @@ public class TimedMasterAgent extends Agent {
         } );
 
 
-        addBehaviour (new TickerBehaviour(this, 5) {
+        addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {

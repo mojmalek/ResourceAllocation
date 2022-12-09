@@ -104,10 +104,10 @@ public class TimedSocialAdaptiveAgent extends Agent {
         });
 
 
-        addBehaviour (new TickerBehaviour(this, 2000) {
+        addBehaviour (new TickerBehaviour(this, 1000) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
-                if (currentTime <= endTime - 3000) {
+                if (currentTime <= endTime - 2000) {
 //                    System.out.println(getTickCount());
                     findTasks(myAgent);
                     findResources(myAgent);
@@ -116,7 +116,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         });
 
 
-        addBehaviour (new TickerBehaviour(this, 5) {
+        addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
@@ -276,7 +276,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
         for (Task task : toDoTasks) {
             currentTime = System.currentTimeMillis();
-            if (currentTime < task.deadline - 1000) {
+            if (currentTime < task.deadline - 550) {
                 if (hasEnoughResources(task, remainingResources)) {
                     remainingResources = evaluateTask(task, remainingResources);
                 } else {
@@ -309,7 +309,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         Set<Request> expiredSentRequests = new HashSet<>();
         for( Request sentRequest : sentRequests.values()) {
             currentTime = System.currentTimeMillis();
-            if (currentTime > sentRequest.timeout + 200) {
+            if (sentRequest.cascaded == false && currentTime > sentRequest.timeout + 200) {
 //                if( sentRequest.cascaded == true) {
 //                    restoreReservedItems( sentRequest);
 //                }
@@ -856,10 +856,11 @@ public class TimedSocialAdaptiveAgent extends Agent {
             logInf(this.getLocalName(), "cascaded request with id " + reqId + " preId " + request.id + " originId " + request.originalId + " quan " + missingQuantity + " for " + request.resourceType.name() + " to " + getReceiverNames(receiverIds));
             logAgentInf(this.getLocalName(), "cascaded request U: " + utilityFunction.toString());
         }
-        currentTime = System.currentTimeMillis();
-        long remaining = request.timeout - currentTime;
-        long newRemaining = (long) (0.9 * remaining);
-        long newTimeout = currentTime + newRemaining;
+//        currentTime = System.currentTimeMillis();
+//        long remaining = request.timeout - currentTime;
+//        long newRemaining = (long) (0.9 * remaining);
+//        long newTimeout = currentTime + newRemaining;
+        long newTimeout = request.timeout - 30;
 
         sendRequest(reqId, request.originalId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds, currentTime, newTimeout, request.originalTimeout, request.originalSender);
         sentRequests.put(reqId, new Request(reqId, request.id, request.originalId, true, missingQuantity, request.resourceType, request.utilityFunction, request.sender, request.originalSender, allReceivers, reservedItems, currentTime, newTimeout, request.originalTimeout));

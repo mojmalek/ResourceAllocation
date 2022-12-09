@@ -67,7 +67,7 @@ public class TimedSocialAdaptiveExp {
 
     public static void runSimulation2() throws StaleProxyException {
 
-        int numberOfAgents = 8;
+        int numberOfAgents = 32;
         long duration = 60000;
         long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2, simulationEngine3, simulationEngine4;
@@ -83,24 +83,24 @@ public class TimedSocialAdaptiveExp {
         String resultFileName3 = "logs/results/" + agentType3 + "-" + new Date() + ".txt";
         String resultFileName4 = "logs/results/" + agentType4 + "-" + new Date() + ".txt";
 
-        for (long param = 2; param <= 10; param++) {
+        for (long param = 8; param <= 8; param+=2) {
             logResults(resultFileName1, "");
             logResults(resultFileName1, "param = " + param);
             logResults(resultFileName1, "");
-            logResults(resultFileName2, "");
-            logResults(resultFileName2, "param = " + param);
-            logResults(resultFileName2, "");
-            logResults(resultFileName3, "");
-            logResults(resultFileName3, "param = " + param);
-            logResults(resultFileName3, "");
-            logResults(resultFileName4, "");
-            logResults(resultFileName4, "param = " + param);
-            logResults(resultFileName4, "");
+//            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "param = " + param);
+//            logResults(resultFileName2, "");
+//            logResults(resultFileName3, "");
+//            logResults(resultFileName3, "param = " + param);
+//            logResults(resultFileName3, "");
+//            logResults(resultFileName4, "");
+//            logResults(resultFileName4, "param = " + param);
+//            logResults(resultFileName4, "");
             simulationEngine1 = new SimulationEngine( param, agentType1);
             simulationEngine2 = new SimulationEngine( param, agentType2);
             simulationEngine3 = new SimulationEngine( param, agentType3);
             simulationEngine4 = new SimulationEngine( param, agentType4);
-            for (int exp = 1; exp <= 10; exp++) {
+            for (int exp = 1; exp <= 1; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster3 = "logs/" + "Master-" + agentType3 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
@@ -139,7 +139,7 @@ public class TimedSocialAdaptiveExp {
                 Graph<String, DefaultWeightedEdge> scaleFreeGraph = new SimpleWeightedGraph<>(vSupplier2, SupplierUtil.createDefaultWeightedEdgeSupplier());
 
                 // Small-world graph
-                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.05);
+                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.00);
                 // Scale-free graph
                 ScaleFreeGraphGenerator<String, DefaultWeightedEdge> scaleFreeGraphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
                 // Friendship graph
@@ -155,12 +155,12 @@ public class TimedSocialAdaptiveExp {
                     System.out.println(vertex + " is connected to: " + smallWorldGraph.edgesOf(vertex).toString());
                 }
 
-                System.out.println("Scale-free:");
-                Iterator<String> iter2 = new DepthFirstIterator<>(scaleFreeGraph);
-                while (iter2.hasNext()) {
-                    String vertex = iter2.next();
-                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
-                }
+//                System.out.println("Scale-free:");
+//                Iterator<String> iter2 = new DepthFirstIterator<>(scaleFreeGraph);
+//                while (iter2.hasNext()) {
+//                    String vertex = iter2.next();
+//                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
+//                }
 
                 Integer[][] smallWorldAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(smallWorldGraph, numberOfAgents);
                 Integer[][] scaleFreeAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
@@ -197,26 +197,26 @@ public class TimedSocialAdaptiveExp {
                         if (i == 0) {
                             agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster1, resultFileName1, agentType1});
                             agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster2, resultFileName2, agentType2});
-                            agentController2.start();
-                            agentController3 = containerController.createNewAgent(agentType3 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster3, resultFileName3, agentType3});
-                            agentController3.start();
-                            agentController4 = containerController.createNewAgent(agentType4 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster4, resultFileName4, agentType4});
-                            agentController4.start();
+//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+//                            agentController2.start();
+//                            agentController3 = containerController.createNewAgent(agentType3 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster3, resultFileName3, agentType3});
+//                            agentController3.start();
+//                            agentController4 = containerController.createNewAgent(agentType4 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster4, resultFileName4, agentType4});
+//                            agentController4.start();
                         } else {
                             agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
                             agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll2, simulationEngine2, false, agentType2});
-                            agentController2.start();
-                            agentController3 = containerController.createNewAgent(agentType3 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll3, simulationEngine3, true, agentType3});
-                            agentController3.start();
-                            agentController4 = containerController.createNewAgent(agentType4 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll4, simulationEngine4, false, agentType4});
-                            agentController4.start();
+//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll2, simulationEngine2, false, agentType2});
+//                            agentController2.start();
+//                            agentController3 = containerController.createNewAgent(agentType3 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll3, simulationEngine3, true, agentType3});
+//                            agentController3.start();
+//                            agentController4 = containerController.createNewAgent(agentType4 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll4, simulationEngine4, false, agentType4});
+//                            agentController4.start();
                         }
                         agentControllers.add( agentController1);
-                        agentControllers.add( agentController2);
-                        agentControllers.add( agentController3);
-                        agentControllers.add( agentController4);
+//                        agentControllers.add( agentController2);
+//                        agentControllers.add( agentController3);
+//                        agentControllers.add( agentController4);
                     } catch (StaleProxyException e) {
                         e.printStackTrace();
                     }
