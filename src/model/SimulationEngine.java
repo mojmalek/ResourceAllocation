@@ -26,7 +26,8 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "9", agentType + "10");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "7", agentType + "8", agentType + "13", agentType + "14");
+        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
         int[] taskNums = new int[] {1};
         if( requesters.contains(myAgent.getLocalName())) {
             taskNums = new int[] {4};
@@ -76,7 +77,8 @@ public class SimulationEngine {
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         long[] quantities = new long[] {2};
         long[] lifetimes = new long[] {10000};
-        Set<String> offerers = Set.of(agentType + "17", agentType + "18", agentType + "22", agentType + "23");
+//        Set<String> offerers = Set.of(agentType + "17", agentType + "18", agentType + "23", agentType + "24", agentType + "27", agentType + "28");
+        Set<String> offerers = Set.of(agentType + "6", agentType + "7");
         if( offerers.contains(myAgent.getLocalName())) {
             quantities = new long[] {parameter};
         }

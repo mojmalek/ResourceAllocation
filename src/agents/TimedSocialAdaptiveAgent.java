@@ -54,6 +54,13 @@ public class TimedSocialAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
+    private long requestLifetime = 500;
+    private long minTimeToCascadeRequest = 200;
+    private long requestTimeoutReduction = 300;
+    private long minTimeToOffer = 200;
+    private long waitUntilCascadeOffer = 100;
+    private long waitUntilConfirmOffer = 50;
+
     private int errorCount;
 
 
@@ -299,7 +306,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             expiredReceivedRequests.clear();
             for (Request request : requests) {
                 currentTime = System.currentTimeMillis();
-                if (currentTime > request.timeout + 200) {
+                if (currentTime > request.timeout + 500) {
                     expiredReceivedRequests.add( request);
                 }
             }
@@ -309,7 +316,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         Set<Request> expiredSentRequests = new HashSet<>();
         for( Request sentRequest : sentRequests.values()) {
             currentTime = System.currentTimeMillis();
-            if (sentRequest.cascaded == false && currentTime > sentRequest.timeout + 200) {
+            if (sentRequest.cascaded == false && currentTime > sentRequest.timeout + 500) {
 //                if( sentRequest.cascaded == true) {
 //                    restoreReservedItems( sentRequest);
 //                }
@@ -330,17 +337,19 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     void expireOffers() {
 
+        // No offer should be expired! It should be confirmed or rejected.
+
         Set<Offer> expiredSentOffers = new HashSet<>();
         for( Offer sentOffer : sentOffers.values()) {
             currentTime = System.currentTimeMillis();
-            if (currentTime > sentOffer.timeout + 200) {
+            if (currentTime > sentOffer.timeout + 1000) {
                 expiredSentOffers.add( sentOffer);
             }
         }
 //        Request cascadedRequest;
         for (Offer expiredOffer : expiredSentOffers) {
             sentOffers.remove( expiredOffer.id);
-            logInf( this.getLocalName(), "offer expired with id " + expiredOffer.id);
+            logErr( this.getLocalName(), "offer expired with id " + expiredOffer.id);
 //            cascadedRequest = null;
 //            for (Request sentRequest : sentRequests.values()) {
 //                if (sentRequest.previousId == expiredOffer.reqId) {
@@ -443,7 +452,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         // creates a request based on the missing quantity for each resource type
         Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
         currentTime = System.currentTimeMillis();
-        long requestTimeout = currentTime + 500;
+        long requestTimeout = currentTime + requestLifetime;
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
@@ -724,8 +733,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                     // Greedy approach
                     selectedRequest = selectBestRequest( copyOfRequests, availableQuantity);
                     receiverIds = findNeighborsToCascadeRequest( selectedRequest);
-                    currentTime = System.currentTimeMillis();
-                    if(currentTime < selectedRequest.timeout - 100 && receiverIds.size() > 0) {
+                    if(thereIsTimeToCascadeRequest(selectedRequest.timeout) && receiverIds.size() > 0) {
                         if (availableQuantity < selectedRequest.quantity) {
                             offerQuantity = availableQuantity;
                             cascadeRequest(selectedRequest, offerQuantity, receiverIds);
@@ -746,8 +754,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                 }
                 for (Request request : copyOfRequests) {
                     receiverIds = findNeighborsToCascadeRequest( request);
-                    currentTime = System.currentTimeMillis();
-                    if(currentTime < request.timeout && receiverIds.size() > 0) {
+                    if(thereIsTimeToCascadeRequest(request.timeout) && receiverIds.size() > 0) {
                         cascadeRequest(request, 0, receiverIds);
                         cascadedRequests.add( request);
                     }
@@ -755,14 +762,24 @@ public class TimedSocialAdaptiveAgent extends Agent {
             } else {
                 for (Request request : copyOfRequests) {
                     receiverIds = findNeighborsToCascadeRequest( request);
-                    currentTime = System.currentTimeMillis();
-                    if(currentTime < request.timeout && receiverIds.size() > 0) {
+                    if(thereIsTimeToCascadeRequest(request.timeout) && receiverIds.size() > 0) {
                         cascadeRequest(request, 0, receiverIds);
                         cascadedRequests.add( request);
                     }
                 }
             }
             requests.removeAll( cascadedRequests);
+        }
+    }
+
+
+    boolean thereIsTimeToCascadeRequest (long timeout) {
+
+        currentTime = System.currentTimeMillis();
+        if(currentTime < timeout - minTimeToCascadeRequest) {
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -796,7 +813,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( copyOfRequests, availableQuantity);
                     currentTime = System.currentTimeMillis();
-                    if (currentTime < selectedRequest.timeout - 100) {
+                    if (currentTime < selectedRequest.timeout - minTimeToOffer) {
                         if( availableQuantity < selectedRequest.quantity) {
                             offerQuantity = availableQuantity;
                         } else {
@@ -860,7 +877,8 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //        long remaining = request.timeout - currentTime;
 //        long newRemaining = (long) (0.9 * remaining);
 //        long newTimeout = currentTime + newRemaining;
-        long newTimeout = request.timeout - 30;
+        long newTimeout = request.timeout - requestTimeoutReduction;
+        //TODO: make sure new timeout is valid
 
         sendRequest(reqId, request.originalId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds, currentTime, newTimeout, request.originalTimeout, request.originalSender);
         sentRequests.put(reqId, new Request(reqId, request.id, request.originalId, true, missingQuantity, request.resourceType, request.utilityFunction, request.sender, request.originalSender, allReceivers, reservedItems, currentTime, newTimeout, request.originalTimeout));
@@ -884,9 +902,10 @@ public class TimedSocialAdaptiveAgent extends Agent {
     Request selectBestRequest(ArrayList<Request> requests, long remainingQuantity) {
 
         //TODO: select the request with highest efficiency
+        // The request efficiency is defined as the ratio between its utility and requested quantity.
 
         Request selectedRequest = requests.get(0);
-        long highestUtility = 0;
+        double highestEfficiency = 0;
         long offerQuantity;
 
         for (Request request : requests) {
@@ -896,8 +915,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
                 offerQuantity = request.quantity;
             }
             long util = request.utilityFunction.get(offerQuantity);
-            if (util > highestUtility) {
-                highestUtility = util;
+            double efficiency = util / offerQuantity;
+            if (efficiency > highestEfficiency) {
+                highestEfficiency = efficiency;
                 selectedRequest = request;
             }
         }
@@ -926,7 +946,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //        long remaining = requestTimeout - currentTime;
 //        long newRemaining = (long) (1.1 * remaining);
 //        long offerTimeout = currentTime + newRemaining;
-        long offerTimeout = originReqTimeout;
+        long offerTimeout = originReqTimeout + 200;
 
         String offerId = UUID.randomUUID().toString();
         if( debugMode) {
@@ -934,6 +954,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
             logAgentInf(this.getLocalName(), "created offer C: " + costFunction.toString());
         }
         sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems, offerTimeout);
+//        currentTime = System.currentTimeMillis();
+//        long remaining = offerTimeout - currentTime;
+//        System.out.println("remaining offerTimeout: " + remaining);
         sentOffers.put( offerId, new Offer(offerId, reqId, originalReqId, false, offerQuantity, resourceType, costFunction, offeredItems, offeredItems, offerer, requester, null, offerTimeout));
     }
 
@@ -984,7 +1007,8 @@ public class TimedSocialAdaptiveAgent extends Agent {
         JSONObject joCostFunction = (JSONObject) jo.get(Ontology.OFFER_COST_FUNCTION);
         JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.OFFERED_ITEMS);
 
-        if( sentRequests.keySet().contains(reqId) == true) {
+        currentTime = System.currentTimeMillis();
+        if (sentRequests.keySet().contains(reqId) == true && currentTime < sentRequests.get(reqId).timeout) {
             if (debugMode) {
                 logInf(myAgent.getLocalName(), "received offer with id " + offerId + " with quantity " + offerQuantity + " for reqId " + reqId + " for " + resourceType.name() + " from " + msg.getSender().getLocalName());
             }
@@ -1022,7 +1046,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
         } else {
             if (debugMode) {
-                logInf(myAgent.getLocalName(), "received late offer with id " + offerId + " with quantity " + offerQuantity + " for removed reqId " + reqId + " for " + resourceType.name() + " from " + msg.getSender().getLocalName());
+                logErr(myAgent.getLocalName(), "received late offer with id " + offerId + " with quantity " + offerQuantity + " for removed reqId " + reqId + " for " + resourceType.name() + " from " + msg.getSender().getLocalName());
             }
             sendConfirmation( offerId, msg.getSender(), resourceType, 0, null);
         }
@@ -1034,7 +1058,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
         for (var request : sentRequests.entrySet()) {
             if (request.getValue().cascaded == true && request.getValue().processed == false) {
                 currentTime = System.currentTimeMillis();
-                if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < 100) {
+                if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < waitUntilCascadeOffer) {
                     cascadeOffers(request.getValue());
                 }
             }
@@ -1064,7 +1088,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //        long remaining = cascadedRequest.timeout - currentTime;
 //        long newRemaining = (long) (1.1 * remaining);
 //        long offerTimeout = currentTime + newRemaining;
-        long offerTimeout = cascadedRequest.originalTimeout;
+        long offerTimeout = cascadedRequest.originalTimeout + 200;
 
         Set<Offer> offers = null;
         Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
@@ -1077,12 +1101,12 @@ public class TimedSocialAdaptiveAgent extends Agent {
             Offer lowCostOffer;
             for (Offer offer : offers) {
                 currentTime = System.currentTimeMillis();
-                if(currentTime < offer.timeout) {
+//                if(currentTime < offer.timeout) {
                     offerQuantities.put(offer, 0L);
 //                    if (offer.timeout > offerTimeout) {
 //                        offerTimeout = offer.timeout;
 //                    }
-                }
+//                }
             }
             for (long q=offerQuantity+1; q<=offerQuantity+cascadedRequest.quantity; q++) {
                 minCost = Integer.MAX_VALUE;
@@ -1090,7 +1114,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                 lowCostOffer = null;
                 for (Offer offer : offers) {
                     currentTime = System.currentTimeMillis();
-                    if (currentTime < offer.timeout) {
+//                    if (currentTime < offer.timeout) {
                         if (hasExtraItem(offer, offerQuantities)) {
                             cost = totalCost(offer, offerQuantities);
                             if (cost < minCost) {
@@ -1098,7 +1122,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                                 lowCostOffer = offer;
                             }
                         }
-                    }
+//                    }
                 }
                 if (lowCostOffer != null) {
 //                    cost += distance * 1;
@@ -1162,6 +1186,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
                 }
 
                 sendOffer(cascadedRequest.previousId, offerId, cascadedRequest.sender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems, offerTimeout);
+//                currentTime = System.currentTimeMillis();
+//                long remaining = offerTimeout - currentTime;
+//                System.out.println("remaining offerTimeout: " + remaining);
                 sentOffers.put(offerId, new Offer(offerId, cascadedRequest.previousId, cascadedRequest.originalId, true, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, cascadedRequest.reservedItems, this.getAID(), cascadedRequest.sender, offers, offerTimeout));
 //            } else {
 //                restoreReservedItems( cascadedRequest);
@@ -1194,7 +1221,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
         for (var request : sentRequests.entrySet()) {
             currentTime = System.currentTimeMillis();
-            if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < 20) {
+            if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < waitUntilConfirmOffer) {
 //            if (currentTime < request.getValue().timeout) {
                 if (request.getValue().cascaded == false && receivedOffers.containsKey(request.getKey())) {
                     Map<Offer, Long> confirmQuantities = processOffers(request.getValue());
@@ -1341,9 +1368,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
         Map<Offer, Long> confirmQuantities = new LinkedHashMap<>();
         for (Offer offer : offers) {
             currentTime = System.currentTimeMillis();
-            if(currentTime < offer.timeout) {
+//            if(currentTime < offer.timeout) {
                 confirmQuantities.put(offer, 0L);
-            }
+//            }
         }
 
         for (long q=1; q<=request.quantity; q++) {
@@ -1351,7 +1378,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             lowCostOffer = null;
             for (Offer offer : offers) {
                 currentTime = System.currentTimeMillis();
-                if(currentTime < offer.timeout) {
+//                if(currentTime < offer.timeout) {
                     if (hasExtraItem(offer, confirmQuantities)) {
                         cost = totalCost(offer, confirmQuantities);
                         if (cost < minCost) {
@@ -1359,7 +1386,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
                             lowCostOffer = offer;
                         }
                     }
-                }
+//                }
             }
             if (lowCostOffer != null) {
                     confirmQuantities.put(lowCostOffer, confirmQuantities.get(lowCostOffer) + 1);
