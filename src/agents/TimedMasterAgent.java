@@ -69,7 +69,7 @@ public class TimedMasterAgent extends Agent {
         }
 
 //        graph = createGraph(adjacency);
-        shortestPathAlgorithm = new DijkstraShortestPath(graph);
+//        shortestPathAlgorithm = new DijkstraShortestPath(graph);
 
 
         addBehaviour (new WakerBehaviour(this, new Date(endTime + 500)) {

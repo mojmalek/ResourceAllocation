@@ -140,6 +140,47 @@ public class SimulationEngine {
     }
 
 
+    public Integer[][] generateRandomAdjacencyMatrix2(int numberOfAgents, int numberOfEdges) {
+
+        Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
+        Random random = new Random();
+        int[] weights = new int[] {1};
+        int weight;
+
+        // all possible edges
+        Set<String> edges = new HashSet<>();
+        for (int i = 0; i < numberOfAgents; i++) {
+            for (int j = i + 1; j < numberOfAgents; j++) {
+                edges.add( String.valueOf(i) + j);
+            }
+        }
+
+        // first connect each agent to its next
+        for (int i = 0; i < numberOfAgents-1; i++) {
+            weight = weights[random.nextInt( weights.length)];
+            adjacency[i][i+1] = weight;
+            adjacency[i+1][i] = weight;
+            edges.remove(String.valueOf(i) + (i+1));
+            numberOfEdges--;
+        }
+
+        // then randomly add more edges
+        while (numberOfEdges > 0) {
+            String[] edgeArray = edges.toArray(new String[edges.size()]);
+            String edge = edgeArray[random.nextInt(edgeArray.length)];
+            int i = Character.getNumericValue(edge.charAt(0));
+            int j = Character.getNumericValue(edge.charAt(1));
+            weight = weights[random.nextInt( weights.length)];
+            adjacency[i][j] = weight;
+            adjacency[j][i] = weight;
+            edges.remove(edge);
+            numberOfEdges--;
+        }
+
+        return adjacency;
+    }
+
+
     public Integer[][] generateAdjacencyMatrixFromGraph (Graph<String, DefaultWeightedEdge > graph, int numberOfAgents) {
 
         Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];

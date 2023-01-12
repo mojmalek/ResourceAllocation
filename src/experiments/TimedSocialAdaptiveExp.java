@@ -29,9 +29,9 @@ public class TimedSocialAdaptiveExp {
     public static void main(String[] args) {
         try {
 //            runSimulation1();
-            smallWorldSim();
+//            smallWorldSim();
 //            scaleFreeSim();
-//            randomSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -320,16 +320,16 @@ public class TimedSocialAdaptiveExp {
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (int degree = 4; degree <= 4; degree+=2) {
+        for (int degree = 2; degree <= 8; degree+=2) {
             logResults(resultFileName1, "");
             logResults(resultFileName1, "degree = " + degree);
             logResults(resultFileName1, "");
             logResults(resultFileName2, "");
             logResults(resultFileName2, "degree = " + degree);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( 8, agentType1);
-            simulationEngine2 = new SimulationEngine( 8, agentType2);
-            for (int exp = 1; exp <= 1; exp++) {
+            simulationEngine1 = new SimulationEngine( 16, agentType1);
+            simulationEngine2 = new SimulationEngine( 16, agentType2);
+            for (int exp = 1; exp <= 20; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
@@ -344,28 +344,30 @@ public class TimedSocialAdaptiveExp {
 //              double connectivity = 0.0;
 //              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
 
-                Supplier<String> vSupplier = new Supplier<String>() {
-                    private int id = 1;
-                    @Override
-                    public String get() {
-                        return "" + id++;
-                    }
-                };
+                int numberOfEdges = degree * numberOfAgents / 2;
+                Integer[][] randomAdjacency = simulationEngine1.generateRandomAdjacencyMatrix2(numberOfAgents, numberOfEdges);
 
-                Graph<String, DefaultWeightedEdge> randomGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
+//                Supplier<String> vSupplier = new Supplier<String>() {
+//                    private int id = 1;
+//                    @Override
+//                    public String get() {
+//                        return "" + id++;
+//                    }
+//                };
+
+//                Graph<String, DefaultWeightedEdge> randomGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
                 // Random graph
-                //TODO: graph must be connected
-                GnmRandomGraphGenerator<String, DefaultWeightedEdge> randomGraphGenerator = new GnmRandomGraphGenerator<>( numberOfAgents, degree * numberOfAgents / 2);
-                randomGraphGenerator.generateGraph(randomGraph);
+//                GnmRandomGraphGenerator<String, DefaultWeightedEdge> randomGraphGenerator = new GnmRandomGraphGenerator<>( numberOfAgents, degree * numberOfAgents / 2);
+//                randomGraphGenerator.generateGraph(randomGraph);
 
                 System.out.println("Random:");
-                Iterator<String> iter1 = new DepthFirstIterator<>(randomGraph);
-                while (iter1.hasNext()) {
-                    String vertex = iter1.next();
-                    System.out.println(vertex + " is connected to: " + randomGraph.edgesOf(vertex).toString());
-                }
+//                Iterator<String> iter1 = new DepthFirstIterator<>(randomGraph);
+//                while (iter1.hasNext()) {
+//                    String vertex = iter1.next();
+//                    System.out.println(vertex + " is connected to: " + randomGraph.edgesOf(vertex).toString());
+//                }
 
-                Integer[][] randomAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(randomGraph, numberOfAgents);
+//                Integer[][] randomAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(randomGraph, numberOfAgents);
 
                 //TODO: save the social network array in a text file in order to re-use it.
 //              Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
@@ -377,17 +379,17 @@ public class TimedSocialAdaptiveExp {
 //                                     {1, null, 1, null, null, 1, null, 1},
 //                                     {1, 1, null, 1, 1, null, 1, null}};
 
-//                System.out.println("Agent social network adjacency matrix: ");
-//                for (int i = 0; i < adjacency.length; i++) {
-//                    for (int j = 0; j < adjacency[i].length; j++) {
-//                        if (adjacency[i][j] == null) {
-//                            System.out.print("0, ");
-//                        } else {
-//                            System.out.print(adjacency[i][j] + ", ");
-//                        }
-//                    }
-//                    System.out.println();
-//                }
+                System.out.println("Agent social network adjacency matrix: ");
+                for (int i = 0; i < randomAdjacency.length; i++) {
+                    for (int j = 0; j < randomAdjacency[i].length; j++) {
+                        if (randomAdjacency[i][j] == null) {
+                            System.out.print("0, ");
+                        } else {
+                            System.out.print(randomAdjacency[i][j] + ", ");
+                        }
+                    }
+                    System.out.println();
+                }
                 System.out.println();
 
                 agentControllers.clear();
@@ -397,9 +399,9 @@ public class TimedSocialAdaptiveExp {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, randomGraph, randomAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, null, randomAdjacency, logFileNameMaster1, resultFileName1, agentType1});
                             agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, randomGraph, randomAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, null, randomAdjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
                             agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, randomAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
