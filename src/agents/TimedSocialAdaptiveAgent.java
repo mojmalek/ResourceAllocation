@@ -56,7 +56,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     private long requestLifetime = 500;
     private long minTimeToCascadeRequest = 200;
-    private long requestTimeoutReduction = 300;
+    private long requestTimeoutReduction = 30;
     private long minTimeToOffer = 200;
     private long waitUntilCascadeOffer = 100;
     private long waitUntilConfirmOffer = 50;

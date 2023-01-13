@@ -30,8 +30,8 @@ public class TimedSocialAdaptiveExp {
         try {
 //            runSimulation1();
 //            smallWorldSim();
-//            scaleFreeSim();
-            randomSim();
+            scaleFreeSim();
+//            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -82,7 +82,7 @@ public class TimedSocialAdaptiveExp {
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (int degree = 2; degree <= 8; degree+=2) {
+        for (int degree = 2; degree <= 2; degree+=2) {
             logResults(resultFileName1, "");
             logResults(resultFileName1, "degree = " + degree);
             logResults(resultFileName1, "");
@@ -189,7 +189,7 @@ public class TimedSocialAdaptiveExp {
 
     public static void scaleFreeSim() throws StaleProxyException {
 
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         long duration = 60000;
         long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
@@ -201,7 +201,7 @@ public class TimedSocialAdaptiveExp {
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long resource = 8; resource <= 8; resource+=2) {
+        for (long resource = 16; resource <= 16; resource+=2) {
             logResults(resultFileName1, "");
             logResults(resultFileName1, "resource = " + resource);
             logResults(resultFileName1, "");
@@ -320,7 +320,7 @@ public class TimedSocialAdaptiveExp {
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (int degree = 2; degree <= 8; degree+=2) {
+        for (int degree = 2; degree <= 2; degree+=2) {
             logResults(resultFileName1, "");
             logResults(resultFileName1, "degree = " + degree);
             logResults(resultFileName1, "");
