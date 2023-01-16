@@ -82,20 +82,20 @@ public class TimedSocialAdaptiveExp {
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (int degree = 2; degree <= 2; degree+=2) {
+        for (int param = 4; param <= 16; param+=2) {
             logResults(resultFileName1, "");
-            logResults(resultFileName1, "degree = " + degree);
+            logResults(resultFileName1, "param = " + param);
             logResults(resultFileName1, "");
             logResults(resultFileName2, "");
-            logResults(resultFileName2, "degree = " + degree);
+            logResults(resultFileName2, "param = " + param);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( 16, agentType1);
-            simulationEngine2 = new SimulationEngine( 16, agentType2);
-            for (int exp = 1; exp <= 10; exp++) {
-                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
+            simulationEngine1 = new SimulationEngine( param, agentType1);
+            simulationEngine2 = new SimulationEngine( param, agentType2);
+            for (int exp = 1; exp <= 20; exp++) {
+                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
 
                 Runtime rt = Runtime.instance();
                 Profile profile = new ProfileImpl();
@@ -116,7 +116,7 @@ public class TimedSocialAdaptiveExp {
 
                 Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
                 // Small-world graph
-                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, degree, 0.05);
+                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.05);
                 smallWorldGraphGenerator.generateGraph(smallWorldGraph);
 
                 System.out.println("Small-world:");
@@ -201,7 +201,7 @@ public class TimedSocialAdaptiveExp {
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long resource = 16; resource <= 16; resource+=2) {
+        for (long resource = 4; resource <= 16; resource+=2) {
             logResults(resultFileName1, "");
             logResults(resultFileName1, "resource = " + resource);
             logResults(resultFileName1, "");
