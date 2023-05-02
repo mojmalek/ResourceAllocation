@@ -56,8 +56,9 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     private long requestLifetime = 500;
     private long minTimeToCascadeRequest = 200;
-    private long requestTimeoutReduction = 30;
     private long minTimeToOffer = 200;
+    private long requestTimeoutReduction = 30;
+    private long offerTimeoutExtension = 200;
     private long waitUntilCascadeOffer = 100;
     private long waitUntilConfirmOffer = 50;
 
@@ -873,10 +874,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             logInf(this.getLocalName(), "cascaded request with id " + reqId + " preId " + request.id + " originId " + request.originalId + " quan " + missingQuantity + " for " + request.resourceType.name() + " to " + getReceiverNames(receiverIds));
             logAgentInf(this.getLocalName(), "cascaded request U: " + utilityFunction.toString());
         }
-//        currentTime = System.currentTimeMillis();
-//        long remaining = request.timeout - currentTime;
-//        long newRemaining = (long) (0.9 * remaining);
-//        long newTimeout = currentTime + newRemaining;
+
         long newTimeout = request.timeout - requestTimeoutReduction;
         //TODO: make sure new timeout is valid
 
@@ -901,8 +899,8 @@ public class TimedSocialAdaptiveAgent extends Agent {
 
     Request selectBestRequest(ArrayList<Request> requests, long remainingQuantity) {
 
-        //TODO: select the request with highest efficiency
-        // The request efficiency is defined as the ratio between its utility and requested quantity.
+        // select the request with the highest efficiency
+        // the request efficiency is defined as the ratio between its utility and requested quantity.
 
         Request selectedRequest = requests.get(0);
         double highestEfficiency = 0;
@@ -942,21 +940,13 @@ public class TimedSocialAdaptiveAgent extends Agent {
             logErr (this.getLocalName(), "createOffer - offeredItems.size() != (int) offerQuantity");
         }
 
-//        currentTime = System.currentTimeMillis();
-//        long remaining = requestTimeout - currentTime;
-//        long newRemaining = (long) (1.1 * remaining);
-//        long offerTimeout = currentTime + newRemaining;
-        long offerTimeout = originReqTimeout + 200;
-
+        long offerTimeout = originReqTimeout + offerTimeoutExtension;
         String offerId = UUID.randomUUID().toString();
         if( debugMode) {
             logInf(this.getLocalName(), "created offer with id " + offerId + " reqId " + reqId + " originReqId " + originalReqId + " for " + resourceType.name() + " quan " + offerQuantity + " to " + requester.getLocalName());
             logAgentInf(this.getLocalName(), "created offer C: " + costFunction.toString());
         }
         sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems, offerTimeout);
-//        currentTime = System.currentTimeMillis();
-//        long remaining = offerTimeout - currentTime;
-//        System.out.println("remaining offerTimeout: " + remaining);
         sentOffers.put( offerId, new Offer(offerId, reqId, originalReqId, false, offerQuantity, resourceType, costFunction, offeredItems, offeredItems, offerer, requester, null, offerTimeout));
     }
 
@@ -1084,12 +1074,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             offeredItems.put(item.getKey(), item.getValue());
         }
 
-//        currentTime = System.currentTimeMillis();
-//        long remaining = cascadedRequest.timeout - currentTime;
-//        long newRemaining = (long) (1.1 * remaining);
-//        long offerTimeout = currentTime + newRemaining;
-        long offerTimeout = cascadedRequest.originalTimeout + 200;
-
+        long offerTimeout = cascadedRequest.originalTimeout + offerTimeoutExtension;
         Set<Offer> offers = null;
         Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
         if (receivedOffers.containsKey(cascadedRequest.id)) {
@@ -1186,9 +1171,6 @@ public class TimedSocialAdaptiveAgent extends Agent {
                 }
 
                 sendOffer(cascadedRequest.previousId, offerId, cascadedRequest.sender, cascadedRequest.resourceType, offerQuantity, costFunction, offeredItems, offerTimeout);
-//                currentTime = System.currentTimeMillis();
-//                long remaining = offerTimeout - currentTime;
-//                System.out.println("remaining offerTimeout: " + remaining);
                 sentOffers.put(offerId, new Offer(offerId, cascadedRequest.previousId, cascadedRequest.originalId, true, offerQuantity, cascadedRequest.resourceType, costFunction, offeredItems, cascadedRequest.reservedItems, this.getAID(), cascadedRequest.sender, offers, offerTimeout));
 //            } else {
 //                restoreReservedItems( cascadedRequest);
