@@ -11,13 +11,19 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.*;
 
 
 public class RLNeighborAdaptiveAgent extends Agent {
 
-    SimulationEngine simulationEngine = new SimulationEngine();
+    SimulationEngine simulationEngine;
     private boolean debugMode = false;
+    private String logFileName, agentLogFileName;
+    private String agentType;
 
     private Integer[] neighbors;
     private Map<AID, ProtocolPhase> neighborsPhases = new LinkedHashMap<>();
@@ -57,19 +63,24 @@ public class RLNeighborAdaptiveAgent extends Agent {
             int myId = (int) args[1];
             numberOfRounds = (int) args[2];
             neighbors = (Integer[]) args[3];
+            logFileName = (String) args[4];
+            simulationEngine = (SimulationEngine) args[5];
+            agentType = (String) args[6];
+        }
 
-            for (int i = 0; i < neighbors.length; i++) {
-                if (neighbors[i] != null) {
-                    AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
-                    neighborsPhases.put(aid, ProtocolPhase.REQUESTING);
-                }
+        for (int i = 0; i < neighbors.length; i++) {
+            if (neighbors[i] != null) {
+                AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
+                neighborsPhases.put(aid, ProtocolPhase.REQUESTING);
             }
         }
+
+        agentLogFileName = "logs/" + this.getLocalName() + "-" + new Date() + ".txt";
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 if (this.getTickCount() <= numberOfRounds) {
-                        System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
+                    System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
 
                     findTasks(myAgent);
                     findResources(myAgent);
@@ -244,7 +255,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
         for (int i = 0; i < neighbors.length; i++) {
             if (neighbors[i] != null) {
-                AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
+                AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
                 msg.addReceiver(aid);
             }
         }
@@ -444,7 +455,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
                 for (int i = 0; i < neighbors.length; i++) {
                     if (neighbors[i] != null) {
                         allReceivers.add(i+1);
-                        AID aid = new AID(numberOfAgents + "Agent" + (i+1), AID.ISLOCALNAME);
+                        AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
                         receiverIds.add(aid);
                     }
                 }
@@ -478,22 +489,20 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
     Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity, AID requester) {
 
-        String requesterName = requester.getLocalName();
-        int requesterId = Integer.valueOf(requesterName.replace(numberOfAgents+"Agent", ""));
-        int distance = neighbors[requesterId-1];
+//        String requesterName = requester.getLocalName();
+//        int requesterId = Integer.valueOf(requesterName.replace(agentType, ""));
+//        int distance = neighbors[requesterId-1];
 
         long cost;
         long expectedCost = 0;
         Map<Long, Long> offerCostFunction = new LinkedHashMap<>();
         for (long q=1; q<=offerQuantity; q++) {
             cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - q);
-
-            cost += distance * 1;
-
-            if (cost == 0) {
-                expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
+//            cost += distance * 1;
+//            if (cost == 0) {
+//                expectedCost = computeExpectedUtilityOfResources(resourceType, q, availableResources.get(resourceType));
 //                System.out.println( expectedCost);
-            }
+//            }
             offerCostFunction.put(q, (long) (cost + 0.05 * expectedCost));
         }
 
@@ -1258,7 +1267,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     void sendNewTasksToMasterAgent (SortedSet<Task> newTasks, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(agentType + "0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewTasks = new JSONObject();
@@ -1287,7 +1296,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     void sendNewResourcesToMasterAgent (Map<ResourceType, SortedSet<ResourceItem>> newResources, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(agentType + "0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject joNewResources = new JSONObject();
@@ -1313,7 +1322,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     void sendTotalUtilToMasterAgent (long totalUtil, Agent myAgent) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        AID aid = new AID(numberOfAgents + "Agent0", AID.ISLOCALNAME);
+        AID aid = new AID(agentType + "0", AID.ISLOCALNAME);
         msg.addReceiver(aid);
 
         JSONObject jo = new JSONObject();
@@ -1386,6 +1395,51 @@ public class RLNeighborAdaptiveAgent extends Agent {
             msg = myAgent.receive( mt);
         }
 //        System.out.println( "This is the end!");
+    }
+
+
+    protected void logInf (String agentId, String msg) {
+
+        if (debugMode) {
+            try {
+                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+                out.println(System.currentTimeMillis() + " " + agentId + " " + msg);
+                out.println();
+                out.close();
+            } catch (IOException e) {
+                System.err.println("Error writing file..." + e.getMessage());
+            }
+        }
+    }
+
+
+    protected void logErr (String agentId, String msg) {
+
+        System.out.println("Error!! " + agentId + " " + msg);
+
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+            out.println("Error!! " + agentId + " " + msg);
+            out.println();
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
+        }
+    }
+
+
+    protected void logAgentInf (String agentId, String msg) {
+
+//        if (debugMode) {
+//            try {
+//                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(agentLogFileName, true)));
+//                out.println(System.currentTimeMillis() + " " + agentId + " " + msg);
+//                out.println();
+//                out.close();
+//            } catch (IOException e) {
+//                System.err.println("Error writing file..." + e.getMessage());
+//            }
+//        }
     }
 
 }
