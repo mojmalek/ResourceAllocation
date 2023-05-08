@@ -36,7 +36,11 @@ public class RLNeighborAdaptiveAgent extends Agent {
     private int numberOfAgents;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
-    private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
+    private Map<ResourceType, SortedSet<ResourceItem>> expiredResources = new LinkedHashMap<>();
+
+    private int totalReceivedResources;
+    private int totalConsumedResource;
+    private int totalExpiredResource;
 
     // reqId
     public Map<String, Request> sentRequests = new LinkedHashMap<>();
@@ -75,20 +79,78 @@ public class RLNeighborAdaptiveAgent extends Agent {
             }
         }
 
+        for (ResourceType resourceType : ResourceType.getValues()) {
+            availableResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
+            expiredResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
+        }
+
         agentLogFileName = "logs/" + this.getLocalName() + "-" + new Date() + ".txt";
 
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 if (this.getTickCount() <= numberOfRounds) {
-                    System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
-
+//                    System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
                     findTasks(myAgent);
                     findResources(myAgent);
                     negotiate(myAgent);
                     performTasks(myAgent);
                 }
+                if (this.getTickCount() == numberOfRounds + 1) {
+                    int totalAvailable = 0;
+                    for (var resource : availableResources.entrySet()) {
+                        totalAvailable += resource.getValue().size();
+                    }
+                    System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
+                    if (totalReceivedResources - totalConsumedResource - totalExpiredResource != totalAvailable ) {
+                        int difference = totalReceivedResources - totalConsumedResource - totalExpiredResource - totalAvailable;
+                        System.out.println ("Error!! " + myAgent.getLocalName() + " has INCORRECT number of resources left. Diff: " + difference);
+                    }
+                }
             }
         });
+
+
+//        addBehaviour(new CyclicBehaviour() {
+//            @Override
+//            public void action() {
+//                ACLMessage msg = myAgent.receive();
+//                if (msg != null) {
+//                    int performative = msg.getPerformative();
+//                    switch (performative) {
+//                        case ACLMessage.REQUEST:
+//                            try {
+//                                storeRequest(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                        case ACLMessage.PROPOSE:
+//                            try {
+//                                storeOffer(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                        case ACLMessage.CONFIRM:
+//                            try {
+//                                processConfirmation(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                        case ACLMessage.INFORM:
+//                            try {
+//                                processNotification(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                    }
+//                } else {
+//                    block();
+//                }
+//            }
+//        });
     }
 
 
@@ -109,8 +171,6 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
     private void findResources(Agent myAgent) {
 
-//        System.out.println (myAgent.getLocalName() + " is finding resources.");
-
         // decrease lifetime of remaining resources
         expireResourceItems( myAgent);
 
@@ -118,18 +178,12 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
         // add to available resources
         for (var newResource : newResources.entrySet()) {
-            if (availableResources.containsKey(newResource.getKey())) {
-                SortedSet<ResourceItem> availableItems = availableResources.get( newResource.getKey());
-                availableItems.addAll( newResource.getValue());
-                availableResources.put( newResource.getKey(), availableItems);
-            } else {
-                availableResources.put( newResource.getKey(), newResource.getValue());
-            }
+            availableResources.get(newResource.getKey()).addAll( newResource.getValue());
+            totalReceivedResources += newResource.getValue().size();
+//            for (ResourceItem item : newResource.getValue()) {
+//                logInf( myAgent.getLocalName(), "received resource item with id: " + item.getId());
+//            }
         }
-
-//        for (var entry : availableResources.entrySet()) {
-//            System.out.println( myAgent.getLocalName() + " has " + entry.getValue().size() + " available item of type: " + entry.getKey().name());
-//        }
 
         sendNewResourcesToMasterAgent (newResources, myAgent);
     }
@@ -138,17 +192,12 @@ public class RLNeighborAdaptiveAgent extends Agent {
     void expireResourceItems(Agent myAgent) {
 
         SortedSet<ResourceItem> availableItems;
-        ArrayList<ResourceItem> expiredItems;
-        ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
+        SortedSet<ResourceItem> expiredItems;
+        SortedSet<ResourceItem> expiredItemsInThisRound = new TreeSet<>(new ResourceItem.resourceItemComparator());
         for (var resource : availableResources.entrySet()) {
             expiredItemsInThisRound.clear();
             availableItems = availableResources.get( resource.getKey());
-            if (expiredResources.containsKey( resource.getKey())) {
-                expiredItems = expiredResources.get( resource.getKey());
-            } else {
-                expiredItems = new ArrayList<>();
-                expiredResources.put( resource.getKey(), expiredItems);
-            }
+            expiredItems = expiredResources.get( resource.getKey());
             for (ResourceItem item : availableItems) {
                 item.setExpiryTime( item.getExpiryTime() - 1);
                 if (item.getExpiryTime() == 0) {
@@ -158,14 +207,9 @@ public class RLNeighborAdaptiveAgent extends Agent {
             }
             int initialSize = availableItems.size();
             availableItems.removeAll( expiredItemsInThisRound);
+            totalExpiredResource += expiredItemsInThisRound.size();
             if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
-                System.out.println("Error!!");
-            }
-        }
-
-        if (debugMode) {
-            for (var entry : expiredResources.entrySet()) {
-                System.out.println(myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
+                logErr( myAgent.getLocalName(), "initialSize - expiredItemsNow.size() != availableItems.size()");
             }
         }
     }
@@ -412,17 +456,14 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
     void processTask (Task task) {
 
-        try {
-            for (var entry : task.requiredResources.entrySet()) {
-                SortedSet<ResourceItem> resourceItems = availableResources.get(entry.getKey());
-                for (int i = 0; i < entry.getValue(); i++) {
-                    ResourceItem item = resourceItems.first();
-                    resourceItems.remove(item);
-                }
-                availableResources.replace(entry.getKey(), resourceItems);
+        for (var entry : task.requiredResources.entrySet()) {
+            SortedSet<ResourceItem> resourceItems = availableResources.get(entry.getKey());
+            for (int i = 0; i < entry.getValue(); i++) {
+                ResourceItem item = resourceItems.first();
+                resourceItems.remove(item);
+                totalConsumedResource++;
+//                logInf( this.getLocalName(), "consumed resource item with id: " + item.getId());
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
         }
     }
 
@@ -487,7 +528,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity, AID requester) {
+    Map<Long, Long> computeOfferCostFunction(ResourceType resourceType, long availableQuantity, long offerQuantity) {
 
 //        String requesterName = requester.getLocalName();
 //        int requesterId = Integer.valueOf(requesterName.replace(agentType, ""));
@@ -648,27 +689,23 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
         long offerQuantity;
         for (var requestsForType : receivedRequests.entrySet()) {
-            ArrayList<Request> requests = requestsForType.getValue();
             if (availableResources.get(requestsForType.getKey()) != null) {
                 long availableQuantity = availableResources.get(requestsForType.getKey()).size();
+                ArrayList<Request> requests = requestsForType.getValue();
                 while (availableQuantity > 0 && requests.size() > 0) {
                     // Greedy approach
                     Request selectedRequest = selectBestRequest( requests, availableQuantity);
-                    if (availableQuantity >= selectedRequest.quantity) {
+                    if (availableQuantity < selectedRequest.quantity) {
+                        offerQuantity = availableQuantity;
+                    } else {
                         offerQuantity = selectedRequest.quantity;
-                        Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity, selectedRequest.sender);
-                        long cost = costFunction.get(offerQuantity);
-                        long benefit = selectedRequest.utilityFunction.get(offerQuantity);
-
-//                        count++;
-//                        System.out.println();
-//                        System.out.println(this.getLocalName() + " Count: " + count);
-//                        System.out.println();
-
-                        if (cost < benefit) {
-                            createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
-                            availableQuantity = availableQuantity - offerQuantity;
-                        }
+                    }
+                    Map<Long, Long> costFunction = computeOfferCostFunction(selectedRequest.resourceType, availableQuantity, offerQuantity);
+                    long cost = costFunction.get(offerQuantity);
+                    long benefit = selectedRequest.utilityFunction.get(offerQuantity);
+                    if (cost < benefit) {
+                        createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+                        availableQuantity = availableQuantity - offerQuantity;
                     }
                     requests.remove( selectedRequest);
                 }
@@ -710,6 +747,9 @@ public class RLNeighborAdaptiveAgent extends Agent {
             ResourceItem item = availableItems.first();
             offeredItems.put(item.getId(), item.getExpiryTime());
             availableItems.remove( item);
+            totalConsumedResource++;
+//            logInf( this.getLocalName(), "offered resource item with id: " + item.getId() + " to " + requester.getLocalName());
+
         }
 
         String offerId = UUID.randomUUID().toString();
@@ -815,52 +855,46 @@ public class RLNeighborAdaptiveAgent extends Agent {
         }
 
         if (selectedOffersForAllRequests.size() > 0) {
-
-            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
-
-//                count++;
-//                System.out.println();
-//                System.out.println(this.getLocalName() + " Count: " + count);
-//                System.out.println();
-
-                createConfirmation( selectedOffersForAllRequests);
-                addResourceItemsInOffers(selectedOffersForAllRequests);
-            } else {
-                createRejection( selectedOffersForAllRequests);
-            }
+//            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
+                Map<Request, Map<Offer, Map<String, Long>>> confirmedOfferedItemsForAllRequests = addResourceItemsInOffers(selectedOffersForAllRequests);
+                createConfirmation( confirmedOfferedItemsForAllRequests);
+//            } else {
+//                createRejection( selectedOffersForAllRequests);
+//            }
         }
     }
 
 
-    void addResourceItemsInOffers(Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+    Map<Request, Map<Offer, Map<String, Long>>> addResourceItemsInOffers(Map<Request, Map<Offer, Long>> selectedOffersForAllRequests) {
 
-        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
-            SortedSet<ResourceItem> resourceItems;
-            if (availableResources.containsKey(confirmQuantitiesForReq.getKey().resourceType)) {
-                resourceItems = availableResources.get( confirmQuantitiesForReq.getKey().resourceType);
-            } else {
-                resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-            }
-            for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
-                // create a sorted set of offered items
-                SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-                for (var itemIdLifetime : offerQuantity.getKey().offeredItems.entrySet()) {
-                    offeredItems.add(new ResourceItem(itemIdLifetime.getKey(), offerQuantity.getKey().resourceType, itemIdLifetime.getValue()));
-                }
-                Iterator<ResourceItem> itr = offeredItems.iterator();
+        Map<Request, Map<Offer, Map<String, Long>>> confirmedOfferedItemsForAllRequests = new LinkedHashMap<>();
+        Map<Offer, Map<String, Long>> confirmedOfferedItems;
+        Map<String, Long> confirmedItems;
+        for (var selectedOffersForReq : selectedOffersForAllRequests.entrySet()) {
+            confirmedOfferedItems = new LinkedHashMap<>();
+            for (var offerQuantity : selectedOffersForReq.getValue().entrySet()) {
+                confirmedItems = new LinkedHashMap<>();
                 long q=1;
-                while (q<=offerQuantity.getValue()) {
-                    ResourceItem item = itr.next();
-                    resourceItems.add(item);
-                    q++;
+                for (var item : offerQuantity.getKey().offeredItems.entrySet()) {
+                    if ( q <= offerQuantity.getValue()) {
+                        availableResources.get(offerQuantity.getKey().resourceType).add(new ResourceItem(item.getKey(), offerQuantity.getKey().resourceType, item.getValue()));
+                        confirmedItems.put(item.getKey(), item.getValue());
+                        q++;
+                        totalReceivedResources++;
+//                        logInf( this.getLocalName(), "received resource item (in offer) with id: " + item.getKey());
+                    } else {
+                        break;
+                    }
                 }
+                confirmedOfferedItems.put(offerQuantity.getKey(), confirmedItems);
             }
-
-            availableResources.put( confirmQuantitiesForReq.getKey().resourceType, resourceItems);
+            confirmedOfferedItemsForAllRequests.put(selectedOffersForReq.getKey(), confirmedOfferedItems);
         }
 
-        // TODO: decrease the cost of transfer between sender and receiver from totalUtil
+        return confirmedOfferedItemsForAllRequests;
 
+        // TODO: decrease the cost of transfer between sender and receiver from totalUtil
+        // since we compute social welfare of all agents, we can decrease the cost of transfer locally
     }
 
 
@@ -1015,11 +1049,18 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void createConfirmation (Map<Request, Map<Offer, Long>> confirmQuantitiesForAllRequests) {
+    private void createConfirmation (Map<Request, Map<Offer, Map<String, Long>>> confirmedOfferedItemsForAllRequests) {
 
-        for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
-            for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
-                sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
+        for (var confirmedOfferedItemsForReq : confirmedOfferedItemsForAllRequests.entrySet()) {
+            for (var confirmedOfferedItems : confirmedOfferedItemsForReq.getValue().entrySet()) {
+                if (debugMode) {
+                    if (confirmedOfferedItems.getValue().size() > 0) {
+                        logInf(this.getLocalName(), "created confirmation with quantity " + confirmedOfferedItems.getValue().size() + " for offerId  " + confirmedOfferedItems.getKey().id + " for " + confirmedOfferedItems.getKey().resourceType.name() + " to " + confirmedOfferedItems.getKey().sender.getLocalName());
+                    } else {
+                        logInf(this.getLocalName(), "created rejection with quantity " + confirmedOfferedItems.getValue().size() + " for offerId  " + confirmedOfferedItems.getKey().id + " for " + confirmedOfferedItems.getKey().resourceType.name() + " to " + confirmedOfferedItems.getKey().sender.getLocalName());
+                    }
+                }
+                sendConfirmation (confirmedOfferedItems.getKey().id, confirmedOfferedItems.getKey().sender, confirmedOfferedItems.getKey().resourceType, confirmedOfferedItems.getValue().size(), confirmedOfferedItems.getValue());
             }
         }
     }
@@ -1029,13 +1070,16 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
         for (var confirmQuantitiesForReq : confirmQuantitiesForAllRequests.entrySet()) {
             for (var offerQuantity : confirmQuantitiesForReq.getValue().entrySet()) {
-                sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, 0);
+                if( debugMode) {
+                    logInf(this.getLocalName(), "created rejection with quantity 0 for offerId  " + offerQuantity.getKey().id + " for " + offerQuantity.getKey().resourceType.name() + " to " + offerQuantity.getKey().sender.getLocalName());
+                }
+                sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, 0, null);
             }
         }
     }
 
 
-    void sendConfirmation (String offerId, AID offerer, ResourceType resourceType, long confirmQuantity) {
+    void sendConfirmation (String offerId, AID offerer, ResourceType resourceType, long confirmQuantity, Map<String, Long> confirmedItems) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.CONFIRM);
 
@@ -1045,11 +1089,12 @@ public class RLNeighborAdaptiveAgent extends Agent {
         jo.put("offerId", offerId);
         jo.put(Ontology.RESOURCE_TYPE, resourceType.name());
         jo.put(Ontology.RESOURCE_CONFIRM_QUANTITY, confirmQuantity);
+        if (confirmedItems != null) {
+            jo.put(Ontology.CONFIRMED_ITEMS, confirmedItems);
+        }
 
         msg.setContent( jo.toJSONString());
         send(msg);
-
-//        System.out.println( myAgent.getLocalName() + " sent confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " to offerer " + offerer.getLocalName());
     }
 
 
@@ -1063,95 +1108,59 @@ public class RLNeighborAdaptiveAgent extends Agent {
         String rt = (String) jo.get(Ontology.RESOURCE_TYPE);
         ResourceType resourceType = ResourceType.valueOf(rt);
         Long confirmQuantity = (Long) jo.get(Ontology.RESOURCE_CONFIRM_QUANTITY);
+        JSONObject joConfirmedItems = (JSONObject) jo.get(Ontology.CONFIRMED_ITEMS);
+
+        Map<String, Long> confirmedItems = new LinkedHashMap<>();
+        if (joConfirmedItems != null) {
+            Iterator<String> keysIterator2 = joConfirmedItems.keySet().iterator();
+            while (keysIterator2.hasNext()) {
+                String key = keysIterator2.next();
+                Long value = (Long) joConfirmedItems.get(key);
+                confirmedItems.put(key, value);
+            }
+        }
+
+        if( confirmQuantity != confirmedItems.size()) {
+            logErr (myAgent.getLocalName(), "confirmQuantity != confirmedItems.size()");
+        }
 
         if (debugMode) {
-            System.out.println(myAgent.getLocalName() + " received confirmation with quantity " + confirmQuantity + " for resource type " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+            if( confirmQuantity > 0) {
+                logInf(myAgent.getLocalName(), "received confirmation with quantity " + confirmQuantity + " for offerId " + offerId + " for " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+            } else {
+                logInf(myAgent.getLocalName(), "received rejection with quantity " + confirmQuantity + " for offerId " + offerId + " for " + resourceType.name() + " from " + confirmation.getSender().getLocalName());
+            }
         }
 
         Offer sentOffer = sentOffers.get(offerId);
-        Set<Offer> includedOffers = sentOffer.includedOffers;
-        Request cascadedRequest = sentRequests.get(sentOffer.reqId);
 
-        if (includedOffers != null) {
-            Map<Offer, Long> offerQuantities = new LinkedHashMap<>();
-            for (Offer offer : includedOffers) {
-                offerQuantities.put(offer, 0L);
-            }
-            if (confirmQuantity > cascadedRequest.reservedItems.size()) {
-                long minCost, cost;
-                Offer lowCostOffer;
-                for (long q = cascadedRequest.reservedItems.size()+1; q <= confirmQuantity; q++) {
-                    minCost = Integer.MAX_VALUE;
-                    lowCostOffer = null;
-                    for (Offer offer : includedOffers) {
-                        if (hasExtraItem(offer, offerQuantities)) {
-                            cost = totalCost(offer, offerQuantities);
-                            if (cost < minCost) {
-                                minCost = cost;
-                                lowCostOffer = offer;
-                            }
-                        }
-                    }
-                    if (lowCostOffer != null) {
-                        offerQuantities.put(lowCostOffer, offerQuantities.get(lowCostOffer) + 1);
-                    } else {
-                        break;
-                    }
-                }
-            }
-            cascadePartialConfirmations(offerQuantities);
+        if( sentOffer == null) {
+            logErr(this.getLocalName(), "sentOffer is null !!!");
+            logErr(this.getLocalName(), "sentOffers size: " + sentOffers.size());
         }
 
-        restoreResources(offerId, resourceType, confirmQuantity);
+        restoreOfferedResources( sentOffer, confirmedItems);
     }
 
 
-    private void cascadePartialConfirmations(Map<Offer, Long> offerQuantities) {
+    private void restoreOfferedResources(Offer sentOffer, Map<String, Long> confirmedItems) {
 
-        for (var offerQuantity : offerQuantities.entrySet()) {
-            sendConfirmation (offerQuantity.getKey().id, offerQuantity.getKey().sender, offerQuantity.getKey().resourceType, offerQuantity.getValue());
+        int confirmQuantity;
+        if (confirmedItems == null) {
+            confirmQuantity = 0;
+        } else {
+            confirmQuantity = confirmedItems.size();
         }
-    }
 
-
-    private void restoreResources(String offerId, ResourceType resourceType, long confirmQuantity) {
-
-        Offer sentOffer = sentOffers.get( offerId);
-        Set<Offer> includedOffers = sentOffer.includedOffers;
-        Request cascadedRequest = sentRequests.get(sentOffer.reqId);
-
-        if (includedOffers != null) {
-            if (confirmQuantity < cascadedRequest.reservedItems.size()) {
-                // create a sorted set of offered items
-                SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-                for (var offeredItem : cascadedRequest.reservedItems.entrySet()) {
-                    offeredItems.add(new ResourceItem(offeredItem.getKey(), resourceType, offeredItem.getValue()));
-                }
-                Iterator<ResourceItem> itr = offeredItems.iterator();
-                long q=1;
-                while (q<=confirmQuantity) {
-                    ResourceItem item = itr.next();
-                    offeredItems.remove(item);
-                    itr = offeredItems.iterator();
-                    q++;
-                }
-                availableResources.get(resourceType).addAll(offeredItems);
-            }
-        } else if (confirmQuantity < sentOffer.quantity) {
-            // create a sorted set of offered items
-            SortedSet<ResourceItem> offeredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+        if (confirmQuantity < sentOffer.quantity) {
+            logInf( this.getLocalName(), "restoreOfferedResources for offerId " + sentOffer.id + " offerQuan " + sentOffer.quantity + " confirmQuan " + confirmQuantity);
             for (var offeredItem : sentOffer.offeredItems.entrySet()) {
-                offeredItems.add(new ResourceItem(offeredItem.getKey(), resourceType, offeredItem.getValue()));
+                if (confirmQuantity == 0 || confirmedItems.containsKey(offeredItem.getKey()) == false) {
+                    availableResources.get(sentOffer.resourceType).add( new ResourceItem(offeredItem.getKey(), sentOffer.resourceType, offeredItem.getValue()));
+                    totalConsumedResource --;
+//                    logInf( this.getLocalName(), "(restoreOfferedResources) restored resource item with id: " + offeredItem.getKey());
+                }
             }
-            Iterator<ResourceItem> itr = offeredItems.iterator();
-            long q=1;
-            while (q<=confirmQuantity) {
-                ResourceItem item = itr.next();
-                offeredItems.remove(item);
-                itr = offeredItems.iterator();
-                q++;
-            }
-            availableResources.get(resourceType).addAll(offeredItems);
         }
     }
 

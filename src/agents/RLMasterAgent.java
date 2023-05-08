@@ -80,7 +80,7 @@ public class RLMasterAgent extends Agent {
                 }
 
                 if (receivedInfoFromAll()) {
-                    for (int r=0; r<numberOfRounds; r++) {
+                    for (int r = 0; r < numberOfRounds; r++) {
 //                        logInf( myAgent.getLocalName() + " Round: " + r+1);
                         for (var taskInfo : tasksInfo.entrySet() ) {
                             findNewTasks (taskInfo.getValue().get(r));

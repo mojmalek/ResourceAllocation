@@ -28,8 +28,8 @@ public class RLNeighborAdaptiveExp {
     public static void main(String[] args) {
         try {
 //            runSimulation1();
-//            smallWorldSim();
-            scaleFreeSim();
+            smallWorldSim();
+//            scaleFreeSim();
 //            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
@@ -69,31 +69,32 @@ public class RLNeighborAdaptiveExp {
 
     public static void smallWorldSim() throws StaleProxyException {
 
-        int numberOfAgents = 10;
+        int numberOfAgents = 20;
+        int numberOfRounds = 1000;
         long duration = 60000;
         long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
-        String agentType1 = "SmallWorld-A";
-        String agentType2 = "SmallWorld-NoCasA";
+        String agentType1 = "SmallWorld-NoCas-RL-A";
+        String agentType2 = "SmallWorld-NoCas-A";
 
-        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
+//        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (int param = 4; param <= 16; param+=2) {
-            logResults(resultFileName1, "");
-            logResults(resultFileName1, "param = " + param);
-            logResults(resultFileName1, "");
+        for (long param = 16; param <= 16; param+=2) {
+//            logResults(resultFileName1, "");
+//            logResults(resultFileName1, "param = " + param);
+//            logResults(resultFileName1, "");
             logResults(resultFileName2, "");
             logResults(resultFileName2, "param = " + param);
             logResults(resultFileName2, "");
             simulationEngine1 = new SimulationEngine( param, agentType1);
             simulationEngine2 = new SimulationEngine( param, agentType2);
-            for (int exp = 1; exp <= 20; exp++) {
-                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+            for (int exp = 1; exp <= 1; exp++) {
+//                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
 
                 Runtime rt = Runtime.instance();
@@ -115,7 +116,7 @@ public class RLNeighborAdaptiveExp {
 
                 Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
                 // Small-world graph
-                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.05);
+                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.0);
                 smallWorldGraphGenerator.generateGraph(smallWorldGraph);
 
                 System.out.println("Small-world:");
@@ -157,17 +158,17 @@ public class RLNeighborAdaptiveExp {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster1, resultFileName1, agentType1});
-                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+//                            agentController1.start();
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
-                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll2, simulationEngine2, false, agentType2});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
+//                            agentController1.start();
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, smallWorldAdjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
                             agentController2.start();
                         }
-                        agentControllers.add( agentController1);
+//                        agentControllers.add( agentController1);
                         agentControllers.add( agentController2);
                     } catch (StaleProxyException e) {
                         e.printStackTrace();
@@ -188,7 +189,7 @@ public class RLNeighborAdaptiveExp {
 
     public static void scaleFreeSim() throws StaleProxyException {
 
-        int numberOfAgents = 10;
+        int numberOfAgents = 20;
         int numberOfRounds = 1000;
         long duration = 60000;
         long currentTime, endTime;
@@ -201,20 +202,20 @@ public class RLNeighborAdaptiveExp {
 //        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long resource = 16; resource <= 16; resource+=2) {
+        for (long param = 16; param <= 16; param+=2) {
 //            logResults(resultFileName1, "");
-//            logResults(resultFileName1, "resource = " + resource);
+//            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
             logResults(resultFileName2, "");
-            logResults(resultFileName2, "resource = " + resource);
+            logResults(resultFileName2, "param = " + param);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( resource, agentType1);
-            simulationEngine2 = new SimulationEngine( resource, agentType2);
+            simulationEngine1 = new SimulationEngine( param, agentType1);
+            simulationEngine2 = new SimulationEngine( param, agentType2);
             for (int exp = 1; exp <= 1; exp++) {
-//                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
-//                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
 
                 Runtime rt = Runtime.instance();
                 Profile profile = new ProfileImpl();
