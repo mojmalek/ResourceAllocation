@@ -51,6 +51,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
+    private Map<OfferingStateAction, Long> offeringQFunction;
+
     private int count;
     private int errorCount;
 
@@ -239,7 +241,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
 
     private void negotiate (Agent myAgent) {
-//        System.out.println (myAgent.getLocalName() +  " is negotiating.");
+
         resetRound();
         deliberateOnRequesting (myAgent);
         sendNextPhaseNotification (ProtocolPhase.OFFERING);
@@ -248,10 +250,6 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedRequests.size() > 0) {
-//            count++;
-//            System.out.println();
-//            System.out.println(this.getLocalName() + " Count: " + count);
-//            System.out.println();
             deliberateOnOffering( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
@@ -260,10 +258,6 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedOffers.size() > 0) {
-//            count++;
-//            System.out.println();
-//            System.out.println(this.getLocalName() + " Count: " + count);
-//            System.out.println();
             deliberateOnConfirming( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
@@ -669,11 +663,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
         // if agents operate and communicate asynchronously, then a request might be received at any time.
         // the bidder can wait for other requests before bidding.
 
-        // if the rounds are synchronous, there can be more than one request, then we can consider two approaches:
-
-        // Greedy approach:
-        // sort requests based on their utilities, and while there are available resources,
-        // create bid for request with the highest utility.
+        // if the rounds are synchronous, there can be more than one request, then we can consider different approaches:
 
         // Optimal:
         // select the optimal combination of requests to maximize the utility.
@@ -682,6 +672,13 @@ public class RLNeighborAdaptiveAgent extends Agent {
         // xi in (0, 1)
         //  1 < j < qi
         // SUM xi <= 1
+
+        // Greedy approach:
+        // sort requests based on their utilities, and while there are available resources,
+        // create bid for request with the highest utility.
+
+        // Reinforcement learning approach:
+        // learn to better rank requests by updating neighbor reputations
 
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
@@ -716,10 +713,11 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
     Request selectBestRequest(ArrayList<Request> requests, long remainingQuantity) {
 
-        //TODO: select the request with highest efficiency
+        // select the request with the highest efficiency
+        // the request efficiency is defined as the ratio between its utility and requested quantity.
 
         Request selectedRequest = requests.get(0);
-        long highestUtility = 0;
+        double highestEfficiency = 0;
         long offerQuantity;
 
         for (Request request : requests) {
@@ -729,8 +727,9 @@ public class RLNeighborAdaptiveAgent extends Agent {
                 offerQuantity = request.quantity;
             }
             long util = request.utilityFunction.get(offerQuantity);
-            if (util > highestUtility) {
-                highestUtility = util;
+            double efficiency = util / offerQuantity;
+            if (efficiency > highestEfficiency) {
+                highestEfficiency = efficiency;
                 selectedRequest = request;
             }
         }
