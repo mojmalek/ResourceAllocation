@@ -3,6 +3,11 @@ package model;
 
 public class OfferingStateAction {
 
-    OfferingState state;
-    OfferingAction action;
+    public OfferingState state;
+    public OfferingAction action;
+
+    public OfferingStateAction(OfferingState state, OfferingAction action) {
+        this.state = state;
+        this.action = action;
+    }
 }

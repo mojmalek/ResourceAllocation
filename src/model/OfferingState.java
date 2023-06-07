@@ -6,11 +6,16 @@ import java.util.Map;
 
 public class OfferingState {
 
-    ResourceType resourceType;
+    public ResourceType resourceType;
 
-    // a matrix of potential requests with their utilities for each neighbor
-    //Integer[][] requestUtils;
-    Map<AID, Map<Long, Long>> requestUtils;
+    // netUtil = request util - offer cost
+    public Map<AID, Map<Long, Long>> netUtils;
 
-    long remainingQuantity;
+    public long availableQuantity;
+
+    public OfferingState(ResourceType resourceType, Map<AID, Map<Long, Long>> netUtils, long availableQuantity) {
+        this.resourceType = resourceType;
+        this.netUtils = netUtils;
+        this.availableQuantity = availableQuantity;
+    }
 }

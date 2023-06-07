@@ -52,6 +52,11 @@ public class RLNeighborAdaptiveAgent extends Agent {
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
     private Map<OfferingStateAction, Long> offeringQFunction;
+    private Map<ConfirmingStateAction, Long> confirmingQFunction;
+
+    private final double alpha = 0.1; // Learning rate
+    private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
+    private final double epsilon = 0.1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
 
     private int count;
     private int errorCount;
@@ -250,7 +255,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedRequests.size() > 0) {
-            deliberateOnOffering( myAgent);
+//            deliberateOnGreedyOffering( myAgent);
+            deliberateOnRLOffering( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForOffers( myAgent);
@@ -258,7 +264,9 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedOffers.size() > 0) {
-            deliberateOnConfirming( myAgent);
+//            deliberateOnConfirmingGreedy( myAgent);
+            deliberateOnConfirmingRL( myAgent);
+//            deliberateOnConfirmingDP( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
         waitForConfirmations( myAgent);
@@ -658,7 +666,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void deliberateOnOffering(Agent myAgent) {
+    private void deliberateOnGreedyOffering(Agent myAgent) {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
         // the bidder can wait for other requests before bidding.
@@ -678,7 +686,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
         // create bid for request with the highest utility.
 
         // Reinforcement learning approach:
-        // learn to better rank requests by updating neighbor reputations
+        // learn to better select requests
 
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
@@ -708,6 +716,141 @@ public class RLNeighborAdaptiveAgent extends Agent {
                 }
             }
         }
+    }
+
+
+    private void deliberateOnRLOffering(Agent myAgent) {
+
+        for (var requestsForType : receivedRequests.entrySet()) {
+            ResourceType resourceType = requestsForType.getKey();
+            if (availableResources.get(resourceType) != null) {
+                long availableQuantity = availableResources.get(requestsForType.getKey()).size();
+                ArrayList<Request> requests = requestsForType.getValue();
+                while (availableQuantity > 0 && requests.size() > 0) {
+                    // RL approach
+                    OfferingState state = generateOfferingState (resourceType, requests, availableQuantity);
+
+                    // Choose action from state using epsilon-greedy policy derived from Q
+                    OfferingAction action =  selectEplisonGreedyOfferingAction (state);
+
+                    Map<Long, Long> costFunction = computeOfferCostFunction(resourceType, availableQuantity, action.offerQuantity);
+                    long cost = costFunction.get(action.offerQuantity);
+                    long benefit = action.selectedRequest.utilityFunction.get(action.offerQuantity);
+                    if (cost < benefit) {
+                        createOffer(action.selectedRequest.id, myAgent.getAID(), action.selectedRequest.sender, resourceType, action.offerQuantity, costFunction, availableResources.get(resourceType));
+                        availableQuantity = availableQuantity - action.offerQuantity;
+                    }
+                    requests.remove( action.selectedRequest);
+                }
+            }
+        }
+    }
+
+
+    OfferingState generateOfferingState (ResourceType resourceType, ArrayList<Request> requests, long availableQuantity) {
+
+        Map<AID, Map<Long, Long>> agentNetUtils = null;
+
+        for (Request request : requests) {
+            Map<Long, Long> netUtils = new LinkedHashMap<>();
+            long cost;
+            for (var utility : request.utilityFunction.entrySet()) {
+                if( utility.getKey() <= availableQuantity) {
+                    cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources( resourceType, availableQuantity - utility.getKey());
+                    if (cost < utility.getValue()) {
+                        netUtils.put( utility.getKey(), utility.getValue() - cost);
+                    }
+                }
+            }
+            agentNetUtils.put( request.sender, netUtils);
+        }
+
+        OfferingState offeringState = new OfferingState(resourceType, agentNetUtils, availableQuantity);
+        return offeringState;
+    }
+
+
+
+    ConfirmingState generateConfirmingState (Request request, Set<Offer> offers, long currentConfirmedQuantity) {
+
+        Map<AID, Map<Long, Long>> offerCosts = null;
+
+        for (Offer offer : offers) {
+            offerCosts.put( offer.sender, offer.costFunction);
+        }
+
+        ConfirmingState confirmingState = new ConfirmingState(request.resourceType, offerCosts, request.utilityFunction, currentConfirmedQuantity);
+        return confirmingState;
+    }
+
+
+    OfferingAction selectEplisonGreedyOfferingAction (OfferingState currentState) {
+
+        OfferingAction offeringAction = null;
+
+        return offeringAction;
+    }
+
+
+    Set<ConfirmingAction> generatePossibleConfirmingActions (ConfirmingState currentState, Request request, Set<Offer> offers, long currentConfirmedQuantity) {
+
+        Set<ConfirmingAction> actions = new HashSet<>();
+        ConfirmingAction confirmingAction;
+        ConfirmingStateAction confirmingStateAction;
+        Iterator<Offer> iter = offers.iterator();
+        Offer offer;
+        for (int i = 0; i < offers.size(); i++) {
+            offer = iter.next();
+            for (long q = 1; q <= offer.quantity; q++) {
+                if( q + currentConfirmedQuantity <= request.quantity) {
+                    confirmingAction = new ConfirmingAction(offer.resourceType, offer, q);
+                    actions.add( confirmingAction);
+                    confirmingStateAction = new ConfirmingStateAction(currentState, confirmingAction);
+                    if( confirmingQFunction.containsKey(confirmingStateAction) == false) {
+                        confirmingQFunction.put( confirmingStateAction, request.utilityFunction.get(q + currentConfirmedQuantity) - offer.costFunction.get(q));
+                    }
+                }
+            }
+        }
+        return actions;
+    }
+
+
+    ConfirmingAction selectEplisonGreedyConfirmingAction (ConfirmingState currentState, Request request, Set<Offer> offers, Set<ConfirmingAction> possibleActions) {
+
+        ConfirmingAction selectedAction = null;
+        ConfirmingStateAction confirmingStateAction;
+        Random random = new Random();
+        double r = random.nextDouble();
+        Iterator<Offer> iter1 = offers.iterator();
+        Iterator<ConfirmingAction> iter2 = possibleActions.iterator();
+        if (r < epsilon) {
+            //exploration: pick a random action from possible actions in this state
+            Offer selectedOffer;
+            long selectedQuantity;
+            int index = random.nextInt(offers.size());
+            for (int i = 0; i < index; i++) {
+                iter1.next();
+            }
+            selectedOffer = iter1.next();
+            selectedQuantity = random.nextLong(selectedOffer.quantity + 1);
+            selectedAction = new ConfirmingAction( selectedOffer.resourceType, selectedOffer, selectedQuantity);
+        } else {
+            //exploitation: pick the best known action from possible actions in this state using Q table
+            ConfirmingAction action = null;
+            long Q;
+            long highestQ = Long.MIN_VALUE;
+            for (int i = 0; i < possibleActions.size(); i++) {
+                action = iter2.next();
+                confirmingStateAction = new ConfirmingStateAction(currentState, action);
+                Q = confirmingQFunction.get(confirmingStateAction);
+                if (Q > highestQ) {
+                    highestQ = Q;
+                    selectedAction = action;
+                }
+            }
+        }
+        return selectedAction;
     }
 
 
@@ -835,7 +978,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    void deliberateOnConfirming( Agent myAgent) {
+    void deliberateOnConfirmingGreedy(Agent myAgent) {
 
 //        if( myAgent.getLocalName().equals("Agent1")) {
 //            System.out.print("");
@@ -845,7 +988,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
         for (var request : sentRequests.entrySet()) {
             if ( receivedOffers.containsKey(request.getKey())) {
-                Map<Offer, Long> confirmQuantities = processOffers( request.getValue());
+                Map<Offer, Long> confirmQuantities = processOffersGreedy( request.getValue());
                 if (confirmQuantities.size() == 0) {
                     System.out.println("Error!!");
                 }
@@ -857,6 +1000,64 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
                 Map<Request, Map<Offer, Map<String, Long>>> confirmedOfferedItemsForAllRequests = addResourceItemsInOffers(selectedOffersForAllRequests);
                 createConfirmation( confirmedOfferedItemsForAllRequests);
+//            } else {
+//                createRejection( selectedOffersForAllRequests);
+//            }
+        }
+    }
+
+
+    void deliberateOnConfirmingRL(Agent myAgent) {
+
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
+
+        Map<Request, Map<Offer, Long>> selectedOffersForAllRequests = new LinkedHashMap<>();
+
+        for (var request : sentRequests.entrySet()) {
+            if ( receivedOffers.containsKey(request.getKey())) {
+                Map<Offer, Long> confirmQuantities = processOffersRL( request.getValue());
+                if (confirmQuantities.size() == 0) {
+                    System.out.println("Error!!");
+                }
+                selectedOffersForAllRequests.put(request.getValue(), confirmQuantities);
+            }
+        }
+
+        if (selectedOffersForAllRequests.size() > 0) {
+//            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
+            Map<Request, Map<Offer, Map<String, Long>>> confirmedOfferedItemsForAllRequests = addResourceItemsInOffers(selectedOffersForAllRequests);
+            createConfirmation( confirmedOfferedItemsForAllRequests);
+//            } else {
+//                createRejection( selectedOffersForAllRequests);
+//            }
+        }
+    }
+
+
+    void deliberateOnConfirmingDP(Agent myAgent) {
+
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
+
+        Map<Request, Map<Offer, Long>> selectedOffersForAllRequests = new LinkedHashMap<>();
+
+        for (var request : sentRequests.entrySet()) {
+            if ( receivedOffers.containsKey(request.getKey())) {
+                Map<Offer, Long> confirmQuantities = processOffersDP( request.getValue());
+                if (confirmQuantities.size() == 0) {
+                    System.out.println("Error!!");
+                }
+                selectedOffersForAllRequests.put(request.getValue(), confirmQuantities);
+            }
+        }
+
+        if (selectedOffersForAllRequests.size() > 0) {
+//            if (thereIsBenefitToConfirmOffers( selectedOffersForAllRequests)) {
+            Map<Request, Map<Offer, Map<String, Long>>> confirmedOfferedItemsForAllRequests = addResourceItemsInOffers(selectedOffersForAllRequests);
+            createConfirmation( confirmedOfferedItemsForAllRequests);
 //            } else {
 //                createRejection( selectedOffersForAllRequests);
 //            }
@@ -969,10 +1170,10 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    public Map<Offer, Long> processOffers(Request request) {
+    public Map<Offer, Long> processOffersGreedy(Request request) {
 
         // the requester selects the combination of offers that maximizes the difference between the utility of request and the total cost of all selected offers.
-        // it is allowed to take partial amounts of oﬀered resources in multiple offers up to the requested amount.
+        // it is allowed to take partial amounts of offered resources in multiple offers up to the requested amount.
         // a greedy approach: we add 1 item from one offer in a loop up to the requested amount, without backtracking.
 
         Set<Offer> offers = receivedOffers.get(request.id);
@@ -1001,6 +1202,52 @@ public class RLNeighborAdaptiveAgent extends Agent {
                 break;
             }
         }
+
+        return confirmQuantities;
+    }
+
+
+    public Map<Offer, Long> processOffersRL(Request request) {
+
+        // a reinforcement learning approach
+
+        Set<Offer> offers = receivedOffers.get(request.id);
+
+        Map<Offer, Long> confirmQuantities = new LinkedHashMap<>();
+        for (Offer offer : offers) {
+            confirmQuantities.put(offer, 0L);
+        }
+
+        long currentConfirmedQuantity = 0;
+
+        while (currentConfirmedQuantity <= request.quantity && offers.size() > 0) {
+            ConfirmingState state = generateConfirmingState (request, offers, currentConfirmedQuantity);
+
+            Set<ConfirmingAction> possibleActions = generatePossibleConfirmingActions (state, request, offers, currentConfirmedQuantity);
+
+            // Choose action from state using epsilon-greedy policy derived from Q
+            ConfirmingAction action =  selectEplisonGreedyConfirmingAction (state, request, offers, possibleActions);
+
+            confirmQuantities.put(action.selectedOffer, action.confirmQuantity);
+            offers.remove( action.selectedOffer);
+            currentConfirmedQuantity -= action.confirmQuantity;
+        }
+
+        return confirmQuantities;
+    }
+
+
+    public Map<Offer, Long> processOffersDP(Request request) {
+
+        // a dynamic programming approach
+
+        Set<Offer> offers = receivedOffers.get(request.id);
+
+        Map<Offer, Long> confirmQuantities = new LinkedHashMap<>();
+        for (Offer offer : offers) {
+            confirmQuantities.put(offer, 0L);
+        }
+
 
         return confirmQuantities;
     }
