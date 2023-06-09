@@ -51,8 +51,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
-    private Map<OfferingStateAction, Long> offeringQFunction;
-    private Map<ConfirmingStateAction, Long> confirmingQFunction;
+    private Map<OfferingStateAction, Double> offeringQFunction;
+    private Map<ConfirmingStateAction, Double> confirmingQFunction;
 
     private final double alpha = 0.1; // Learning rate
     private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
@@ -255,8 +255,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedRequests.size() > 0) {
-//            deliberateOnGreedyOffering( myAgent);
-            deliberateOnRLOffering( myAgent);
+//            deliberateOnOfferingGreedy( myAgent);
+            deliberateOnOfferingRL( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.CONFORMING);
         waitForOffers( myAgent);
@@ -666,7 +666,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void deliberateOnGreedyOffering(Agent myAgent) {
+    private void deliberateOnOfferingGreedy(Agent myAgent) {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
         // the bidder can wait for other requests before bidding.
@@ -709,7 +709,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
                     long cost = costFunction.get(offerQuantity);
                     long benefit = selectedRequest.utilityFunction.get(offerQuantity);
                     if (cost < benefit) {
-                        createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType));
+                        createOffer(selectedRequest.id, myAgent.getAID(), selectedRequest.sender, selectedRequest.resourceType, offerQuantity, costFunction, availableResources.get(selectedRequest.resourceType), null, null);
                         availableQuantity = availableQuantity - offerQuantity;
                     }
                     requests.remove( selectedRequest);
@@ -719,28 +719,32 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void deliberateOnRLOffering(Agent myAgent) {
+    private void deliberateOnOfferingRL(Agent myAgent) {
 
         for (var requestsForType : receivedRequests.entrySet()) {
             ResourceType resourceType = requestsForType.getKey();
             if (availableResources.get(resourceType) != null) {
                 long availableQuantity = availableResources.get(requestsForType.getKey()).size();
+                long currentOfferedQuantity = 0;
                 ArrayList<Request> requests = requestsForType.getValue();
                 while (availableQuantity > 0 && requests.size() > 0) {
                     // RL approach
-                    OfferingState state = generateOfferingState (resourceType, requests, availableQuantity);
+                    OfferingState currentState = generateOfferingState (resourceType, requests, availableQuantity);
+
+                    Set<OfferingAction> possibleActions = generatePossibleOfferingActions (currentState);
 
                     // Choose action from state using epsilon-greedy policy derived from Q
-                    OfferingAction action =  selectEplisonGreedyOfferingAction (state);
+                    OfferingAction action =  selectEplisonGreedyOfferingAction (currentState, possibleActions);
 
+                    OfferingStateAction currentStateAction = new OfferingStateAction (currentState, action);
                     Map<Long, Long> costFunction = computeOfferCostFunction(resourceType, availableQuantity, action.offerQuantity);
-                    long cost = costFunction.get(action.offerQuantity);
-                    long benefit = action.selectedRequest.utilityFunction.get(action.offerQuantity);
-                    if (cost < benefit) {
-                        createOffer(action.selectedRequest.id, myAgent.getAID(), action.selectedRequest.sender, resourceType, action.offerQuantity, costFunction, availableResources.get(resourceType));
-                        availableQuantity = availableQuantity - action.offerQuantity;
-                    }
+                    availableQuantity -= action.offerQuantity;
+                    currentOfferedQuantity += action.offerQuantity;
                     requests.remove( action.selectedRequest);
+
+                    OfferingState nextState = generateOfferingState (resourceType, requests, availableQuantity);
+
+                    createOffer(action.selectedRequest.id, myAgent.getAID(), action.selectedRequest.sender, resourceType, action.offerQuantity, costFunction, availableResources.get(resourceType), currentStateAction, nextState);
                 }
             }
         }
@@ -765,10 +769,31 @@ public class RLNeighborAdaptiveAgent extends Agent {
             agentNetUtils.put( request.sender, netUtils);
         }
 
-        OfferingState offeringState = new OfferingState(resourceType, agentNetUtils, availableQuantity);
+        OfferingState offeringState = new OfferingState(resourceType, requests, agentNetUtils, availableQuantity);
         return offeringState;
     }
 
+
+    Set<OfferingAction> generatePossibleOfferingActions (OfferingState currentState) {
+
+        Set<OfferingAction> actions = new HashSet<>();
+        OfferingAction offeringAction;
+        OfferingStateAction offeringStateAction;
+        for (Request request : currentState.requests) {
+            Map<Long, Long> netUtil = currentState.netUtils.get(request.sender);
+            if (netUtil != null) {
+                for (long q : netUtil.keySet()) {
+                    offeringAction = new OfferingAction(request.resourceType, request, q);
+                    actions.add(offeringAction);
+                    offeringStateAction = new OfferingStateAction(currentState, offeringAction);
+                    if (offeringQFunction.containsKey(offeringStateAction) == false) {
+                        offeringQFunction.put(offeringStateAction, Double.valueOf(netUtil.get(q)));
+                    }
+                }
+            }
+        }
+        return actions;
+    }
 
 
     ConfirmingState generateConfirmingState (Request request, Set<Offer> offers, long currentConfirmedQuantity) {
@@ -779,35 +804,84 @@ public class RLNeighborAdaptiveAgent extends Agent {
             offerCosts.put( offer.sender, offer.costFunction);
         }
 
-        ConfirmingState confirmingState = new ConfirmingState(request.resourceType, offerCosts, request.utilityFunction, currentConfirmedQuantity);
+        ConfirmingState confirmingState = new ConfirmingState(request.resourceType, request, request.utilityFunction, offers, offerCosts, currentConfirmedQuantity);
         return confirmingState;
     }
 
 
-    OfferingAction selectEplisonGreedyOfferingAction (OfferingState currentState) {
+    OfferingAction selectEplisonGreedyOfferingAction (OfferingState state, Set<OfferingAction> possibleActions) {
 
-        OfferingAction offeringAction = null;
-
-        return offeringAction;
+        OfferingAction selectedAction = null;
+        OfferingStateAction offeringStateAction;
+        Random random = new Random();
+        double r = random.nextDouble();
+        Iterator<OfferingAction> iter = possibleActions.iterator();
+        if (r < epsilon) {
+            //exploration: pick a random action from possible actions in this state
+            Request selectedRequest;
+            long selectedQuantity;
+            int index = random.nextInt(state.requests.size());
+            selectedRequest = state.requests.get(index);
+            selectedQuantity = random.nextLong(selectedRequest.quantity + 1);
+            selectedAction = new OfferingAction( selectedRequest.resourceType, selectedRequest, selectedQuantity);
+        } else {
+            //exploitation: pick the best known action from possible actions in this state using Q table
+            OfferingAction action;
+            Double Q;
+            Double highestQ = Double.MIN_VALUE;
+            for (int i = 0; i < possibleActions.size(); i++) {
+                action = iter.next();
+                offeringStateAction = new OfferingStateAction(state, action);
+                Q = offeringQFunction.get(offeringStateAction);
+                if (Q > highestQ) {
+                    highestQ = Q;
+                    selectedAction = action;
+                }
+            }
+        }
+        return selectedAction;
     }
 
 
-    Set<ConfirmingAction> generatePossibleConfirmingActions (ConfirmingState currentState, Request request, Set<Offer> offers, long currentConfirmedQuantity) {
+    OfferingAction selectBestOfferingAction (OfferingState state, Set<OfferingAction> possibleActions) {
+
+        OfferingAction selectedAction = null;
+        OfferingStateAction offeringStateAction;
+        Iterator<OfferingAction> iter = possibleActions.iterator();
+
+        OfferingAction action;
+        Double Q;
+        Double highestQ = Double.MIN_VALUE;
+        for (int i = 0; i < possibleActions.size(); i++) {
+            action = iter.next();
+            offeringStateAction = new OfferingStateAction(state, action);
+            Q = offeringQFunction.get(offeringStateAction);
+            if (Q > highestQ) {
+                highestQ = Q;
+                selectedAction = action;
+            }
+        }
+
+        return selectedAction;
+    }
+
+
+    Set<ConfirmingAction> generatePossibleConfirmingActions (ConfirmingState currentState) {
 
         Set<ConfirmingAction> actions = new HashSet<>();
         ConfirmingAction confirmingAction;
         ConfirmingStateAction confirmingStateAction;
-        Iterator<Offer> iter = offers.iterator();
+        Iterator<Offer> iter = currentState.offers.iterator();
         Offer offer;
-        for (int i = 0; i < offers.size(); i++) {
+        for (int i = 0; i < currentState.offers.size(); i++) {
             offer = iter.next();
             for (long q = 1; q <= offer.quantity; q++) {
-                if( q + currentConfirmedQuantity <= request.quantity) {
+                if( q + currentState.currentConfirmedQuantity <= currentState.request.quantity) {
                     confirmingAction = new ConfirmingAction(offer.resourceType, offer, q);
                     actions.add( confirmingAction);
                     confirmingStateAction = new ConfirmingStateAction(currentState, confirmingAction);
                     if( confirmingQFunction.containsKey(confirmingStateAction) == false) {
-                        confirmingQFunction.put( confirmingStateAction, request.utilityFunction.get(q + currentConfirmedQuantity) - offer.costFunction.get(q));
+                        confirmingQFunction.put( confirmingStateAction, (double) (currentState.request.utilityFunction.get(q + currentState.currentConfirmedQuantity) - offer.costFunction.get(q)));
                     }
                 }
             }
@@ -816,19 +890,19 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    ConfirmingAction selectEplisonGreedyConfirmingAction (ConfirmingState currentState, Request request, Set<Offer> offers, Set<ConfirmingAction> possibleActions) {
+    ConfirmingAction selectEplisonGreedyConfirmingAction (ConfirmingState currentState, Set<ConfirmingAction> possibleActions) {
 
         ConfirmingAction selectedAction = null;
         ConfirmingStateAction confirmingStateAction;
         Random random = new Random();
         double r = random.nextDouble();
-        Iterator<Offer> iter1 = offers.iterator();
+        Iterator<Offer> iter1 = currentState.offers.iterator();
         Iterator<ConfirmingAction> iter2 = possibleActions.iterator();
         if (r < epsilon) {
             //exploration: pick a random action from possible actions in this state
             Offer selectedOffer;
             long selectedQuantity;
-            int index = random.nextInt(offers.size());
+            int index = random.nextInt(currentState.offers.size());
             for (int i = 0; i < index; i++) {
                 iter1.next();
             }
@@ -837,9 +911,9 @@ public class RLNeighborAdaptiveAgent extends Agent {
             selectedAction = new ConfirmingAction( selectedOffer.resourceType, selectedOffer, selectedQuantity);
         } else {
             //exploitation: pick the best known action from possible actions in this state using Q table
-            ConfirmingAction action = null;
-            long Q;
-            long highestQ = Long.MIN_VALUE;
+            ConfirmingAction action;
+            Double Q;
+            Double highestQ = Double.MIN_VALUE;
             for (int i = 0; i < possibleActions.size(); i++) {
                 action = iter2.next();
                 confirmingStateAction = new ConfirmingStateAction(currentState, action);
@@ -850,6 +924,29 @@ public class RLNeighborAdaptiveAgent extends Agent {
                 }
             }
         }
+        return selectedAction;
+    }
+
+
+    ConfirmingAction selectBestConfirmingAction (ConfirmingState state, Set<ConfirmingAction> possibleActions) {
+
+        ConfirmingAction selectedAction = null;
+        ConfirmingStateAction confirmingStateAction;
+        Iterator<ConfirmingAction> iter = possibleActions.iterator();
+
+        ConfirmingAction action;
+        Double Q;
+        Double highestQ = Double.MIN_VALUE;
+        for (int i = 0; i < possibleActions.size(); i++) {
+            action = iter.next();
+            confirmingStateAction = new ConfirmingStateAction(state, action);
+            Q = confirmingQFunction.get(confirmingStateAction);
+            if (Q > highestQ) {
+                highestQ = Q;
+                selectedAction = action;
+            }
+        }
+
         return selectedAction;
     }
 
@@ -881,7 +978,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems) {
+    private void createOffer(String reqId, AID offerer, AID requester, ResourceType resourceType, long offerQuantity, Map<Long, Long> costFunction, SortedSet<ResourceItem> availableItems, OfferingStateAction currentStateAction, OfferingState nextState) {
 
         Map<String, Long> offeredItems = new LinkedHashMap<>();
 
@@ -896,6 +993,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
         String offerId = UUID.randomUUID().toString();
         Offer offer = new Offer(offerId, reqId, offerQuantity, resourceType, costFunction, offeredItems, offerer, requester);
+        offer.currentStateAction = currentStateAction;
+        offer.nextState = nextState;
         sentOffers.put( offerId, offer);
 
         sendOffer(reqId, offerId, requester, resourceType, offerQuantity, costFunction, offeredItems);
@@ -1221,16 +1320,21 @@ public class RLNeighborAdaptiveAgent extends Agent {
         long currentConfirmedQuantity = 0;
 
         while (currentConfirmedQuantity <= request.quantity && offers.size() > 0) {
-            ConfirmingState state = generateConfirmingState (request, offers, currentConfirmedQuantity);
+            ConfirmingState currentState = generateConfirmingState (request, offers, currentConfirmedQuantity);
 
-            Set<ConfirmingAction> possibleActions = generatePossibleConfirmingActions (state, request, offers, currentConfirmedQuantity);
+            Set<ConfirmingAction> possibleActions = generatePossibleConfirmingActions (currentState);
 
             // Choose action from state using epsilon-greedy policy derived from Q
-            ConfirmingAction action =  selectEplisonGreedyConfirmingAction (state, request, offers, possibleActions);
+            ConfirmingAction action =  selectEplisonGreedyConfirmingAction (currentState, possibleActions);
 
             confirmQuantities.put(action.selectedOffer, action.confirmQuantity);
             offers.remove( action.selectedOffer);
-            currentConfirmedQuantity -= action.confirmQuantity;
+            currentConfirmedQuantity += action.confirmQuantity;
+
+            ConfirmingStateAction currentStateAction = new ConfirmingStateAction (currentState, action);
+            ConfirmingState nextState = generateConfirmingState (request, offers, currentConfirmedQuantity);
+
+            updateConfirmingQFunction(currentStateAction, nextState, currentConfirmedQuantity);
         }
 
         return confirmQuantities;
@@ -1386,6 +1490,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
         }
 
         restoreOfferedResources( sentOffer, confirmedItems);
+
+        updateOfferingQFunction( sentOffer.currentStateAction, sentOffer.nextState, confirmQuantity);
     }
 
 
@@ -1408,6 +1514,38 @@ public class RLNeighborAdaptiveAgent extends Agent {
                 }
             }
         }
+    }
+
+
+    void updateOfferingQFunction( OfferingStateAction currentStateAction, OfferingState nextState, long confirmQuantity) {
+
+        long reward = currentStateAction.state.netUtils.get(currentStateAction.action.selectedRequest.sender).get(confirmQuantity);
+
+        Set<OfferingAction> possibleNextActions = generatePossibleOfferingActions (nextState);
+
+        OfferingAction bestNextAction = selectBestOfferingAction( nextState, possibleNextActions);
+
+        OfferingStateAction bestNextStateAction = new OfferingStateAction( nextState, bestNextAction);
+
+        double updatedQ = offeringQFunction.get(currentStateAction) + alpha * (reward + (gamma * offeringQFunction.get(bestNextStateAction)) - offeringQFunction.get(currentStateAction));
+
+        offeringQFunction.put( currentStateAction, updatedQ);
+    }
+
+
+    void updateConfirmingQFunction( ConfirmingStateAction currentStateAction, ConfirmingState nextState, long confirmQuantity) {
+
+        long reward = currentStateAction.state.requestUtilFunction.get(confirmQuantity) - currentStateAction.action.selectedOffer.costFunction.get(currentStateAction.action.selectedOffer.quantity);
+
+        Set<ConfirmingAction> possibleNextActions = generatePossibleConfirmingActions (nextState);
+
+        ConfirmingAction bestNextAction = selectBestConfirmingAction( nextState, possibleNextActions);
+
+        ConfirmingStateAction bestNextStateAction = new ConfirmingStateAction( nextState, bestNextAction);
+
+        double updatedQ = confirmingQFunction.get(currentStateAction) + alpha * (reward + (gamma * confirmingQFunction.get(bestNextStateAction)) - confirmingQFunction.get(currentStateAction));
+
+        confirmingQFunction.put( currentStateAction, updatedQ);
     }
 
 

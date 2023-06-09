@@ -23,6 +23,8 @@ public class Offer {
     public AID receiver;
     public Set<Offer> includedOffers;
     public long timeout;
+    public OfferingStateAction currentStateAction;
+    public OfferingState nextState;
 
 
     public Offer(String id, String reqId, long quantity, ResourceType resourceType, Map<Long, Long> costFunction, Map<String, Long> offeredItems, AID sender, AID receiver) {
