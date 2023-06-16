@@ -1,6 +1,7 @@
 package model;
 
 
+import java.util.Map;
 import java.util.Objects;
 
 public class OfferingAction {
@@ -13,6 +14,8 @@ public class OfferingAction {
     public Request selectedRequest;
 
     public long offerQuantity;
+
+    public Map<Long, Long> offerCostFunction;
 
     public OfferingAction(ResourceType resourceType, Request selectedRequest, long offerQuantity) {
         this.resourceType = resourceType;

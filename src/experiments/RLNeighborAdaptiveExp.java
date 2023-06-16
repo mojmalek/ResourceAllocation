@@ -8,6 +8,7 @@ import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
 import model.SimulationEngine;
 import org.jgrapht.Graph;
+import org.jgrapht.generate.CompleteGraphGenerator;
 import org.jgrapht.generate.ScaleFreeGraphGenerator;
 import org.jgrapht.generate.WattsStrogatzGraphGenerator;
 import org.jgrapht.graph.DefaultWeightedEdge;
@@ -28,7 +29,8 @@ public class RLNeighborAdaptiveExp {
     public static void main(String[] args) {
         try {
 //            runSimulation1();
-            smallWorldSim();
+            completeSim();
+//            smallWorldSim();
 //            scaleFreeSim();
 //            randomSim();
         } catch (Exception e) {
@@ -67,12 +69,125 @@ public class RLNeighborAdaptiveExp {
     }
 
 
+    public static void completeSim() throws StaleProxyException {
+
+        int numberOfAgents = 8;
+        int numberOfRounds = 50000;
+//        long duration = 600000;
+//        long currentTime, endTime;
+        SimulationEngine simulationEngine1, simulationEngine2;
+        Set<AgentController> agentControllers = new HashSet<>();
+
+        String agentType1 = "ScaleFree-NoCas-RL-A";
+        String agentType2 = "ScaleFree-NoCas-A";
+
+//        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
+        String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
+
+        for (long param = 16; param <= 16; param+=2) {
+//            logResults(resultFileName1, "");
+//            logResults(resultFileName1, "param = " + param);
+//            logResults(resultFileName1, "");
+            logResults(resultFileName2, "");
+            logResults(resultFileName2, "param = " + param);
+            logResults(resultFileName2, "");
+            simulationEngine1 = new SimulationEngine( param, agentType1);
+            simulationEngine2 = new SimulationEngine( param, agentType2);
+            for (int exp = 1; exp <= 1; exp++) {
+//                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+
+                Runtime rt = Runtime.instance();
+                Profile profile = new ProfileImpl();
+                profile.setParameter(Profile.MAIN_HOST, "localhost");
+//              profile.setParameter(Profile.GUI, "true");
+                ContainerController containerController = rt.createMainContainer(profile);
+
+//              double connectivity = 0.0;
+//              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
+
+                Supplier<String> vSupplier = new Supplier<String>() {
+                    private int id = 1;
+                    @Override
+                    public String get() {
+                        return "" + id++;
+                    }
+                };
+
+                Graph<String, DefaultWeightedEdge> completeGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
+                // Scale-free graph
+                CompleteGraphGenerator<String, DefaultWeightedEdge> completeGraphGenerator = new CompleteGraphGenerator<>(numberOfAgents);
+                completeGraphGenerator.generateGraph(completeGraph);
+
+                System.out.println("Complete:");
+                Iterator<String> iter2 = new DepthFirstIterator<>(completeGraph);
+                while (iter2.hasNext()) {
+                    String vertex = iter2.next();
+                    System.out.println(vertex + " is connected to: " + completeGraph.edgesOf(vertex).toString());
+                }
+
+                Integer[][] adjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(completeGraph, numberOfAgents);
+
+                System.out.println("Agent social network adjacency matrix: ");
+                System.out.print("{");
+                for (int i = 0; i < adjacency.length; i++) {
+                    System.out.print("{");
+                    for (int j = 0; j < adjacency[i].length; j++) {
+                        if (adjacency[i][j] == null) {
+                            System.out.print("null, ");
+                        } else {
+                            System.out.print(adjacency[i][j] + ", ");
+                        }
+                    }
+                    System.out.println("}");
+                }
+                System.out.print("}");
+                System.out.println();
+
+                agentControllers.clear();
+//                currentTime = System.currentTimeMillis();
+//                endTime = currentTime + duration;
+                for (int i = 0; i <= numberOfAgents; i++) {
+                    AgentController agentController1, agentController2;
+                    try {
+                        if (i == 0) {
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, completeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+//                            agentController1.start();
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2.start();
+                        } else {
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
+//                            agentController1.start();
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, adjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
+                            agentController2.start();
+                        }
+//                        agentControllers.add( agentController1);
+                        agentControllers.add( agentController2);
+                    } catch (StaleProxyException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+//                while (currentTime < endTime + 1500) {
+//                    currentTime = System.currentTimeMillis();
+//                }
+//                for( AgentController agentController : agentControllers) {
+//                    agentController.kill();
+//                }
+//                containerController.kill();
+            }
+        }
+    }
+
+
     public static void smallWorldSim() throws StaleProxyException {
 
         int numberOfAgents = 20;
-        int numberOfRounds = 1000;
-        long duration = 60000;
-        long currentTime, endTime;
+        int numberOfRounds = 10000;
+//        long duration = 600000;
+//        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
@@ -152,8 +267,8 @@ public class RLNeighborAdaptiveExp {
                 System.out.println();
 
                 agentControllers.clear();
-                currentTime = System.currentTimeMillis();
-                endTime = currentTime + duration;
+//                currentTime = System.currentTimeMillis();
+//                endTime = currentTime + duration;
                 for (int i = 0; i <= numberOfAgents; i++) {
                     AgentController agentController1, agentController2;
                     try {
@@ -175,12 +290,12 @@ public class RLNeighborAdaptiveExp {
                     }
                 }
 
-                while (currentTime < endTime + 1500) {
-                    currentTime = System.currentTimeMillis();
-                }
-                for( AgentController agentController : agentControllers) {
-                    agentController.kill();
-                }
+//                while (currentTime < endTime + 1500) {
+//                    currentTime = System.currentTimeMillis();
+//                }
+//                for( AgentController agentController : agentControllers) {
+//                    agentController.kill();
+//                }
 //                containerController.kill();
             }
         }
@@ -189,10 +304,10 @@ public class RLNeighborAdaptiveExp {
 
     public static void scaleFreeSim() throws StaleProxyException {
 
-        int numberOfAgents = 20;
-        int numberOfRounds = 1000;
-        long duration = 60000;
-        long currentTime, endTime;
+        int numberOfAgents = 8;
+        int numberOfRounds = 20000;
+//        long duration = 600000;
+//        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
@@ -240,40 +355,65 @@ public class RLNeighborAdaptiveExp {
                 scaleFreeGraphGenerator.generateGraph(scaleFreeGraph);
 
                 System.out.println("Scale-free:");
-                Iterator<String> iter2 = new DepthFirstIterator<>(scaleFreeGraph);
-                while (iter2.hasNext()) {
-                    String vertex = iter2.next();
-                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
-                }
+//                Iterator<String> iter2 = new DepthFirstIterator<>(scaleFreeGraph);
+//                while (iter2.hasNext()) {
+//                    String vertex = iter2.next();
+//                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
+//                }
 
-                Integer[][] scaleFreeAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
+//                Integer[][] adjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
                 //TODO: save the social network array in a text file in order to re-use it.
-//              Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
-//                                     {1, null, 1, null, 1, null, null, 1},
-//                                     {1, 1, null, 1, null, null, 1, null},
-//                                     {null, null, 1, null, 1, null, null, 1},
-//                                     {null, 1, null, 1, null, 1, null, 1},
-//                                     {null, null, null, null, 1, null, 1, null},
-//                                     {1, null, 1, null, null, 1, null, 1},
-//                                     {1, 1, null, 1, 1, null, 1, null}};
+                Integer[][] adjacency = {{null, 1, null, 1, null, null, null, null},
+                                    {1, null, 1, 1, null, 1, null, 1},
+                                    {null, 1, null, null, null, null, null, null},
+                                    {1, 1, null, null, 1, null, null, null},
+                                    {null, null, null, 1, null, null, 1, null},
+                                    {null, 1, null, null, null, null, null, null},
+                                    {null, null, null, null, 1, null, null, null},
+                                    {null, 1, null, null, null, null, null, null}};
 
-//                System.out.println("Agent social network adjacency matrix: ");
-//                for (int i = 0; i < adjacency.length; i++) {
-//                    for (int j = 0; j < adjacency[i].length; j++) {
-//                        if (adjacency[i][j] == null) {
-//                            System.out.print("0, ");
-//                        } else {
-//                            System.out.print(adjacency[i][j] + ", ");
-//                        }
-//                    }
-//                    System.out.println();
-//                }
+
+//                Integer[][] adjacency = {{null, 1, 1, null, 1, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
+//                    {1, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
+//                    {1, null, null, null, null, null, null, null, null, null, null, 1, 1, null, 1, null, null, null, 1, null},
+//                    {null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
+//                    {1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
+//                    {1, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null},
+//                    {null, null, null, null, null, 1, null, 1, 1, null, null, null, null, 1, null, null, null, 1, null, 1},
+//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null},
+//                    {null, null, null, null, null, null, 1, null, null, 1, 1, null, null, null, null, null, null, null, null, null},
+//                    {null, null, null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null},
+//                    {null, null, null, null, null, null, null, null, 1, null, null, null, 1, null, null, null, null, null, null, null},
+//                    {null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
+//                    {null, null, 1, null, null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null},
+//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null},
+//                    {null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
+//                    {1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
+//                    {null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, 1},
+//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, 1, null},
+//                    {null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, null, null},
+//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null}};
+
+                System.out.println("Agent social network adjacency matrix: ");
+                System.out.print("{");
+                for (int i = 0; i < adjacency.length; i++) {
+                    System.out.print("{");
+                    for (int j = 0; j < adjacency[i].length; j++) {
+                        if (adjacency[i][j] == null) {
+                            System.out.print("null, ");
+                        } else {
+                            System.out.print(adjacency[i][j] + ", ");
+                        }
+                    }
+                    System.out.println("}");
+                }
+                System.out.print("}");
                 System.out.println();
 
                 agentControllers.clear();
-                currentTime = System.currentTimeMillis();
-                endTime = currentTime + duration;
+//                currentTime = System.currentTimeMillis();
+//                endTime = currentTime + duration;
                 for (int i = 0; i <= numberOfAgents; i++) {
                     AgentController agentController1, agentController2;
                     try {
@@ -285,7 +425,7 @@ public class RLNeighborAdaptiveExp {
                         } else {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, scaleFreeAdjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, adjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
                             agentController2.start();
                         }
 //                        agentControllers.add( agentController1);
@@ -295,12 +435,12 @@ public class RLNeighborAdaptiveExp {
                     }
                 }
 
-                while (currentTime < endTime + 1500) {
-                    currentTime = System.currentTimeMillis();
-                }
-                for( AgentController agentController : agentControllers) {
-                    agentController.kill();
-                }
+//                while (currentTime < endTime + 1500) {
+//                    currentTime = System.currentTimeMillis();
+//                }
+//                for( AgentController agentController : agentControllers) {
+//                    agentController.kill();
+//                }
 //                containerController.kill();
             }
         }
