@@ -29,11 +29,11 @@ public class OfferingState {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         OfferingState that = (OfferingState) o;
-        return availableQuantity == that.availableQuantity && resourceType == that.resourceType && Objects.equals(netUtils, that.netUtils);
+        return resourceType == that.resourceType && Objects.equals(netUtils, that.netUtils);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(resourceType, netUtils, availableQuantity);
+        return Objects.hash(resourceType, netUtils);
     }
 }

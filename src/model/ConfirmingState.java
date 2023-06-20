@@ -18,15 +18,17 @@ public class ConfirmingState {
 
     public Map<AID, Map<Long, Long>> offerCosts;
 
-    public long currentConfirmedQuantity;
+//    public long currentConfirmedQuantity;
+    public long remainingRequestedQuantity;
 
-    public ConfirmingState(ResourceType resourceType, Request request, Map<Long, Long> requestUtilFunction, Set<Offer> offers, Map<AID, Map<Long, Long>> offerCosts, long currentConfirmedQuantity) {
+
+    public ConfirmingState(ResourceType resourceType, Request request, Map<Long, Long> requestUtilFunction, Set<Offer> offers, Map<AID, Map<Long, Long>> offerCosts, long remainingRequestedQuantity) {
         this.resourceType = resourceType;
         this.request = request;
         this.requestUtilFunction = requestUtilFunction;
         this.offers = offers;
         this.offerCosts = offerCosts;
-        this.currentConfirmedQuantity = currentConfirmedQuantity;
+        this.remainingRequestedQuantity = remainingRequestedQuantity;
     }
 
     @Override
@@ -34,11 +36,11 @@ public class ConfirmingState {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ConfirmingState that = (ConfirmingState) o;
-        return currentConfirmedQuantity == that.currentConfirmedQuantity && resourceType == that.resourceType && Objects.equals(offerCosts, that.offerCosts) && Objects.equals(requestUtilFunction, that.requestUtilFunction);
+        return resourceType == that.resourceType && Objects.equals(offerCosts, that.offerCosts) && Objects.equals(requestUtilFunction, that.requestUtilFunction);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(resourceType, offerCosts, requestUtilFunction, currentConfirmedQuantity);
+        return Objects.hash(resourceType, offerCosts, requestUtilFunction);
     }
 }
