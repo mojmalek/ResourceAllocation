@@ -30,6 +30,6 @@ public class ConfirmingAction {
 
     @Override
     public int hashCode() {
-        return Objects.hash(resourceType, selectedOffer, confirmQuantity);
+        return Objects.hash(resourceType, selectedOffer.sender, confirmQuantity);
     }
 }
