@@ -28,7 +28,7 @@ public class Task {
         this.manager = manager;
     }
 
-    private double efficiency() {
+    public double efficiency() {
         int count = 0;
         for (var resource: requiredResources.entrySet()) {
             count += resource.getValue();

@@ -4,9 +4,7 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
-import model.ResourceItem;
-import model.ResourceType;
-import model.Task;
+import model.*;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -36,6 +34,12 @@ public class RLMasterAgent extends Agent {
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
+
+    private Map<MasterStateAction, Double> masterQFunction = new LinkedHashMap<>();
+
+    private final double alpha = 0.5; // Learning rate
+    private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
+    private final double epsilon = 0.5; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
 
 
     @Override
@@ -88,7 +92,8 @@ public class RLMasterAgent extends Agent {
                         for (var resourceInfo : resourcesInfo.entrySet() ) {
                             findNewResources (resourceInfo.getValue().get(r));
                         }
-                        performTasks( myAgent);
+//                        performTasksGreedy( myAgent);
+                        performTasksRL( myAgent);
                         expireResourceItems( myAgent);
                         expireTasks( myAgent);
                     }
@@ -97,7 +102,8 @@ public class RLMasterAgent extends Agent {
                     System.out.println ("Decentralized total util for " + agentType + " : " + agentUtilitiesSum());
                     System.out.println ("Percentage ratio for " + agentType + " : " + ((double) agentUtilitiesSum() / totalUtil * 100));
                     System.out.println ("");
-                    logResults( String.valueOf(agentUtilitiesSum()));
+//                    printUtils();
+//                    logResults( String.valueOf(agentUtilitiesSum()));
 
                     block();
                 }
@@ -179,7 +185,7 @@ public class RLMasterAgent extends Agent {
             int initialSize = availableItems.size();
             availableItems.removeAll( expiredItemsInThisRound);
             if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
-                logInf("Error!!");
+                logErr("Error!!");
             }
         }
 
@@ -202,12 +208,12 @@ public class RLMasterAgent extends Agent {
         }
 
         if (lateTasksInThisRound.size() != count) {
-            logInf("Error!!");
+            logErr("Error!!");
         }
         int initialSize = toDoTasks.size();
         toDoTasks.removeAll( lateTasksInThisRound);
         if ( initialSize - count != toDoTasks.size()) {
-            logInf("Error!!");
+            logErr("Error!!");
         }
     }
 
@@ -233,7 +239,7 @@ public class RLMasterAgent extends Agent {
     }
 
 
-    private void performTasks(Agent myAgent) {
+    private void performTasksGreedy(Agent myAgent) {
 
 //        logInf (myAgent.getLocalName() +  " is performing tasks.");
         int count = 0;
@@ -245,7 +251,7 @@ public class RLMasterAgent extends Agent {
                 doneTasksInThisRound.add(task);
                 boolean check = doneTasks.add(task);
                 if (check == false) {
-                    logInf("Error!!");
+                    logErr("Error!!");
                 }
                 totalUtil = totalUtil + task.utility;
                 count += 1;
@@ -253,7 +259,7 @@ public class RLMasterAgent extends Agent {
         }
 
         if (doneTasksInThisRound.size() != count) {
-            logInf("Error!!");
+            logErr("Error!!");
         }
 
         int initialSize = toDoTasks.size();
@@ -261,10 +267,154 @@ public class RLMasterAgent extends Agent {
         toDoTasks.removeAll (doneTasks);
 
         if ( initialSize - count != toDoTasks.size()) {
-            logInf("Error!!");
+            logErr("Error!!");
         }
 
 //        logInf( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
+    }
+
+
+    private void performTasksRL(Agent myAgent) {
+
+        // Centralized reinforcement learning
+
+        while (toDoTasks.size() > 0) {
+            MasterState currentState = generateMasterState();
+
+            Set<MasterAction> possibleActions = generatePossibleMasterActions (currentState);
+
+            if (possibleActions.size() == 0) {
+                break;
+            }
+
+            // Choose action from state using epsilon-greedy policy derived from Q
+            MasterAction action =  selectEplisonGreedyMasterAction (currentState, possibleActions);
+
+            processTask(action.selectedTask);
+            doneTasks.add(action.selectedTask);
+            toDoTasks.remove (action.selectedTask);
+            totalUtil += action.selectedTask.utility;
+
+            long reward = action.selectedTask.utility;
+
+            MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
+            MasterState nextState = generateMasterState();
+
+            updateMasterQFunction(currentStateAction, nextState, reward);
+        }
+    }
+
+
+    MasterState generateMasterState () {
+
+        ArrayList<Double> efficiencies = new ArrayList<>();
+        for (Task task : toDoTasks) {
+            efficiencies.add( task.efficiency());
+        }
+
+        Map<ResourceType, Long> availableQuantities = new LinkedHashMap<>();
+        for (var resource : availableResources.entrySet()) {
+            availableQuantities.put( resource.getKey(), (long) resource.getValue().size());
+        }
+
+        // because these set are being updated
+        SortedSet<Task> copyOfTasks = new TreeSet<>(toDoTasks);
+        Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
+
+        MasterState masterState = new MasterState( copyOfTasks, efficiencies, resources, availableQuantities);
+        return masterState;
+    }
+
+
+    Set<MasterAction> generatePossibleMasterActions (MasterState currentState) {
+
+        Set<MasterAction> actions = new HashSet<>();
+        MasterAction masterAction;
+        MasterStateAction masterStateAction;
+        for (Task task : currentState.toDoTasks) {
+            if (hasEnoughResources(task, availableResources)) {
+                masterAction = new MasterAction(task, task.efficiency());
+                actions.add(masterAction);
+                masterStateAction = new MasterStateAction(currentState, masterAction);
+                if (masterQFunction.containsKey(masterStateAction) == false) {
+                        masterQFunction.put(masterStateAction, Double.valueOf(task.efficiency()));
+//                    masterQFunction.put(masterStateAction, 1.0);
+                } else {
+                        System.out.println(this.getLocalName() + " masterQFunction contains masterStateAction");
+                }
+            }
+        }
+        return actions;
+    }
+
+
+    MasterAction selectEplisonGreedyMasterAction (MasterState currentState, Set<MasterAction> possibleActions) {
+
+        MasterAction selectedAction = null;
+        MasterStateAction masterStateAction;
+        Random random = new Random();
+        double r = random.nextDouble();
+        Iterator<MasterAction> iter1 = possibleActions.iterator();
+        Iterator<MasterAction> iter2 = possibleActions.iterator();
+        if (r < epsilon) {
+            //exploration: pick a random action from possible actions in this state
+            int index = random.nextInt(possibleActions.size());
+            for (int i = 0; i < index; i++) {
+                iter1.next();
+            }
+            selectedAction = iter1.next();
+        } else {
+            //exploitation: pick the best known action from possible actions in this state using Q table
+            MasterAction action;
+            Double Q;
+            Double highestQ = -Double.MAX_VALUE;
+            for (int i = 0; i < possibleActions.size(); i++) {
+                action = iter2.next();
+                masterStateAction = new MasterStateAction(currentState, action);
+                Q = masterQFunction.get(masterStateAction);
+                if (Q > highestQ) {
+                    highestQ = Q;
+                    selectedAction = action;
+                }
+            }
+        }
+        return selectedAction;
+    }
+
+
+    void updateMasterQFunction( MasterStateAction currentStateAction, MasterState nextState, long reward) {
+
+        Set<MasterAction> possibleNextActions = generatePossibleMasterActions (nextState);
+
+        if (possibleNextActions.size() > 0) {
+            MasterAction bestNextAction = selectBestMasterAction(nextState, possibleNextActions);
+            MasterStateAction bestNextStateAction = new MasterStateAction(nextState, bestNextAction);
+            double updatedQ = masterQFunction.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction.get(bestNextStateAction)) - masterQFunction.get(currentStateAction));
+            masterQFunction.put(currentStateAction, updatedQ);
+        }
+    }
+
+
+    MasterAction selectBestMasterAction (MasterState state, Set<MasterAction> possibleActions) {
+
+        MasterAction selectedAction = null;
+        MasterStateAction masterStateAction;
+        Iterator<MasterAction> iter = possibleActions.iterator();
+
+        MasterAction action;
+        Double Q;
+        Double highestQ = -Double.MAX_VALUE;
+        for (int i = 0; i < possibleActions.size(); i++) {
+            action = iter.next();
+            masterStateAction = new MasterStateAction(state, action);
+            Q = masterQFunction.get(masterStateAction);
+            if (Q > highestQ) {
+                highestQ = Q;
+                selectedAction = action;
+            }
+        }
+
+        return selectedAction;
     }
 
 
@@ -337,13 +487,38 @@ public class RLMasterAgent extends Agent {
     }
 
 
-    protected void logInf(String msg) {
+    void printUtils() {
+        long sum;
+        for( int r=0; r<=10000; r=r+1000) {
+            sum = 0;
+            for( var utilInfo: utilitiesInfo.entrySet()) {
+                if (r==0) {
+                    sum += utilInfo.getValue().get(r);
+                } else {
+                    sum += utilInfo.getValue().get(r) - utilInfo.getValue().get(r-1000);
+                }
+            }
+            System.out.println("At round " + String.valueOf(r+1) + " : " + sum);
+        }
+    }
 
-//      System.out.println("Time:" + System.currentTimeMillis() + " " + agentType + "0: " + msg);
+
+    private static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
+        Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
+        for (var entry : original.entrySet()) {
+            copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
+        }
+        return copy;
+    }
+
+
+    protected void logErr(String msg) {
+
+      System.out.println( agentType + "0: " + msg);
 
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
-            out.println(System.currentTimeMillis() + " " + agentType + "0: " + msg);
+            out.println( agentType + "0: " + msg);
             out.close();
         } catch (IOException e) {
             System.err.println("Error writing file..." + e.getMessage());
