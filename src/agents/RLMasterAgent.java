@@ -35,12 +35,14 @@ public class RLMasterAgent extends Agent {
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
 
-    private Map<MasterStateAction, Double> masterQFunction = new LinkedHashMap<>();
+    private Map<MasterStateAction, Double> masterQFunction1 = new LinkedHashMap<>();
+    private Map<MasterStateAction, Double> masterQFunction2 = new LinkedHashMap<>();
 
-    private final double alpha = 0.5; // Learning rate
+    private final double alpha = 0.2; // Learning rate
     private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
-    private final double epsilon = 0.5; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
+    private final double epsilon = 0.1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
 
+    private boolean doubleLearning = true;
 
     @Override
     protected void setup() {
@@ -92,10 +94,18 @@ public class RLMasterAgent extends Agent {
                         for (var resourceInfo : resourcesInfo.entrySet() ) {
                             findNewResources (resourceInfo.getValue().get(r));
                         }
+//                        performTasksOptimal( myAgent);
 //                        performTasksGreedy( myAgent);
                         performTasksRL( myAgent);
                         expireResourceItems( myAgent);
                         expireTasks( myAgent);
+
+                        if (r == numberOfRounds-1) {
+                            System.out.println("masterQFunction1 size: " + masterQFunction1.size());
+                            if( doubleLearning == true) {
+                                System.out.println("masterQFunction2 size: " + masterQFunction2.size());
+                            }
+                        }
                     }
 
                     System.out.println ("Centralized total util for " + agentType + " : " + totalUtil);
@@ -239,6 +249,12 @@ public class RLMasterAgent extends Agent {
     }
 
 
+    private void performTasksOptimal(Agent myAgent) {
+
+
+    }
+
+
     private void performTasksGreedy(Agent myAgent) {
 
 //        logInf (myAgent.getLocalName() +  " is performing tasks.");
@@ -278,8 +294,10 @@ public class RLMasterAgent extends Agent {
 
         // Centralized reinforcement learning
 
+        long currentAllocatedQuantity = 0;
+
         while (toDoTasks.size() > 0) {
-            MasterState currentState = generateMasterState();
+            MasterState currentState = generateMasterState( currentAllocatedQuantity);
 
             Set<MasterAction> possibleActions = generatePossibleMasterActions (currentState);
 
@@ -295,17 +313,24 @@ public class RLMasterAgent extends Agent {
             toDoTasks.remove (action.selectedTask);
             totalUtil += action.selectedTask.utility;
 
-            long reward = action.selectedTask.utility;
+//            long reward = (long) action.selectedTask.efficiency();
+            long reward = (long) action.selectedTask.utility;
 
             MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
-            MasterState nextState = generateMasterState();
+
+            for (var resource : action.selectedTask.requiredResources.entrySet()) {
+                currentAllocatedQuantity += resource.getValue();
+
+            }
+
+            MasterState nextState = generateMasterState(currentAllocatedQuantity);
 
             updateMasterQFunction(currentStateAction, nextState, reward);
         }
     }
 
 
-    MasterState generateMasterState () {
+    MasterState generateMasterState ( long currentAllocatedQuantity) {
 
         ArrayList<Double> efficiencies = new ArrayList<>();
         for (Task task : toDoTasks) {
@@ -321,7 +346,7 @@ public class RLMasterAgent extends Agent {
         SortedSet<Task> copyOfTasks = new TreeSet<>(toDoTasks);
         Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
 
-        MasterState masterState = new MasterState( copyOfTasks, efficiencies, resources, availableQuantities);
+        MasterState masterState = new MasterState( copyOfTasks, efficiencies, resources, availableQuantities, currentAllocatedQuantity);
         return masterState;
     }
 
@@ -336,11 +361,19 @@ public class RLMasterAgent extends Agent {
                 masterAction = new MasterAction(task, task.efficiency());
                 actions.add(masterAction);
                 masterStateAction = new MasterStateAction(currentState, masterAction);
-                if (masterQFunction.containsKey(masterStateAction) == false) {
-                        masterQFunction.put(masterStateAction, Double.valueOf(task.efficiency()));
+                if (masterQFunction1.containsKey(masterStateAction) == false) {
+                    masterQFunction1.put(masterStateAction, Double.valueOf(task.utility));
 //                    masterQFunction.put(masterStateAction, 1.0);
                 } else {
-                        System.out.println(this.getLocalName() + " masterQFunction contains masterStateAction");
+                        System.out.println(this.getLocalName() + " masterQFunction1 contains masterStateAction");
+                }
+                if (doubleLearning == true) {
+                    if (masterQFunction2.containsKey(masterStateAction) == false) {
+                        masterQFunction2.put(masterStateAction, Double.valueOf(task.utility));
+//                    masterQFunction.put(masterStateAction, 1.0);
+                    } else {
+                        System.out.println(this.getLocalName() + " masterQFunction2 contains masterStateAction");
+                    }
                 }
             }
         }
@@ -371,7 +404,11 @@ public class RLMasterAgent extends Agent {
             for (int i = 0; i < possibleActions.size(); i++) {
                 action = iter2.next();
                 masterStateAction = new MasterStateAction(currentState, action);
-                Q = masterQFunction.get(masterStateAction);
+                if (doubleLearning) {
+                    Q = masterQFunction1.get(masterStateAction) + masterQFunction2.get(masterStateAction);
+                } else {
+                    Q = masterQFunction1.get(masterStateAction);
+                }
                 if (Q > highestQ) {
                     highestQ = Q;
                     selectedAction = action;
@@ -387,15 +424,31 @@ public class RLMasterAgent extends Agent {
         Set<MasterAction> possibleNextActions = generatePossibleMasterActions (nextState);
 
         if (possibleNextActions.size() > 0) {
-            MasterAction bestNextAction = selectBestMasterAction(nextState, possibleNextActions);
-            MasterStateAction bestNextStateAction = new MasterStateAction(nextState, bestNextAction);
-            double updatedQ = masterQFunction.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction.get(bestNextStateAction)) - masterQFunction.get(currentStateAction));
-            masterQFunction.put(currentStateAction, updatedQ);
+            if (doubleLearning == true) {
+                Random random = new Random();
+                double r = random.nextDouble();
+                if (r < 0.5) {
+                    MasterAction bestNextAction1 = selectBestMasterAction1(nextState, possibleNextActions);
+                    MasterStateAction bestNextStateAction1 = new MasterStateAction(nextState, bestNextAction1);
+                    double updatedQ = masterQFunction1.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction2.get(bestNextStateAction1)) - masterQFunction1.get(currentStateAction));
+                    masterQFunction1.put(currentStateAction, updatedQ);
+                } else {
+                    MasterAction bestNextAction2 = selectBestMasterAction2(nextState, possibleNextActions);
+                    MasterStateAction bestNextStateAction2 = new MasterStateAction(nextState, bestNextAction2);
+                    double updatedQ = masterQFunction2.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction1.get(bestNextStateAction2)) - masterQFunction2.get(currentStateAction));
+                    masterQFunction2.put(currentStateAction, updatedQ);
+                }
+            } else {
+                MasterAction bestNextAction1 = selectBestMasterAction1(nextState, possibleNextActions);
+                MasterStateAction bestNextStateAction1 = new MasterStateAction(nextState, bestNextAction1);
+                double updatedQ = masterQFunction1.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction1.get(bestNextStateAction1)) - masterQFunction1.get(currentStateAction));
+                masterQFunction1.put(currentStateAction, updatedQ);
+            }
         }
     }
 
 
-    MasterAction selectBestMasterAction (MasterState state, Set<MasterAction> possibleActions) {
+    MasterAction selectBestMasterAction1 (MasterState state, Set<MasterAction> possibleActions) {
 
         MasterAction selectedAction = null;
         MasterStateAction masterStateAction;
@@ -407,7 +460,30 @@ public class RLMasterAgent extends Agent {
         for (int i = 0; i < possibleActions.size(); i++) {
             action = iter.next();
             masterStateAction = new MasterStateAction(state, action);
-            Q = masterQFunction.get(masterStateAction);
+            Q = masterQFunction1.get(masterStateAction);
+            if (Q > highestQ) {
+                highestQ = Q;
+                selectedAction = action;
+            }
+        }
+
+        return selectedAction;
+    }
+
+
+    MasterAction selectBestMasterAction2 (MasterState state, Set<MasterAction> possibleActions) {
+
+        MasterAction selectedAction = null;
+        MasterStateAction masterStateAction;
+        Iterator<MasterAction> iter = possibleActions.iterator();
+
+        MasterAction action;
+        Double Q;
+        Double highestQ = -Double.MAX_VALUE;
+        for (int i = 0; i < possibleActions.size(); i++) {
+            action = iter.next();
+            masterStateAction = new MasterStateAction(state, action);
+            Q = masterQFunction2.get(masterStateAction);
             if (Q > highestQ) {
                 highestQ = Q;
                 selectedAction = action;

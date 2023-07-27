@@ -17,12 +17,24 @@ public class MasterState {
 
     public Map<ResourceType, Long> availableQuantities;
 
+    public long currentAllocatedQuantity;
 
-    public MasterState(SortedSet<Task> toDoTasks, ArrayList<Double> efficiencies, Map<ResourceType, SortedSet<ResourceItem>> availableResources, Map<ResourceType, Long> availableQuantities) {
+
+    public MasterState(SortedSet<Task> toDoTasks, ArrayList<Double> efficiencies, Map<ResourceType, SortedSet<ResourceItem>> availableResources, Map<ResourceType, Long> availableQuantities, long currentAllocatedQuantity) {
         this.toDoTasks = toDoTasks;
         this.efficiencies = efficiencies;
         this.availableResources = availableResources;
         this.availableQuantities = availableQuantities;
+        this.currentAllocatedQuantity = currentAllocatedQuantity;
+    }
+
+
+    Double efficienciesSum () {
+        Double sum = 0.0;
+        for (double e : efficiencies) {
+            sum += e;
+        }
+        return sum;
     }
 
     @Override
@@ -30,11 +42,11 @@ public class MasterState {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         MasterState that = (MasterState) o;
-        return Objects.equals(efficiencies, that.efficiencies) && Objects.equals(availableQuantities, that.availableQuantities);
+        return Objects.equals(currentAllocatedQuantity, that.currentAllocatedQuantity);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(efficiencies, availableQuantities);
+        return Objects.hash(currentAllocatedQuantity);
     }
 }
