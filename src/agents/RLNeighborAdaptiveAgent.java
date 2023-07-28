@@ -51,8 +51,11 @@ public class RLNeighborAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
-    private Map<OfferingStateAction, Double> offeringQFunction = new LinkedHashMap<>();
-    private Map<ConfirmingStateAction, Double> confirmingQFunction = new LinkedHashMap<>();
+    private Map<OfferingStateAction, Double> offeringQFunction1 = new LinkedHashMap<>();
+    private Map<OfferingStateAction, Double> offeringQFunction2 = new LinkedHashMap<>();
+
+    private Map<ConfirmingStateAction, Double> confirmingQFunction1 = new LinkedHashMap<>();
+    private Map<ConfirmingStateAction, Double> confirmingQFunction2 = new LinkedHashMap<>();
 
     private final double alpha = 0.5; // Learning rate
     private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
@@ -60,6 +63,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
 
     private int count;
     private int errorCount;
+
+    private boolean doubleLearning = true;
 
     @Override
     protected void setup() {
@@ -96,7 +101,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
         addBehaviour (new TickerBehaviour(this, 1) {
             protected void onTick() {
                 if (this.getTickCount() <= numberOfRounds) {
-                    if( myAgent.getLocalName().contains("A1") && this.getTickCount() % 1000 == 0) {
+                    if( myAgent.getLocalName().equals(agentType + "1") && this.getTickCount() % 1000 == 0) {
                         System.out.println(myAgent.getLocalName() + " Round: " + this.getTickCount());
                     }
                     findTasks(myAgent);
@@ -257,6 +262,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedRequests.size() > 0) {
+//            deliberateOnOfferingDP( myAgent);
 //            deliberateOnOfferingGreedy( myAgent);
             deliberateOnOfferingRL( myAgent);
         }
@@ -266,9 +272,9 @@ public class RLNeighborAdaptiveAgent extends Agent {
 //            System.out.print("");
 //        }
         if (receivedOffers.size() > 0) {
+//            deliberateOnConfirmingDP( myAgent);
 //            deliberateOnConfirmingGreedy( myAgent);
             deliberateOnConfirmingRL( myAgent);
-//            deliberateOnConfirmingDP( myAgent);
         }
         sendNextPhaseNotification (ProtocolPhase.REQUESTING);
         waitForConfirmations( myAgent);
@@ -668,6 +674,13 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
+    private void deliberateOnOfferingDP(Agent myAgent) {
+
+
+
+    }
+
+
     private void deliberateOnOfferingGreedy(Agent myAgent) {
 
         // if agents operate and communicate asynchronously, then a request might be received at any time.
@@ -795,10 +808,19 @@ public class RLNeighborAdaptiveAgent extends Agent {
                     offeringAction = new OfferingAction(request.resourceType, request, q);
                     actions.add(offeringAction);
                     offeringStateAction = new OfferingStateAction(currentState, offeringAction);
-                    if (offeringQFunction.containsKey(offeringStateAction) == false) {
-                        offeringQFunction.put(offeringStateAction, Double.valueOf(netUtil.get(q)));
+                    if (offeringQFunction1.containsKey(offeringStateAction) == false) {
+                        offeringQFunction1.put(offeringStateAction, Double.valueOf(netUtil.get(q)));
+//                        offeringQFunction1.put(offeringStateAction, 1.0);
                     } else {
-//                        System.out.println(this.getLocalName() + " offeringQFunction contains offeringStateAction");
+//                        System.out.println(this.getLocalName() + " offeringQFunction1 contains offeringStateAction");
+                    }
+                    if (doubleLearning == true) {
+                        if (offeringQFunction2.containsKey(offeringStateAction) == false) {
+                            offeringQFunction2.put(offeringStateAction, Double.valueOf(netUtil.get(q)));
+//                          offeringQFunction2.put(offeringStateAction, 1.0);
+                        } else {
+//                            System.out.println(this.getLocalName() + " offeringQFunction2 contains offeringStateAction");
+                        }
                     }
                 }
             }
@@ -843,7 +865,11 @@ public class RLNeighborAdaptiveAgent extends Agent {
             for (int i = 0; i < possibleActions.size(); i++) {
                 action = iter2.next();
                 offeringStateAction = new OfferingStateAction(state, action);
-                Q = offeringQFunction.get(offeringStateAction);
+                if (doubleLearning) {
+                    Q = offeringQFunction1.get(offeringStateAction) + offeringQFunction2.get(offeringStateAction);
+                } else {
+                    Q = offeringQFunction1.get(offeringStateAction);
+                }
                 if (Q > highestQ) {
                     highestQ = Q;
                     selectedAction = action;
@@ -854,7 +880,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    OfferingAction selectBestOfferingAction (OfferingState state, Set<OfferingAction> possibleActions) {
+    OfferingAction selectBestOfferingAction1(OfferingState state, Set<OfferingAction> possibleActions) {
 
         OfferingAction selectedAction = null;
         OfferingStateAction offeringStateAction;
@@ -866,7 +892,30 @@ public class RLNeighborAdaptiveAgent extends Agent {
         for (int i = 0; i < possibleActions.size(); i++) {
             action = iter.next();
             offeringStateAction = new OfferingStateAction(state, action);
-            Q = offeringQFunction.get(offeringStateAction);
+            Q = offeringQFunction1.get(offeringStateAction);
+            if (Q > highestQ) {
+                highestQ = Q;
+                selectedAction = action;
+            }
+        }
+
+        return selectedAction;
+    }
+
+
+    OfferingAction selectBestOfferingAction2(OfferingState state, Set<OfferingAction> possibleActions) {
+
+        OfferingAction selectedAction = null;
+        OfferingStateAction offeringStateAction;
+        Iterator<OfferingAction> iter = possibleActions.iterator();
+
+        OfferingAction action;
+        Double Q;
+        Double highestQ = -Double.MAX_VALUE;
+        for (int i = 0; i < possibleActions.size(); i++) {
+            action = iter.next();
+            offeringStateAction = new OfferingStateAction(state, action);
+            Q = offeringQFunction2.get(offeringStateAction);
             if (Q > highestQ) {
                 highestQ = Q;
                 selectedAction = action;
@@ -900,10 +949,19 @@ public class RLNeighborAdaptiveAgent extends Agent {
                         confirmingAction = new ConfirmingAction(offer.resourceType, offer, q);
                         actions.add(confirmingAction);
                         confirmingStateAction = new ConfirmingStateAction(currentState, confirmingAction);
-                        if (confirmingQFunction.containsKey(confirmingStateAction) == false) {
-                            confirmingQFunction.put(confirmingStateAction, Q);
+                        if (confirmingQFunction1.containsKey(confirmingStateAction) == false) {
+                            confirmingQFunction1.put(confirmingStateAction, Q);
+//                            confirmingQFunction1.put(confirmingStateAction, 1.0);
                         } else {
-//                            System.out.println(this.getLocalName() + " confirmingQFunction contains confirmingStateAction");
+//                            System.out.println(this.getLocalName() + " confirmingQFunction1 contains confirmingStateAction");
+                        }
+                        if (doubleLearning == true) {
+                            if (confirmingQFunction2.containsKey(confirmingStateAction) == false) {
+                                confirmingQFunction2.put(confirmingStateAction, Q);
+//                              confirmingQFunction2.put(confirmingStateAction, 1.0);
+                            } else {
+//                              System.out.println(this.getLocalName() + " confirmingQFunction2 contains confirmingStateAction");
+                            }
                         }
                     }
                 }
@@ -936,7 +994,11 @@ public class RLNeighborAdaptiveAgent extends Agent {
             for (int i = 0; i < possibleActions.size(); i++) {
                 action = iter2.next();
                 confirmingStateAction = new ConfirmingStateAction(currentState, action);
-                Q = confirmingQFunction.get(confirmingStateAction);
+                if (doubleLearning) {
+                    Q = confirmingQFunction1.get(confirmingStateAction) + confirmingQFunction2.get(confirmingStateAction);
+                } else {
+                    Q = confirmingQFunction1.get(confirmingStateAction);
+                }
                 if (Q > highestQ) {
                     highestQ = Q;
                     selectedAction = action;
@@ -947,7 +1009,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    ConfirmingAction selectBestConfirmingAction (ConfirmingState state, Set<ConfirmingAction> possibleActions) {
+    ConfirmingAction selectBestConfirmingAction1(ConfirmingState state, Set<ConfirmingAction> possibleActions) {
 
         ConfirmingAction selectedAction = null;
         ConfirmingStateAction confirmingStateAction;
@@ -959,7 +1021,30 @@ public class RLNeighborAdaptiveAgent extends Agent {
         for (int i = 0; i < possibleActions.size(); i++) {
             action = iter.next();
             confirmingStateAction = new ConfirmingStateAction(state, action);
-            Q = confirmingQFunction.get(confirmingStateAction);
+            Q = confirmingQFunction1.get(confirmingStateAction);
+            if (Q > highestQ) {
+                highestQ = Q;
+                selectedAction = action;
+            }
+        }
+
+        return selectedAction;
+    }
+
+
+    ConfirmingAction selectBestConfirmingAction2(ConfirmingState state, Set<ConfirmingAction> possibleActions) {
+
+        ConfirmingAction selectedAction = null;
+        ConfirmingStateAction confirmingStateAction;
+        Iterator<ConfirmingAction> iter = possibleActions.iterator();
+
+        ConfirmingAction action;
+        Double Q;
+        Double highestQ = -Double.MAX_VALUE;
+        for (int i = 0; i < possibleActions.size(); i++) {
+            action = iter.next();
+            confirmingStateAction = new ConfirmingStateAction(state, action);
+            Q = confirmingQFunction2.get(confirmingStateAction);
             if (Q > highestQ) {
                 highestQ = Q;
                 selectedAction = action;
@@ -1562,11 +1647,27 @@ public class RLNeighborAdaptiveAgent extends Agent {
         Set<OfferingAction> possibleNextActions = generatePossibleOfferingActions (nextState);
 
         if(possibleNextActions.size() > 0) {
-            OfferingAction bestNextAction = selectBestOfferingAction( nextState, possibleNextActions);
-            OfferingStateAction bestNextStateAction = new OfferingStateAction( nextState, bestNextAction);
-            double updatedQ = offeringQFunction.get(currentStateAction) + alpha * (reward + (gamma * offeringQFunction.get(bestNextStateAction)) - offeringQFunction.get(currentStateAction));
-//            System.out.println(this.getLocalName() + " offeringQFunction size: "  + offeringQFunction.size());
-            offeringQFunction.put( currentStateAction, updatedQ);
+            if (doubleLearning == true) {
+                Random random = new Random();
+                double r = random.nextDouble();
+                if (r < 0.5) {
+                    OfferingAction bestNextAction1 = selectBestOfferingAction1(nextState, possibleNextActions);
+                    OfferingStateAction bestNextStateAction1 = new OfferingStateAction(nextState, bestNextAction1);
+                    double updatedQ = offeringQFunction1.get(currentStateAction) + alpha * (reward + (gamma * offeringQFunction2.get(bestNextStateAction1)) - offeringQFunction1.get(currentStateAction));
+                    offeringQFunction1.put(currentStateAction, updatedQ);
+                } else {
+                    OfferingAction bestNextAction2 = selectBestOfferingAction2(nextState, possibleNextActions);
+                    OfferingStateAction bestNextStateAction2 = new OfferingStateAction(nextState, bestNextAction2);
+                    double updatedQ = offeringQFunction2.get(currentStateAction) + alpha * (reward + (gamma * offeringQFunction1.get(bestNextStateAction2)) - offeringQFunction2.get(currentStateAction));
+                    offeringQFunction2.put(currentStateAction, updatedQ);
+                }
+            } else {
+                OfferingAction bestNextAction1 = selectBestOfferingAction1( nextState, possibleNextActions);
+                OfferingStateAction bestNextStateAction1 = new OfferingStateAction( nextState, bestNextAction1);
+                double updatedQ = offeringQFunction1.get(currentStateAction) + alpha * (reward + (gamma * offeringQFunction1.get(bestNextStateAction1)) - offeringQFunction1.get(currentStateAction));
+//            System.out.println(this.getLocalName() + " offeringQFunction1 size: "  + offeringQFunction1.size());
+                offeringQFunction1.put( currentStateAction, updatedQ);
+            }
         }
     }
 
@@ -1580,10 +1681,26 @@ public class RLNeighborAdaptiveAgent extends Agent {
         Set<ConfirmingAction> possibleNextActions = generatePossibleConfirmingActions (nextState);
 
         if (possibleNextActions.size() > 0) {
-            ConfirmingAction bestNextAction = selectBestConfirmingAction(nextState, possibleNextActions);
-            ConfirmingStateAction bestNextStateAction = new ConfirmingStateAction(nextState, bestNextAction);
-            double updatedQ = confirmingQFunction.get(currentStateAction) + alpha * (reward + (gamma * confirmingQFunction.get(bestNextStateAction)) - confirmingQFunction.get(currentStateAction));
-            confirmingQFunction.put(currentStateAction, updatedQ);
+            if (doubleLearning == true) {
+                Random random = new Random();
+                double r = random.nextDouble();
+                if (r < 0.5) {
+                    ConfirmingAction bestNextAction1 = selectBestConfirmingAction1(nextState, possibleNextActions);
+                    ConfirmingStateAction bestNextStateAction1 = new ConfirmingStateAction(nextState, bestNextAction1);
+                    double updatedQ = confirmingQFunction1.get(currentStateAction) + alpha * (reward + (gamma * confirmingQFunction2.get(bestNextStateAction1)) - confirmingQFunction1.get(currentStateAction));
+                    confirmingQFunction1.put(currentStateAction, updatedQ);
+                } else {
+                    ConfirmingAction bestNextAction2 = selectBestConfirmingAction2(nextState, possibleNextActions);
+                    ConfirmingStateAction bestNextStateAction2 = new ConfirmingStateAction(nextState, bestNextAction2);
+                    double updatedQ = confirmingQFunction2.get(currentStateAction) + alpha * (reward + (gamma * confirmingQFunction1.get(bestNextStateAction2)) - confirmingQFunction2.get(currentStateAction));
+                    confirmingQFunction2.put(currentStateAction, updatedQ);
+                }
+            } else {
+                ConfirmingAction bestNextAction1 = selectBestConfirmingAction1(nextState, possibleNextActions);
+                ConfirmingStateAction bestNextStateAction1 = new ConfirmingStateAction(nextState, bestNextAction1);
+                double updatedQ = confirmingQFunction1.get(currentStateAction) + alpha * (reward + (gamma * confirmingQFunction1.get(bestNextStateAction1)) - confirmingQFunction1.get(currentStateAction));
+                confirmingQFunction1.put(currentStateAction, updatedQ);
+            }
         }
     }
 
@@ -1673,7 +1790,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
     }
 
 
-    public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
+    private static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
         Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
         for (var entry : original.entrySet()) {
             copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
