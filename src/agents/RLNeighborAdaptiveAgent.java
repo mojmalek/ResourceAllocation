@@ -1824,6 +1824,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
         for (Task task : newTasks) {
             JSONObject joTask = new JSONObject();
             joTask.put("utility", task.utility);
+            joTask.put("deadline", task.deadline);
             JSONObject joRequiredResources = new JSONObject();
             for (var entry : task.requiredResources.entrySet()) {
                 joRequiredResources.put( entry.getKey().name(), entry.getValue());

@@ -1,6 +1,8 @@
 package model;
 
 
+import jade.core.AID;
+
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
@@ -12,18 +14,17 @@ public class MasterState {
 
     public ArrayList<Double> efficiencies;
 
-    // Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources
-    public Map<ResourceType, SortedSet<ResourceItem>> availableResources;
+    public Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources;
 
     public Map<ResourceType, Long> availableQuantities;
 
     public long currentAllocatedQuantity;
 
 
-    public MasterState(SortedSet<Task> toDoTasks, ArrayList<Double> efficiencies, Map<ResourceType, SortedSet<ResourceItem>> availableResources, Map<ResourceType, Long> availableQuantities, long currentAllocatedQuantity) {
+    public MasterState(SortedSet<Task> toDoTasks, ArrayList<Double> efficiencies, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources, Map<ResourceType, Long> availableQuantities, long currentAllocatedQuantity) {
         this.toDoTasks = toDoTasks;
         this.efficiencies = efficiencies;
-        this.availableResources = availableResources;
+        this.agentAvailableResources = agentAvailableResources;
         this.availableQuantities = availableQuantities;
         this.currentAllocatedQuantity = currentAllocatedQuantity;
     }

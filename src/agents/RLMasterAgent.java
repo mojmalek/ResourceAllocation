@@ -31,9 +31,10 @@ public class RLMasterAgent extends Agent {
     private long totalUtil;
     private int numberOfRounds;
     private int numberOfAgents;
+    Integer[][] adjacency;
 
-    private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
-    private Map<ResourceType, ArrayList<ResourceItem>> expiredResources = new LinkedHashMap<>();
+    private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources = new LinkedHashMap<>();
+    private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
 
     private Map<MasterStateAction, Double> masterQFunction1 = new LinkedHashMap<>();
     private Map<MasterStateAction, Double> masterQFunction2 = new LinkedHashMap<>();
@@ -42,7 +43,9 @@ public class RLMasterAgent extends Agent {
     private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
     private final double epsilon = 0.1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
 
+    private boolean cascading = false;
     private boolean doubleLearning = true;
+
 
     @Override
     protected void setup() {
@@ -52,9 +55,10 @@ public class RLMasterAgent extends Agent {
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
             numberOfRounds = (int) args[1];
-            logFileName = (String) args[2];
-            resultFileName = (String) args[3];
-            agentType = (String) args[4];
+            adjacency = (Integer[][]) args[2];
+            logFileName = (String) args[3];
+            resultFileName = (String) args[4];
+            agentType = (String) args[5];
         }
 
         for (int i = 1; i <= numberOfAgents; i++) {
@@ -62,6 +66,8 @@ public class RLMasterAgent extends Agent {
             tasksInfo.put( aid, new ArrayList<>());
             resourcesInfo.put( aid, new ArrayList<>());
             utilitiesInfo.put( aid, new ArrayList<>());
+            agentAvailableResources.put(aid, new LinkedHashMap<>());
+            agentExpiredResources.put(aid, new LinkedHashMap<>());
         }
 
 
@@ -89,10 +95,10 @@ public class RLMasterAgent extends Agent {
                     for (int r = 0; r < numberOfRounds; r++) {
 //                        logInf( myAgent.getLocalName() + " Round: " + r+1);
                         for (var taskInfo : tasksInfo.entrySet() ) {
-                            findNewTasks (taskInfo.getValue().get(r));
+                            findNewTasks (taskInfo.getValue().get(r), taskInfo.getKey());
                         }
                         for (var resourceInfo : resourcesInfo.entrySet() ) {
-                            findNewResources (resourceInfo.getValue().get(r));
+                            findNewResources (resourceInfo.getValue().get(r), resourceInfo.getKey());
                         }
 //                        performTasksOptimal( myAgent);
 //                        performTasksGreedy( myAgent);
@@ -122,11 +128,11 @@ public class RLMasterAgent extends Agent {
     }
 
 
-    void findNewTasks (JSONObject joNewTasks) {
+    void findNewTasks (JSONObject joNewTasks, AID agentId) {
 
         SortedSet<Task> newTasks = new TreeSet<>(new Task.taskComparator());
         String id, resourceType;
-        Long utility, quantity;
+        Long utility, deadline, quantity;
         Map<ResourceType, Long> requiredResources;
         Iterator<String> keysIterator1 = joNewTasks.keySet().iterator();
         while (keysIterator1.hasNext()) {
@@ -134,6 +140,7 @@ public class RLMasterAgent extends Agent {
             id = keysIterator1.next();
             JSONObject joTask = (JSONObject) joNewTasks.get(id);
             utility = (Long) joTask.get("utility");
+            deadline = (Long) joTask.get("deadline");
             JSONObject joRequiredResources = (JSONObject) joTask.get("requiredResources");
             Iterator<String> keysIterator2 = joRequiredResources.keySet().iterator();
             while (keysIterator2.hasNext()) {
@@ -141,14 +148,14 @@ public class RLMasterAgent extends Agent {
                 quantity = (Long) joRequiredResources.get(resourceType);
                 requiredResources.put( ResourceType.valueOf(resourceType), quantity);
             }
-            Task newTask = new Task(id, utility.intValue(), 20, requiredResources);
+            Task newTask = new Task(id, utility.intValue(), deadline, requiredResources, agentId);
             newTasks.add( newTask);
         }
         toDoTasks.addAll( newTasks);
     }
 
 
-    void findNewResources (JSONObject joNewResources) {
+    void findNewResources (JSONObject joNewResources, AID agentId) {
 
         String resourceType;
         String id;
@@ -162,10 +169,10 @@ public class RLMasterAgent extends Agent {
                 id = keysIterator2.next();
                 lifetime = (Long) joItems.get(id);
                 ResourceItem item = new ResourceItem(id, ResourceType.valueOf(resourceType), lifetime.intValue());
-                if (availableResources.containsKey( ResourceType.valueOf(resourceType)) == false) {
-                    availableResources.put(ResourceType.valueOf(resourceType), new TreeSet<>(new ResourceItem.resourceItemComparator()));
+                if (agentAvailableResources.get(agentId).containsKey( ResourceType.valueOf(resourceType)) == false) {
+                    agentAvailableResources.get(agentId).put(ResourceType.valueOf(resourceType), new TreeSet<>(new ResourceItem.resourceItemComparator()));
                 }
-                availableResources.get(ResourceType.valueOf(resourceType)).add(item);
+                agentAvailableResources.get(agentId).get(ResourceType.valueOf(resourceType)).add(item);
             }
         }
     }
@@ -174,31 +181,32 @@ public class RLMasterAgent extends Agent {
     void expireResourceItems(Agent myAgent) {
 
         SortedSet<ResourceItem> availableItems;
-        ArrayList<ResourceItem> expiredItems;
-        ArrayList<ResourceItem> expiredItemsInThisRound = new ArrayList<>();
-        for (var resource : availableResources.entrySet()) {
-            expiredItemsInThisRound.clear();
-            availableItems = availableResources.get( resource.getKey());
-            if (expiredResources.containsKey( resource.getKey())) {
-                expiredItems = expiredResources.get( resource.getKey());
-            } else {
-                expiredItems = new ArrayList<>();
-                expiredResources.put( resource.getKey(), expiredItems);
-            }
-            for (ResourceItem item : availableItems) {
-                item.setExpiryTime( item.getExpiryTime() - 1);
-                if (item.getExpiryTime() == 0) {
-                    expiredItemsInThisRound.add( item);
-                    expiredItems.add( item);
+        SortedSet<ResourceItem> expiredItems;
+        SortedSet<ResourceItem> expiredItemsInThisRound = new TreeSet<>(new ResourceItem.resourceItemComparator());
+        for (var agentResource : agentAvailableResources.entrySet()) {
+            for (var resource : agentResource.getValue().entrySet()) {
+                expiredItemsInThisRound.clear();
+                availableItems = agentAvailableResources.get(agentResource.getKey()).get(resource.getKey());
+                if (agentExpiredResources.get(agentResource.getKey()).containsKey(resource.getKey())) {
+                    expiredItems = agentExpiredResources.get(agentResource.getKey()).get(resource.getKey());
+                } else {
+                    expiredItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
+                    agentExpiredResources.get(agentResource.getKey()).put(resource.getKey(), expiredItems);
+                }
+                for (ResourceItem item : availableItems) {
+                    item.setExpiryTime(item.getExpiryTime() - 1);
+                    if (item.getExpiryTime() == 0) {
+                        expiredItemsInThisRound.add(item);
+                        expiredItems.add(item);
+                    }
+                }
+                int initialSize = availableItems.size();
+                availableItems.removeAll(expiredItemsInThisRound);
+                if (initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
+                    logErr("Error!!");
                 }
             }
-            int initialSize = availableItems.size();
-            availableItems.removeAll( expiredItemsInThisRound);
-            if ( initialSize - expiredItemsInThisRound.size() != availableItems.size()) {
-                logErr("Error!!");
-            }
         }
-
 //        for (var entry : expiredResources.entrySet()) {
 //            logInf( myAgent.getLocalName() + " has " + entry.getValue().size() + " expired item of type: " + entry.getKey().name());
 //        }
@@ -262,7 +270,7 @@ public class RLMasterAgent extends Agent {
         SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
         // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
-            if (hasEnoughResources(task, availableResources)) {
+            if (hasEnoughResources(task, agentAvailableResources)) {
                 processTask(task);
                 doneTasksInThisRound.add(task);
                 boolean check = doneTasks.add(task);
@@ -297,7 +305,7 @@ public class RLMasterAgent extends Agent {
         long currentAllocatedQuantity = 0;
 
         while (toDoTasks.size() > 0) {
-            MasterState currentState = generateMasterState( currentAllocatedQuantity);
+            MasterState currentState = generateMasterState (currentAllocatedQuantity);
 
             Set<MasterAction> possibleActions = generatePossibleMasterActions (currentState);
 
@@ -323,14 +331,14 @@ public class RLMasterAgent extends Agent {
 
             }
 
-            MasterState nextState = generateMasterState(currentAllocatedQuantity);
+            MasterState nextState = generateMasterState (currentAllocatedQuantity);
 
             updateMasterQFunction(currentStateAction, nextState, reward);
         }
     }
 
 
-    MasterState generateMasterState ( long currentAllocatedQuantity) {
+    MasterState generateMasterState (long currentAllocatedQuantity) {
 
         ArrayList<Double> efficiencies = new ArrayList<>();
         for (Task task : toDoTasks) {
@@ -338,15 +346,20 @@ public class RLMasterAgent extends Agent {
         }
 
         Map<ResourceType, Long> availableQuantities = new LinkedHashMap<>();
-        for (var resource : availableResources.entrySet()) {
-            availableQuantities.put( resource.getKey(), (long) resource.getValue().size());
+        for (ResourceType resourceType : ResourceType.getValues()) {
+            availableQuantities.put( resourceType, 0L);
+        }
+        for (var agentResource : agentAvailableResources.entrySet()) {
+            for (var resource : agentResource.getValue().entrySet()) {
+                availableQuantities.put(resource.getKey(), availableQuantities.get(resource.getKey()) + (long) resource.getValue().size());
+            }
         }
 
-        // because these set are being updated
-        SortedSet<Task> copyOfTasks = new TreeSet<>(toDoTasks);
-        Map<ResourceType, SortedSet<ResourceItem>> resources = deepCopyResourcesMap( availableResources);
+        // because these sets are being updated
+        SortedSet<Task> tasksCopy = new TreeSet<>(toDoTasks);
+        Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentResourcesCopy = deepCopyAgentResourcesMap( agentAvailableResources);
 
-        MasterState masterState = new MasterState( copyOfTasks, efficiencies, resources, availableQuantities, currentAllocatedQuantity);
+        MasterState masterState = new MasterState( tasksCopy, efficiencies, agentResourcesCopy, availableQuantities, currentAllocatedQuantity);
         return masterState;
     }
 
@@ -357,7 +370,7 @@ public class RLMasterAgent extends Agent {
         MasterAction masterAction;
         MasterStateAction masterStateAction;
         for (Task task : currentState.toDoTasks) {
-            if (hasEnoughResources(task, availableResources)) {
+            if (hasEnoughResources(task, agentAvailableResources)) {
                 masterAction = new MasterAction(task, task.efficiency());
                 actions.add(masterAction);
                 masterStateAction = new MasterStateAction(currentState, masterAction);
@@ -496,29 +509,114 @@ public class RLMasterAgent extends Agent {
 
     void processTask (Task task) {
 
-        try {
-            for (var entry : task.requiredResources.entrySet()) {
-                SortedSet<ResourceItem> resourceItems = availableResources.get(entry.getKey());
-                for (int i = 0; i < entry.getValue(); i++) {
-                    ResourceItem item = resourceItems.first();
-                    resourceItems.remove(item);
+        // When No cascading, it only uses resources of the task manager and its direct neighbors, already checked in hasEnoughResources method.
+        long allocatedQuantity;
+        Set<AID> providers;
+        for (var requiredResource : task.requiredResources.entrySet()) {
+            allocatedQuantity = 0;
+            providers = new HashSet<>();
+            providers.add(task.manager);
+            while (allocatedQuantity < requiredResource.getValue()) {
+                while (isMissingResource( providers, requiredResource.getKey())) {
+                    providers = addNeighbors( providers);
                 }
-                availableResources.replace(entry.getKey(), resourceItems);
+                AID selectedProvider = selectBestProvider( providers, requiredResource.getKey());
+                allocateResource (selectedProvider, requiredResource.getKey());
+//                incurTransferCost(task.manager, selectedProvider);
+                allocatedQuantity++;
             }
-        } catch (Exception ex) {
-            ex.printStackTrace();
         }
     }
 
 
-    private boolean hasEnoughResources (Task task, Map<ResourceType, SortedSet<ResourceItem>> availableResources) {
-        boolean enough = true;
+    boolean isMissingResource( Set<AID> providers, ResourceType resourceType) {
+        boolean missing = true;
+        for (AID aid : providers) {
+            if( agentAvailableResources.get(aid).containsKey(resourceType)) {
+                if (agentAvailableResources.get(aid).get(resourceType).size() > 0) {
+                    missing = false;
+                    break;
+                }
+            }
+        }
+        return missing;
+    }
 
-        for (var entry : task.requiredResources.entrySet()) {
-            if (availableResources.containsKey(entry.getKey()) == false) {
-                enough = false;
-                break;
-            } else if (entry.getValue() > availableResources.get(entry.getKey()).size()) {
+
+    Set<AID> addNeighbors(Set<AID> providers) {
+        Set<AID> newNeighbors = new HashSet<>();
+        for (AID aid : providers) {
+            String providerName = aid.getLocalName();
+            int providerId = Integer.valueOf(providerName.replace(agentType, ""));
+            Integer[] providerNeighbors = adjacency[providerId-1];
+            for (int i = 0; i < providerNeighbors.length; i++) {
+                if (providerNeighbors[i] != null) {
+                    newNeighbors.add(new AID(agentType + (i+1), AID.ISLOCALNAME));
+                }
+            }
+        }
+        providers.addAll( newNeighbors);
+        return providers;
+    }
+
+
+    AID selectBestProvider( Set<AID> providers, ResourceType resourceType) {
+
+        //TODO: sort the providers by their workload + shortest distance from task manager
+
+        AID selectedProvider = null;
+
+        for (AID aid : providers) {
+            if( agentAvailableResources.get(aid).containsKey(resourceType)) {
+                if (agentAvailableResources.get(aid).get(resourceType).size() > 0) {
+                    selectedProvider = aid;
+                    break;
+                }
+            }
+        }
+
+        return selectedProvider;
+    }
+
+
+    void allocateResource (AID selectedProvider, ResourceType resourceType) {
+
+        ResourceItem item = agentAvailableResources.get(selectedProvider).get(resourceType).first();
+        agentAvailableResources.get(selectedProvider).get(resourceType).remove((item));
+    }
+
+
+    private boolean hasEnoughResources (Task task, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
+        boolean enough = true;
+        long availableQuantity;
+        for (var requiredResource : task.requiredResources.entrySet()) {
+            availableQuantity = 0;
+            if (cascading) {
+                // it can use resources of all agents in the network
+                for (var agentResource : agentAvailableResources.entrySet()) {
+                    if (agentResource.getValue().containsKey(requiredResource.getKey()) == true) {
+                        availableQuantity += agentResource.getValue().get(requiredResource.getKey()).size();
+                    }
+                }
+            } else {
+                // it can only use resources of the task manager and its direct neighbors
+                Set<AID> providers = new HashSet<>();
+                providers.add(task.manager);
+                String managerName = task.manager.getLocalName();
+                int managerId = Integer.valueOf(managerName.replace(agentType, ""));
+                Integer[] managerNeighbors = adjacency[managerId-1];
+                for (int i = 0; i < managerNeighbors.length; i++) {
+                    if (managerNeighbors[i] != null) {
+                        providers.add(new AID(agentType + (i+1), AID.ISLOCALNAME));
+                    }
+                }
+                for (AID aid : providers) {
+                    if (agentAvailableResources.get(aid).containsKey(requiredResource.getKey()) == true) {
+                        availableQuantity += agentAvailableResources.get(aid).get(requiredResource.getKey()).size();
+                    }
+                }
+            }
+            if (requiredResource.getValue() > availableQuantity) {
                 enough = false;
                 break;
             }
@@ -579,12 +677,16 @@ public class RLMasterAgent extends Agent {
     }
 
 
-    private static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
-        Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
-        for (var entry : original.entrySet()) {
-            copy.put(entry.getKey(), new TreeSet<>(entry.getValue()));
+    private static Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> deepCopyAgentResourcesMap (Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> original) {
+        Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentResourcesCopy = new LinkedHashMap<>();
+        for (var agentResource : original.entrySet()) {
+            Map<ResourceType, SortedSet<ResourceItem>> resourcesCopy = new LinkedHashMap<>();
+            agentResourcesCopy.put( agentResource.getKey(), resourcesCopy);
+            for (var resource : agentResource.getValue().entrySet()) {
+                resourcesCopy.put(resource.getKey(), new TreeSet<>(resource.getValue()));
+            }
         }
-        return copy;
+        return agentResourcesCopy;
     }
 
 
