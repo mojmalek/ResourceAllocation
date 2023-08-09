@@ -28,43 +28,12 @@ public class RLNeighborAdaptiveExp {
 
     public static void main(String[] args) {
         try {
-//            runSimulation1();
-            completeSim();
+//            completeSim();
 //            smallWorldSim();
 //            scaleFreeSim();
-//            randomSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
-        }
-    }
-
-
-    public static void runSimulation1() {
-
-        String logFileName = "logs/" + "AdaptiveExp-Agent0-" + new Date() + ".txt";
-        File logFile = new File (logFileName);
-        Runtime rt = Runtime.instance();
-        Profile p = new ProfileImpl();
-        p.setParameter(Profile.MAIN_HOST, "localhost");
-//        p.setParameter(Profile.GUI, "true");
-        ContainerController cc = rt.createMainContainer(p);
-        int numberOfRounds = 1000;
-        for (int numberOfAgents=4; numberOfAgents<65; numberOfAgents=numberOfAgents*2) {
-            for (int i = 0; i <= numberOfAgents; i++) {
-                AgentController ac;
-                try {
-                    if (i == 0) {
-                        ac = cc.createNewAgent(numberOfAgents + "Agent0", "agents.MasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileName});
-                        ac.start();
-                    } else {
-                        ac = cc.createNewAgent(numberOfAgents + "Agent" + i, "agents.AdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds});
-                        ac.start();
-                    }
-//                ac.start();
-                } catch (StaleProxyException e) {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 
@@ -72,19 +41,19 @@ public class RLNeighborAdaptiveExp {
     public static void completeSim() throws StaleProxyException {
 
         int numberOfAgents = 8;
-        int numberOfRounds = 50000;
+        int numberOfRounds = 20000;
 //        long duration = 600000;
 //        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
-        String agentType1 = "ScaleFree-NoCas-RL-A";
-        String agentType2 = "ScaleFree-NoCas-A";
+        String agentType1 = "Complete-NoCas-RL-A";
+        String agentType2 = "Complete-NoCas-A";
 
 //        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long param = 16; param <= 16; param+=2) {
+        for (long param = 8; param <= 8; param+=2) {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
@@ -117,7 +86,7 @@ public class RLNeighborAdaptiveExp {
                 };
 
                 Graph<String, DefaultWeightedEdge> completeGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-                // Scale-free graph
+                // Complete graph
                 CompleteGraphGenerator<String, DefaultWeightedEdge> completeGraphGenerator = new CompleteGraphGenerator<>(numberOfAgents);
                 completeGraphGenerator.generateGraph(completeGraph);
 
@@ -155,7 +124,7 @@ public class RLNeighborAdaptiveExp {
                         if (i == 0) {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, completeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, adjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
@@ -184,8 +153,8 @@ public class RLNeighborAdaptiveExp {
 
     public static void smallWorldSim() throws StaleProxyException {
 
-        int numberOfAgents = 20;
-        int numberOfRounds = 10000;
+        int numberOfAgents = 8;
+        int numberOfRounds = 20000;
 //        long duration = 600000;
 //        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
@@ -197,7 +166,7 @@ public class RLNeighborAdaptiveExp {
 //        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long param = 16; param <= 16; param+=2) {
+        for (long param = 8; param <= 8; param+=2) {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
@@ -231,7 +200,7 @@ public class RLNeighborAdaptiveExp {
 
                 Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
                 // Small-world graph
-                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.0);
+                WattsStrogatzGraphGenerator<String, DefaultWeightedEdge> smallWorldGraphGenerator = new WattsStrogatzGraphGenerator<>(numberOfAgents, 2, 0.05);
                 smallWorldGraphGenerator.generateGraph(smallWorldGraph);
 
                 System.out.println("Small-world:");
@@ -275,7 +244,7 @@ public class RLNeighborAdaptiveExp {
                         if (i == 0) {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster1, resultFileName1, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, smallWorldAdjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
@@ -317,7 +286,7 @@ public class RLNeighborAdaptiveExp {
 //        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long param = 16; param <= 16; param+=2) {
+        for (long param = 8; param <= 8; param+=2) {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
@@ -364,14 +333,14 @@ public class RLNeighborAdaptiveExp {
 //                Integer[][] adjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
                 //TODO: save the social network array in a text file in order to re-use it.
-                Integer[][] adjacency = {{null, 1, null, 1, null, null, null, null},
-                                    {1, null, 1, 1, null, 1, null, 1},
-                                    {null, 1, null, null, null, null, null, null},
-                                    {1, 1, null, null, 1, null, null, null},
-                                    {null, null, null, 1, null, null, 1, null},
-                                    {null, 1, null, null, null, null, null, null},
-                                    {null, null, null, null, 1, null, null, null},
-                                    {null, 1, null, null, null, null, null, null}};
+                Integer[][] adjacency = {{null, 1, 1, 1, 1, null, null, 1},
+                                    {1, null, null, null, null, null, null, null},
+                                    {1, null, null, null, 1, null, null, null},
+                                    {1, null, null, null, null, 1, null, 1},
+                                    {1, null, 1, null, null, 1, null, null},
+                                    {null, null, null, 1, 1, null, 1, null},
+                                    {null, null, null, null, null, 1, null, null},
+                                    {1, null, null, 1, null, null, null, null}};
 
 
 //                Integer[][] adjacency = {{null, 1, 1, null, 1, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
@@ -420,7 +389,7 @@ public class RLNeighborAdaptiveExp {
                         if (i == 0) {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, adjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
@@ -449,31 +418,32 @@ public class RLNeighborAdaptiveExp {
 
     public static void randomSim() throws StaleProxyException {
 
-        int numberOfAgents = 10;
-        long duration = 60000;
-        long currentTime, endTime;
+        int numberOfAgents = 8;
+        int numberOfRounds = 20000;
+//        long duration = 600000;
+//        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
-        String agentType1 = "Random-A";
-        String agentType2 = "Random-NoCasA";
+        String agentType1 = "Random-NoCas-RL-A";
+        String agentType2 = "Random-NoCas-A";
 
-        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
+//        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
         String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (int degree = 2; degree <= 2; degree+=2) {
-            logResults(resultFileName1, "");
-            logResults(resultFileName1, "degree = " + degree);
-            logResults(resultFileName1, "");
+        for (int degree = 4; degree <= 4; degree+=2) {
+//            logResults(resultFileName1, "");
+//            logResults(resultFileName1, "degree = " + degree);
+//            logResults(resultFileName1, "");
             logResults(resultFileName2, "");
             logResults(resultFileName2, "degree = " + degree);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( 16, agentType1);
-            simulationEngine2 = new SimulationEngine( 16, agentType2);
-            for (int exp = 1; exp <= 20; exp++) {
-                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
+            simulationEngine1 = new SimulationEngine( 8, agentType1);
+            simulationEngine2 = new SimulationEngine( 8, agentType2);
+            for (int exp = 1; exp <= 1; exp++) {
+//                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
 
                 Runtime rt = Runtime.instance();
@@ -534,35 +504,35 @@ public class RLNeighborAdaptiveExp {
                 System.out.println();
 
                 agentControllers.clear();
-                currentTime = System.currentTimeMillis();
-                endTime = currentTime + duration;
+//                currentTime = System.currentTimeMillis();
+//                endTime = currentTime + duration;
                 for (int i = 0; i <= numberOfAgents; i++) {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, null, randomAdjacency, logFileNameMaster1, resultFileName1, agentType1});
-                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, null, randomAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, null, randomAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+//                            agentController1.start();
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, randomAdjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, randomAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
-                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, randomAdjacency[i - 1], logFileNameAll2, simulationEngine2, false, agentType2});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, randomAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
+//                            agentController1.start();
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, randomAdjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
                             agentController2.start();
                         }
-                        agentControllers.add( agentController1);
+//                        agentControllers.add( agentController1);
                         agentControllers.add( agentController2);
                     } catch (StaleProxyException e) {
                         e.printStackTrace();
                     }
                 }
 
-                while (currentTime < endTime + 1500) {
-                    currentTime = System.currentTimeMillis();
-                }
-                for( AgentController agentController : agentControllers) {
-                    agentController.kill();
-                }
+//                while (currentTime < endTime + 1500) {
+//                    currentTime = System.currentTimeMillis();
+//                }
+//                for( AgentController agentController : agentControllers) {
+//                    agentController.kill();
+//                }
 //                containerController.kill();
             }
         }
