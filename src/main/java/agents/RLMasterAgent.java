@@ -39,9 +39,9 @@ public class RLMasterAgent extends Agent {
     private Map<MasterStateAction, Double> masterQFunction1 = new LinkedHashMap<>();
     private Map<MasterStateAction, Double> masterQFunction2 = new LinkedHashMap<>();
 
-    private final double alpha = 0.2; // Learning rate
-    private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
-    private final double epsilon = 0.1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
+    private final double alpha = 0.01; // Learning rate
+    private final double gamma = 0.5; // Eagerness - 0 looks in the near future, 1 looks in the distant future
+    private double  epsilon = 0.5; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
 
     private boolean cascading = false;
     private boolean doubleLearning = true;
@@ -93,6 +93,7 @@ public class RLMasterAgent extends Agent {
 
                 if (receivedInfoFromAll()) {
                     for (int r = 0; r < numberOfRounds; r++) {
+                        epsilon = 1 - (double) r / numberOfRounds;
 //                        logInf( myAgent.getLocalName() + " Round: " + r+1);
                         for (var taskInfo : tasksInfo.entrySet() ) {
                             findNewTasks (taskInfo.getValue().get(r), taskInfo.getKey());
@@ -328,7 +329,6 @@ public class RLMasterAgent extends Agent {
 
             for (var resource : action.selectedTask.requiredResources.entrySet()) {
                 currentAllocatedQuantity += resource.getValue();
-
             }
 
             MasterState nextState = generateMasterState (currentAllocatedQuantity);

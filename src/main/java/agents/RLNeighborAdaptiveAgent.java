@@ -57,8 +57,8 @@ public class RLNeighborAdaptiveAgent extends Agent {
     private Map<ConfirmingStateAction, Double> confirmingQFunction1 = new LinkedHashMap<>();
     private Map<ConfirmingStateAction, Double> confirmingQFunction2 = new LinkedHashMap<>();
 
-    private final double alpha = 0.5; // Learning rate
-    private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
+    private final double alpha = 0.1; // Learning rate
+    private final double gamma = 0.5; // Eagerness - 0 looks in the near future, 1 looks in the distant future
     private final double epsilon = 0.5; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
 
     private int count;
