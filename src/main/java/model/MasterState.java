@@ -2,6 +2,7 @@ package model;
 
 
 import jade.core.AID;
+import org.deeplearning4j.rl4j.observation.Observation;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -19,6 +20,8 @@ public class MasterState {
     public Map<ResourceType, Long> availableQuantities;
 
     public long currentAllocatedQuantity;
+
+    public Observation deepObservation;
 
 
     public MasterState(SortedSet<Task> toDoTasks, ArrayList<Double> efficiencies, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources, Map<ResourceType, Long> availableQuantities, long currentAllocatedQuantity) {
@@ -43,11 +46,11 @@ public class MasterState {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         MasterState that = (MasterState) o;
-        return Objects.equals(currentAllocatedQuantity, that.currentAllocatedQuantity);
+        return Objects.equals(efficienciesSum(), that.efficienciesSum()) && Objects.equals(availableQuantities, that.availableQuantities);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(currentAllocatedQuantity);
+        return Objects.hash(efficienciesSum(), availableQuantities);
     }
 }

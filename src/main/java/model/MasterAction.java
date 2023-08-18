@@ -1,6 +1,8 @@
 package model;
 
 
+import jade.core.AID;
+
 import java.util.Objects;
 
 public class MasterAction {
@@ -8,6 +10,8 @@ public class MasterAction {
     public Task selectedTask;
 
     public Double efficiency;
+
+    public AID selectedAgent;
 
 
     public MasterAction(Task selectedTask, Double efficiency) {
@@ -20,11 +24,11 @@ public class MasterAction {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         MasterAction that = (MasterAction) o;
-        return Objects.equals(efficiency, that.efficiency);
+        return Objects.equals(selectedTask.utility, that.selectedTask.utility);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(efficiency);
+        return Objects.hash(selectedTask.utility);
     }
 }
