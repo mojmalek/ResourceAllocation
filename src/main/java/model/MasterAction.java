@@ -11,12 +11,17 @@ public class MasterAction {
 
     public Double efficiency;
 
-    public AID selectedAgent;
+    public AID selectedManager;
 
 
     public MasterAction(Task selectedTask, Double efficiency) {
         this.selectedTask = selectedTask;
         this.efficiency = efficiency;
+    }
+
+    public MasterAction(Task selectedTask, AID selectedManager) {
+        this.selectedTask = selectedTask;
+        this.selectedManager = selectedManager;
     }
 
     @Override

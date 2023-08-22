@@ -15,17 +15,12 @@ import org.deeplearning4j.rl4j.experience.*;
 import org.deeplearning4j.rl4j.learning.sync.ExpReplay;
 import org.deeplearning4j.rl4j.observation.Observation;
 
-import org.deeplearning4j.rl4j.experience.ExperienceHandler;
-import org.deeplearning4j.rl4j.observation.Observation;
-import org.deeplearning4j.rl4j.observation.transform.TransformProcess;
-
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.rng.DefaultRandom;
-import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.learning.config.Sgd;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
@@ -67,7 +62,6 @@ public class DeepRLMasterAgent extends Agent {
 
     private boolean cascading = false;
     private boolean doubleLearning = false;
-    private boolean deepLearning = true;
 
     // we may use two networks: policy network and target network
     private MultiLayerNetwork policyNetwork;
@@ -83,8 +77,8 @@ public class DeepRLMasterAgent extends Agent {
 
         replayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
 
-
-        final int numInputs = 4;
+        // or 2*numberOfAgents
+        final int numInputs = 2;
         int outputNum = numberOfAgents;
         long seed = 6;
 
@@ -128,6 +122,7 @@ public class DeepRLMasterAgent extends Agent {
             utilitiesInfo.put( aid, new ArrayList<>());
             agentAvailableResources.put(aid, new LinkedHashMap<>());
             agentExpiredResources.put(aid, new LinkedHashMap<>());
+            toDoAgentTasks.put(aid, new TreeSet<>(new Task.taskComparator()));
         }
 
 
@@ -167,12 +162,12 @@ public class DeepRLMasterAgent extends Agent {
                         expireResourceItems( myAgent);
                         expireTasks( myAgent);
 
-                        if (r == numberOfRounds-1) {
-                            System.out.println("masterQFunction1 size: " + masterQFunction1.size());
-                            if( doubleLearning == true) {
-                                System.out.println("masterQFunction2 size: " + masterQFunction2.size());
-                            }
-                        }
+//                        if (r == numberOfRounds-1) {
+//                            System.out.println("masterQFunction1 size: " + masterQFunction1.size());
+//                            if( doubleLearning == true) {
+//                                System.out.println("masterQFunction2 size: " + masterQFunction2.size());
+//                            }
+//                        }
                     }
 
                     System.out.println ("Centralized total util for " + agentType + " : " + totalUtil);
@@ -213,6 +208,7 @@ public class DeepRLMasterAgent extends Agent {
             newTasks.add( newTask);
         }
         toDoTasks.addAll( newTasks);
+        toDoAgentTasks.get(agentId).addAll( newTasks);
     }
 
 
@@ -277,6 +273,19 @@ public class DeepRLMasterAgent extends Agent {
     void expireTasks(Agent myAgent) {
 
         SortedSet<Task> lateTasksInThisRound = new TreeSet<>(new Task.taskComparator());
+
+        for (var agentTasks : toDoAgentTasks.entrySet()) {
+            lateTasksInThisRound.clear();
+            for (Task task : agentTasks.getValue()) {
+                task.deadline--;
+                if (task.deadline == 0) {
+                    lateTasksInThisRound.add( task);
+                }
+            }
+            agentTasks.getValue().removeAll( lateTasksInThisRound);
+        }
+
+        lateTasksInThisRound.clear();
         int count = 0;
         for (Task task : toDoTasks) {
                 task.deadline--;
@@ -285,7 +294,6 @@ public class DeepRLMasterAgent extends Agent {
                     count += 1;
                 }
         }
-
         if (lateTasksInThisRound.size() != count) {
             logErr("Error!!");
         }
@@ -369,23 +377,26 @@ public class DeepRLMasterAgent extends Agent {
 
             MasterState currentState = generateMasterState (currentAllocatedQuantity);
 
-            Set<MasterAction> possibleActions = generatePossibleMasterActions (currentState);
+            Set<AID> possibleManagers = generatePossibleMasterActions (currentState);
 
-            if (possibleActions.size() == 0) {
+            if (possibleManagers.size() == 0) {
                 break;
             }
 
-            // Choose action from state using epsilon-greedy policy derived from Q
-            MasterAction action =  selectEplisonGreedyMasterAction (currentState, possibleActions);
+            // Choose selectedManager from state using epsilon-greedy policy derived from Q
+            AID selectedManager =  selectEplisonGreedyMasterAction (currentState, possibleManagers);
+            Task selectedTask = toDoAgentTasks.get(selectedManager).first();
 
-            processTask(action.selectedTask);
-            doneTasks.add(action.selectedTask);
-            toDoTasks.remove (action.selectedTask);
-            totalUtil += action.selectedTask.utility;
+            processTask(selectedTask);
+            doneTasks.add(selectedTask);
+            toDoTasks.remove (selectedTask);
+            toDoAgentTasks.get(selectedManager).remove(selectedTask);
+            totalUtil += selectedTask.utility;
 
-//            long reward = (long) action.selectedTask.efficiency();
-            long reward = (long) action.selectedTask.utility;
+//            double reward = (double) selectedManager.selectedTask.efficiency();
+            double reward = (double) selectedTask.utility;
 
+            MasterAction action = new MasterAction( selectedTask, selectedManager);
             MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
 
             for (var resource : action.selectedTask.requiredResources.entrySet()) {
@@ -426,12 +437,11 @@ public class DeepRLMasterAgent extends Agent {
         for (int i=0; i<numberOfAgents; i++) {
             double efficienciesSum = 0;
             AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
-            for (Task task : toDoTasks) {
-                if( task.manager == aid) {
-                    efficienciesSum += task.efficiency();
-                }
+            for (Task task : toDoAgentTasks.get(aid)) {
+                efficienciesSum += task.efficiency();
             }
             array[i][0] = efficienciesSum;
+            //TODO: for multiple resource types
             array[i][1] = agentAvailableResources.get(aid).get(ResourceType.A).size();
         }
 
@@ -445,121 +455,159 @@ public class DeepRLMasterAgent extends Agent {
     }
 
 
-    Set<MasterAction> generatePossibleMasterActions (MasterState currentState) {
+    Set<AID> generatePossibleMasterActions (MasterState currentState) {
 
-        Set<MasterAction> actions = new HashSet<>();
-        MasterAction masterAction;
-        MasterStateAction masterStateAction;
+        Set<AID> managers = new HashSet<>();
+//        MasterAction masterAction;
+//        MasterStateAction masterStateAction;
         for (Task task : currentState.toDoTasks) {
             if (hasEnoughResources(task, agentAvailableResources)) {
-                masterAction = new MasterAction(task, task.efficiency());
-                actions.add(masterAction);
-                masterStateAction = new MasterStateAction(currentState, masterAction);
-                if (masterQFunction1.containsKey(masterStateAction) == false) {
-                    masterQFunction1.put(masterStateAction, Double.valueOf(task.utility));
-//                    masterQFunction.put(masterStateAction, 1.0);
-                } else {
-                        System.out.println(this.getLocalName() + " masterQFunction1 contains masterStateAction");
-                }
-                if (doubleLearning == true) {
-                    if (masterQFunction2.containsKey(masterStateAction) == false) {
-                        masterQFunction2.put(masterStateAction, Double.valueOf(task.utility));
-//                    masterQFunction.put(masterStateAction, 1.0);
-                    } else {
-                        System.out.println(this.getLocalName() + " masterQFunction2 contains masterStateAction");
-                    }
-                }
+//                masterAction = new MasterAction(task, task.efficiency());
+//                masterAction.selectedAgent = task.manager;
+                managers.add(task.manager);
+//                masterStateAction = new MasterStateAction(currentState, masterAction);
+//                if (masterQFunction1.containsKey(masterStateAction) == false) {
+//                    masterQFunction1.put(masterStateAction, Double.valueOf(task.utility));
+////                    masterQFunction.put(masterStateAction, 1.0);
+//                } else {
+//                        System.out.println(this.getLocalName() + " masterQFunction1 contains masterStateAction");
+//                }
+//                if (doubleLearning == true) {
+//                    if (masterQFunction2.containsKey(masterStateAction) == false) {
+//                        masterQFunction2.put(masterStateAction, Double.valueOf(task.utility));
+////                    masterQFunction.put(masterStateAction, 1.0);
+//                    } else {
+//                        System.out.println(this.getLocalName() + " masterQFunction2 contains masterStateAction");
+//                    }
+//                }
             }
         }
-        return actions;
+        return managers;
     }
 
 
-    MasterAction selectEplisonGreedyMasterAction (MasterState currentState, Set<MasterAction> possibleActions) {
+    AID selectEplisonGreedyMasterAction (MasterState currentState, Set<AID> possibleManagers) {
 
-        MasterAction selectedAction = null;
+        AID selectedManager = null;
         MasterStateAction masterStateAction;
         Random random = new Random();
         double r = random.nextDouble();
-        Iterator<MasterAction> iter1 = possibleActions.iterator();
-        Iterator<MasterAction> iter2 = possibleActions.iterator();
+        Iterator<AID> iter1 = possibleManagers.iterator();
+//        Iterator<AID> iter2 = possibleManagers.iterator();
         if (r < epsilon) {
             //exploration: pick a random action from possible actions in this state
-            int index = random.nextInt(possibleActions.size());
+            int index = random.nextInt(possibleManagers.size());
             for (int i = 0; i < index; i++) {
                 iter1.next();
             }
-            selectedAction = iter1.next();
+            selectedManager = iter1.next();
         } else {
+
+            int[] qValues = policyNetwork.predict(currentState.deepObservation.getData());
+
             //exploitation: pick the best known action from possible actions in this state using Q table
-            MasterAction action;
-            Double Q;
-            Double highestQ = -Double.MAX_VALUE;
-            for (int i = 0; i < possibleActions.size(); i++) {
-                action = iter2.next();
-                masterStateAction = new MasterStateAction(currentState, action);
-                if (doubleLearning) {
-                    Q = masterQFunction1.get(masterStateAction) + masterQFunction2.get(masterStateAction);
-                } else {
-                    Q = masterQFunction1.get(masterStateAction);
-                }
-                if (Q > highestQ) {
-                    highestQ = Q;
-                    selectedAction = action;
+            AID manager;
+//            Integer Q;
+            Integer highestQ = -Integer.MAX_VALUE;
+            for (int i = 0; i < qValues.length; i++) {
+                manager = new AID(agentType + (i+1), AID.ISLOCALNAME);
+//                if (doubleLearning) {
+//                    Q = masterQFunction1.get(masterStateAction) + masterQFunction2.get(masterStateAction);
+//                } else {
+//                    Q = masterQFunction1.get(masterStateAction);
+//                }
+                if (possibleManagers.contains(manager)) {
+                    if (qValues[i] > highestQ) {
+                        highestQ = qValues[i];
+                        selectedManager = manager;
+                    }
                 }
             }
         }
-        return selectedAction;
+        return selectedManager;
     }
 
 
-    void updateMasterQFunction( MasterStateAction currentStateAction, MasterState nextState, long reward) {
+    void updateMasterQFunction( MasterStateAction currentStateAction, MasterState nextState, double reward) {
 
-        Set<MasterAction> possibleNextActions = generatePossibleMasterActions (nextState);
+            // Get the data from the Observation
+            //double[] data = observation.getChannelData(0);
 
-        if (possibleNextActions.size() > 0) {
+            replayMemoryExperienceHandler.addExperience(currentStateAction.state.deepObservation, currentStateAction.action.selectedManager, reward, false);
 
-            if (deepLearning == true) {
+            if (replayMemoryExperienceHandler.isTrainingBatchReady()) {
 
-                // Get the data from the Observation
-//                double[] data = observation.getChannelData(0);
+                List<StateActionRewardState> trainingBatch = replayMemoryExperienceHandler.generateTrainingBatch();
 
-                replayMemoryExperienceHandler.addExperience(currentStateAction.state.deepObservation, currentStateAction.action.selectedAgent, reward, false);
+                // Define the input shape and label shape
+                int inputSize = 2; // Specify the size of the input data
+                int numActions = numberOfAgents; // Specify the number of discrete actions
+                int batchSize = trainingBatch.size();
 
-                if (replayMemoryExperienceHandler.isTrainingBatchReady()) {
+                // Create INDArrays to hold input data and labels
+                INDArray inputArray = Nd4j.create(batchSize, inputSize);
+                INDArray labelArray = Nd4j.create(batchSize, numActions);
 
-                    List<StateActionRewardState> trainingBatch = replayMemoryExperienceHandler.generateTrainingBatch();
+                // Fill in the input data and labels based on the training batch
+                for (int i = 0; i < batchSize; i++) {
+                    StateActionRewardState<MasterAction> experience = trainingBatch.get(i);
 
-                    INDArray input = null;
-                    INDArray labels = null;
+                    // Assuming that state observations are stored as INDArray
+                    Observation observation = experience.getObservation();
+                    INDArray stateInput = observation.getData();
+                    inputArray.putRow(i, stateInput);
 
-//                    DataSet dataSet = null;
+                    // Extract action and reward
+                    MasterAction action = experience.getAction();
+                    double r = experience.getReward();
 
-                    policyNetwork.fit( input, labels);
-                }
-            } else {
-                if (doubleLearning == true) {
-                    Random random = new Random();
-                    double r = random.nextDouble();
-                    if (r < 0.5) {
-                        MasterAction bestNextAction1 = selectBestMasterAction1(nextState, possibleNextActions);
-                        MasterStateAction bestNextStateAction1 = new MasterStateAction(nextState, bestNextAction1);
-                        double updatedQ = masterQFunction1.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction2.get(bestNextStateAction1)) - masterQFunction1.get(currentStateAction));
-                        masterQFunction1.put(currentStateAction, updatedQ);
+                    Observation nextObservation = experience.getNextObservation();
+                    INDArray nextStateInput = nextObservation.getData();
+
+                    INDArray qValues = policyNetwork.output(stateInput, true); // Q-values for the current state (s)
+                    INDArray nextQValues = policyNetwork.output(nextStateInput, true); // Q-values for the next state (s')
+
+                    // Calculate the maximum Q-value from the next state
+                    double maxNextQValue = nextQValues.maxNumber().doubleValue();
+
+                    // Calculate the target Q-value using the Q-learning update rule
+                    Set<AID> possibleNextManagers = generatePossibleMasterActions (nextState);
+                    double targetQValue;
+                    if (possibleNextManagers.isEmpty()) {
+                        targetQValue = r;
                     } else {
-                        MasterAction bestNextAction2 = selectBestMasterAction2(nextState, possibleNextActions);
-                        MasterStateAction bestNextStateAction2 = new MasterStateAction(nextState, bestNextAction2);
-                        double updatedQ = masterQFunction2.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction1.get(bestNextStateAction2)) - masterQFunction2.get(currentStateAction));
-                        masterQFunction2.put(currentStateAction, updatedQ);
+                        targetQValue = r + gamma * maxNextQValue;
                     }
-                } else {
-                    MasterAction bestNextAction1 = selectBestMasterAction1(nextState, possibleNextActions);
-                    MasterStateAction bestNextStateAction1 = new MasterStateAction(nextState, bestNextAction1);
-                    double updatedQ = masterQFunction1.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction1.get(bestNextStateAction1)) - masterQFunction1.get(currentStateAction));
-                    masterQFunction1.put(currentStateAction, updatedQ);
+
+                    // Create an INDArray to store the target Q-values
+                    INDArray targetQValues = Nd4j.create(new double[]{targetQValue});
+
+                    labelArray.putRow(i, targetQValues);
                 }
+
+                // Now you can use the inputArray and labelArray to train your neural network
+                policyNetwork.fit( inputArray, labelArray);
             }
-        }
+//            if (doubleLearning == true) {
+//                Random random = new Random();
+//                double r = random.nextDouble();
+//                if (r < 0.5) {
+//                    MasterAction bestNextAction1 = selectBestMasterAction1(nextState, possibleNextManagers);
+//                    MasterStateAction bestNextStateAction1 = new MasterStateAction(nextState, bestNextAction1);
+//                    double updatedQ = masterQFunction1.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction2.get(bestNextStateAction1)) - masterQFunction1.get(currentStateAction));
+//                    masterQFunction1.put(currentStateAction, updatedQ);
+//                } else {
+//                    MasterAction bestNextAction2 = selectBestMasterAction2(nextState, possibleNextManagers);
+//                    MasterStateAction bestNextStateAction2 = new MasterStateAction(nextState, bestNextAction2);
+//                    double updatedQ = masterQFunction2.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction1.get(bestNextStateAction2)) - masterQFunction2.get(currentStateAction));
+//                    masterQFunction2.put(currentStateAction, updatedQ);
+//                }
+//            } else {
+//                MasterAction bestNextAction1 = selectBestMasterAction1(nextState, possibleNextManagers);
+//                MasterStateAction bestNextStateAction1 = new MasterStateAction(nextState, bestNextAction1);
+//                double updatedQ = masterQFunction1.get(currentStateAction) + alpha * (reward + (gamma * masterQFunction1.get(bestNextStateAction1)) - masterQFunction1.get(currentStateAction));
+//                masterQFunction1.put(currentStateAction, updatedQ);
+//            }
     }
 
 
@@ -665,6 +713,7 @@ public class DeepRLMasterAgent extends Agent {
     AID selectBestProvider( Set<AID> providers, ResourceType resourceType) {
 
         //TODO: sort the providers by their workload + shortest distance from task manager
+        // or randomize the order
 
         AID selectedProvider = null;
 
