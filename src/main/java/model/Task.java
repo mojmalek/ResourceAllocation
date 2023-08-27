@@ -50,7 +50,9 @@ public class Task {
         return "Task{" +
                 "id='" + id + '\'' +
                 ", utility=" + utility +
+                ", deadline=" + deadline +
                 ", requiredResources=" + requiredResources +
+                ", manager=" + manager.getLocalName() +
                 '}';
     }
 
