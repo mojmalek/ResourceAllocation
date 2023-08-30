@@ -31,9 +31,9 @@ public class DeepRLNeighborAdaptiveExp {
 
     public static void main(String[] args) {
         try {
-            completeSim();
+//            completeSim();
 //            smallWorldSim();
-//            scaleFreeSim();
+            scaleFreeSim();
 //            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
@@ -76,9 +76,6 @@ public class DeepRLNeighborAdaptiveExp {
                 profile.setParameter(Profile.MAIN_HOST, "localhost");
 //              profile.setParameter(Profile.GUI, "true");
                 ContainerController containerController = rt.createMainContainer(profile);
-
-//              double connectivity = 0.0;
-//              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
 
                 Supplier<String> vSupplier = new Supplier<String>() {
                     private int id = 1;
@@ -125,12 +122,12 @@ public class DeepRLNeighborAdaptiveExp {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, completeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, endTime, completeGraph, completeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
 //                            agentController1.start();
                             agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, completeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, completeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
 //                            agentController1.start();
                             agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, completeAdjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
                             agentController2.start();
@@ -190,9 +187,6 @@ public class DeepRLNeighborAdaptiveExp {
 //              profile.setParameter(Profile.GUI, "true");
                 ContainerController containerController = rt.createMainContainer(profile);
 
-//              double connectivity = 0.0;
-//              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
-
                 Supplier<String> vSupplier = new Supplier<String>() {
                     private int id = 1;
                     @Override
@@ -216,7 +210,7 @@ public class DeepRLNeighborAdaptiveExp {
                 Integer[][] smallWorldAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(smallWorldGraph, numberOfAgents);
 
                 //TODO: save the social network array in a text file in order to re-use it.
-//              Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
+//              Integer[][] smallWorldAdjacency = {{null, 1, 1, null, null, null, 1, 1},
 //                                     {1, null, 1, null, 1, null, null, 1},
 //                                     {1, 1, null, 1, null, null, 1, null},
 //                                     {null, null, 1, null, 1, null, null, 1},
@@ -226,7 +220,7 @@ public class DeepRLNeighborAdaptiveExp {
 //                                     {1, 1, null, 1, 1, null, 1, null}};
 
 //                System.out.println("Agent social network adjacency matrix: ");
-//                for (int i = 0; i < adjacency.length; i++) {
+//                for (int i = 0; i < smallWorldAdjacency.length; i++) {
 //                    for (int j = 0; j < adjacency[i].length; j++) {
 //                        if (adjacency[i][j] == null) {
 //                            System.out.print("0, ");
@@ -245,9 +239,9 @@ public class DeepRLNeighborAdaptiveExp {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, endTime, smallWorldGraph, smallWorldAdjacency, logFileNameMaster1, resultFileName1, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, smallWorldAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, smallWorldAdjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, smallWorldAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
@@ -277,7 +271,7 @@ public class DeepRLNeighborAdaptiveExp {
     public static void scaleFreeSim() throws StaleProxyException {
 
         int numberOfAgents = 8;
-        int numberOfRounds = 20000;
+        int numberOfRounds = 2000;
 //        long duration = 600000;
 //        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
@@ -310,9 +304,6 @@ public class DeepRLNeighborAdaptiveExp {
 //              profile.setParameter(Profile.GUI, "true");
                 ContainerController containerController = rt.createMainContainer(profile);
 
-//              double connectivity = 0.0;
-//              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
-
                 Supplier<String> vSupplier = new Supplier<String>() {
                     private int id = 1;
                     @Override
@@ -333,10 +324,10 @@ public class DeepRLNeighborAdaptiveExp {
 //                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
 //                }
 
-//                Integer[][] adjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
+//                Integer[][] scaleFreeAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
                 //TODO: save the social network array in a text file in order to re-use it.
-                Integer[][] adjacency = {{null, 1, 1, 1, 1, null, null, 1},
+                Integer[][] scaleFreeAdjacency = {{null, 1, 1, 1, 1, null, null, 1},
                                     {1, null, null, null, null, null, null, null},
                                     {1, null, null, null, 1, null, null, null},
                                     {1, null, null, null, null, 1, null, 1},
@@ -346,7 +337,7 @@ public class DeepRLNeighborAdaptiveExp {
                                     {1, null, null, 1, null, null, null, null}};
 
 
-//                Integer[][] adjacency = {{null, 1, 1, null, 1, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
+//                Integer[][] scaleFreeAdjacency = {{null, 1, 1, null, 1, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
 //                    {1, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
 //                    {1, null, null, null, null, null, null, null, null, null, null, 1, 1, null, 1, null, null, null, 1, null},
 //                    {null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
@@ -369,13 +360,13 @@ public class DeepRLNeighborAdaptiveExp {
 
                 System.out.println("Agent social network adjacency matrix: ");
                 System.out.print("{");
-                for (int i = 0; i < adjacency.length; i++) {
+                for (int i = 0; i < scaleFreeAdjacency.length; i++) {
                     System.out.print("{");
-                    for (int j = 0; j < adjacency[i].length; j++) {
-                        if (adjacency[i][j] == null) {
+                    for (int j = 0; j < scaleFreeAdjacency[i].length; j++) {
+                        if (scaleFreeAdjacency[i][j] == null) {
                             System.out.print("null, ");
                         } else {
-                            System.out.print(adjacency[i][j] + ", ");
+                            System.out.print(scaleFreeAdjacency[i][j] + ", ");
                         }
                     }
                     System.out.println("}");
@@ -390,14 +381,14 @@ public class DeepRLNeighborAdaptiveExp {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, adjacency, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, adjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, scaleFreeAdjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
                             agentController2.start();
                         }
 //                        agentControllers.add( agentController1);
@@ -455,9 +446,6 @@ public class DeepRLNeighborAdaptiveExp {
 //              profile.setParameter(Profile.GUI, "true");
                 ContainerController containerController = rt.createMainContainer(profile);
 
-//              double connectivity = 0.0;
-//              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
-
                 int numberOfEdges = degree * numberOfAgents / 2;
                 Integer[][] randomAdjacency = simulationEngine1.generateRandomAdjacencyMatrix2(numberOfAgents, numberOfEdges);
 
@@ -484,7 +472,7 @@ public class DeepRLNeighborAdaptiveExp {
 //                Integer[][] randomAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(randomGraph, numberOfAgents);
 
                 //TODO: save the social network array in a text file in order to re-use it.
-//              Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
+//              Integer[][] randomAdjacency = {{null, 1, 1, null, null, null, 1, 1},
 //                                     {1, null, 1, null, 1, null, null, 1},
 //                                     {1, 1, null, 1, null, null, 1, null},
 //                                     {null, null, 1, null, 1, null, null, 1},
