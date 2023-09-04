@@ -383,7 +383,7 @@ public class DeepRLNeighborAdaptiveExp {
                         if (i == 0) {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
 //                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
                             agentController2.start();
                         } else {
 //                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});

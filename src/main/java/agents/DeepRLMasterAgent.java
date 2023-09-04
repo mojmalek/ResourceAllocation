@@ -18,6 +18,9 @@ import org.deeplearning4j.rl4j.learning.sync.ExpReplay;
 import org.deeplearning4j.rl4j.observation.Observation;
 
 import org.deeplearning4j.util.ModelSerializer;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.interfaces.ShortestPathAlgorithm;
+import org.jgrapht.graph.DefaultWeightedEdge;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -45,10 +48,12 @@ public class DeepRLMasterAgent extends Agent {
     private Map<AID, SortedSet<Task>> toDoAgentTasks = new LinkedHashMap<>();
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
-    private long totalUtil;
+    private long totalUtil, totalTransferCost;
     private int numberOfRounds;
     private int numberOfAgents;
     Integer[][] adjacency;
+    Graph<String, DefaultWeightedEdge> graph;
+    ShortestPathAlgorithm shortestPathAlgorithm;
 
     private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources = new LinkedHashMap<>();
     private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
@@ -75,10 +80,11 @@ public class DeepRLMasterAgent extends Agent {
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
             numberOfRounds = (int) args[1];
-            adjacency = (Integer[][]) args[2];
-            logFileName = (String) args[3];
-            resultFileName = (String) args[4];
-            agentType = (String) args[5];
+            graph = (Graph) args[2];
+            adjacency = (Integer[][]) args[3];
+            logFileName = (String) args[4];
+            resultFileName = (String) args[5];
+            agentType = (String) args[6];
         }
 
         for (int i = 1; i <= numberOfAgents; i++) {
@@ -332,34 +338,18 @@ public class DeepRLMasterAgent extends Agent {
 
     private void performTasksGreedy(Agent myAgent) {
 
-//        logInf (myAgent.getLocalName() +  " is performing tasks.");
-        int count = 0;
-        SortedSet<Task> doneTasksInThisRound = new TreeSet<>(new Task.taskComparator());
-        // Centralized greedy algorithm: tasks are sorted by utility in toDoTasks
+        // Centralized greedy algorithm: tasks are sorted by efficiency in toDoTasks
         for (Task task : toDoTasks) {
             if (hasEnoughResources(task, agentAvailableResources)) {
-                processTask(task);
-                doneTasksInThisRound.add(task);
-                boolean check = doneTasks.add(task);
-                if (check == false) {
-                    logErr("Error!!");
-                }
-                totalUtil = totalUtil + task.utility;
-                count += 1;
+                double transferCost = processTask(task);
+                doneTasks.add(task);
+                totalUtil += task.utility;
+                totalUtil -= (long) transferCost;
+                totalTransferCost += (long) transferCost;
             }
         }
 
-        if (doneTasksInThisRound.size() != count) {
-            logErr("Error!!");
-        }
-
-        int initialSize = toDoTasks.size();
-
         toDoTasks.removeAll (doneTasks);
-
-        if ( initialSize - count != toDoTasks.size()) {
-            logErr("Error!!");
-        }
 
 //        logInf( myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
     }
@@ -386,14 +376,16 @@ public class DeepRLMasterAgent extends Agent {
                 }
             }
 
-            processTask(selectedTask);
+            double transferCost = processTask(selectedTask);
             doneTasks.add(selectedTask);
             toDoTasks.remove (selectedTask);
             toDoAgentTasks.get(selectedManager).remove(selectedTask);
             totalUtil += selectedTask.utility;
+            totalUtil -= (long) transferCost;
+            totalTransferCost += (long) transferCost;
 
-            double reward = selectedTask.efficiency();
-//            double reward = (double) selectedTask.utility;
+//            double reward = selectedTask.efficiency();
+            double reward = (double) selectedTask.utility - transferCost;
 
             MasterAction action = new MasterAction( selectedTask, selectedManager);
             MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
@@ -585,10 +577,11 @@ public class DeepRLMasterAgent extends Agent {
     }
 
 
-    void processTask (Task task) {
+    double processTask (Task task) {
 
         // When No cascading, it only uses resources of the task manager and its direct neighbors, already checked in hasEnoughResources method.
         long allocatedQuantity;
+        double transferCost = 0;
         Set<AID> providers;
         for (var requiredResource : task.requiredResources.entrySet()) {
             allocatedQuantity = 0;
@@ -600,10 +593,11 @@ public class DeepRLMasterAgent extends Agent {
                 }
                 AID selectedProvider = selectRandomProvider( providers, requiredResource.getKey());
                 allocateResource (selectedProvider, requiredResource.getKey());
-//                incurTransferCost(task.manager, selectedProvider);
+                transferCost += computeTransferCost(task.manager, selectedProvider);
                 allocatedQuantity++;
             }
         }
+        return transferCost;
     }
 
 
@@ -668,6 +662,35 @@ public class DeepRLMasterAgent extends Agent {
 
         ResourceItem item = agentAvailableResources.get(selectedProvider).get(resourceType).first();
         agentAvailableResources.get(selectedProvider).get(resourceType).remove((item));
+    }
+
+
+    double computeTransferCost(AID taskManager, AID provider) {
+
+        String taskManagerName = taskManager.getLocalName();
+        String taskManagerId = taskManagerName.replace(agentType, "");
+        String providerName = provider.getLocalName();
+        String providerId = providerName.replace(agentType, "");
+
+        int i = Integer.valueOf(taskManagerId);
+        int j = Integer.valueOf(providerId);
+        double distance = 0;
+        if (adjacency[i-1][j-1] == null) {
+            try {
+                distance = shortestPathAlgorithm.getPathWeight (taskManagerId, providerId);
+            } catch (Exception e) {
+                System.out.println("Exception: incurTransferCost " + e.getMessage());
+            }
+        } else {
+            // when there is an edge, we consider it as the selected path even if it is not the shortest path
+            distance = adjacency[i-1][j-1];
+        }
+
+        if( debugMode) {
+//            logInf("transfer cost from " + provider.getLocalName() + " to " + taskManager.getLocalName() + " : " + distance);
+        }
+
+        return distance;
     }
 
 
@@ -772,6 +795,20 @@ public class DeepRLMasterAgent extends Agent {
             }
         }
         return agentResourcesCopy;
+    }
+
+
+    protected void logInf(String msg) {
+
+//      System.out.println("Time:" + System.currentTimeMillis() + " " + agentType + "0: " + msg);
+
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+            out.println(System.currentTimeMillis() + " " + agentType + "0: " + msg);
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
+        }
     }
 
 
