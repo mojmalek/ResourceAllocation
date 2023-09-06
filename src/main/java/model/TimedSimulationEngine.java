@@ -6,39 +6,37 @@ import org.jgrapht.graph.DefaultWeightedEdge;
 
 import java.util.*;
 
-public class SimulationEngine {
+public class TimedSimulationEngine {
 
     long parameter;
     String agentType;
 
-    public SimulationEngine() {
+    public TimedSimulationEngine() {
     }
 
-    public SimulationEngine(long parameter, String agentType) {
+    public TimedSimulationEngine(long parameter, String agentType) {
         this.parameter = parameter;
         this.agentType = agentType;
     }
 
+    long currentTime;
 
     public SortedSet<Task> findTasks(Agent myAgent) {
 
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8");
-        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4");
-//        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "7", agentType + "8", agentType + "13", agentType + "14");
+        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
         int[] taskNums = new int[] {1};
-//        if( requesters.contains(myAgent.getLocalName())) {
-//            taskNums = new int[] {2};
-//        }
+        if( requesters.contains(myAgent.getLocalName())) {
+            taskNums = new int[] {4};
+        }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
         long[] quantities = new long[] {4};
 //        long minUtil = 10;
 //        long utilVariation = 5;
-
-        int agentId = Integer.valueOf(myAgent.getLocalName().replace(agentType, ""));
-        long[] utilities = new long[] {agentId};
+        long[] utilities = new long[] {10};
 //        if( bidders.contains(myAgent.getLocalName())) {
 //            minUtil = 20;
 //        }
@@ -60,7 +58,8 @@ public class SimulationEngine {
             utility = utilities[random.nextInt( utilities.length)];
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
-                Task newTask = new Task(id, utility, 1, requiredResources);
+                currentTime = System.currentTimeMillis();
+                Task newTask = new Task(id, utility, currentTime + 2000, requiredResources);
                 tasks.add(newTask);
             } else {
 //                System.out.println(" ");
@@ -76,22 +75,21 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {1};
-        long[] lifetimes = new long[] {1};
-//        Set<String> offerers = Set.of( agentType + "9", agentType + "10", agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16");
-        Set<String> offerers = Set.of(agentType + "5", agentType + "6", agentType + "7", agentType + "8");
-//        Set<String> offerers = Set.of(agentType + "3", agentType + "4");
-//        if( offerers.contains(myAgent.getLocalName())) {
-//            quantities = new long[] {2};
-//        }
+        long[] quantities = new long[] {2};
+        long[] lifetimes = new long[] {10000};
+//        Set<String> offerers = Set.of(agentType + "17", agentType + "18", agentType + "23", agentType + "24", agentType + "27", agentType + "28");
+        Set<String> offerers = Set.of(agentType + "6", agentType + "7");
+        if( offerers.contains(myAgent.getLocalName())) {
+            quantities = new long[] {parameter};
+        }
         long quantity;
         long lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
             quantity = quantities[random.nextInt( quantities.length)];
 //            if (quantity > 0) {
-                lifetime = lifetimes[random.nextInt( lifetimes.length)];
-                SortedSet<ResourceItem> items = findResourceItems(resourceTypeValues[i], lifetime, quantity, myAgent.getLocalName());
-                resources.put(resourceTypeValues[i], items);
+            lifetime = lifetimes[random.nextInt( lifetimes.length)];
+            SortedSet<ResourceItem> items = findResourceItems(resourceTypeValues[i], lifetime, quantity, myAgent.getLocalName());
+            resources.put(resourceTypeValues[i], items);
 //            }
         }
 
@@ -105,7 +103,8 @@ public class SimulationEngine {
         String id;
         for (long i=0; i<quantity; i++) {
             id = UUID.randomUUID().toString() + '-' + agentName;
-            resourceItems.add(new ResourceItem (id, resourceType, lifeTime));
+            currentTime = System.currentTimeMillis();
+            resourceItems.add(new ResourceItem (id, resourceType, currentTime + lifeTime));
         }
         return resourceItems;
     }

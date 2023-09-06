@@ -13,13 +13,14 @@ import org.jgrapht.generate.ScaleFreeGraphGenerator;
 import org.jgrapht.generate.WattsStrogatzGraphGenerator;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
+import org.jgrapht.nio.GraphExporter;
+import org.jgrapht.nio.GraphImporter;
+import org.jgrapht.nio.dot.DOTExporter;
+import org.jgrapht.nio.dot.DOTImporter;
 import org.jgrapht.traverse.DepthFirstIterator;
 import org.jgrapht.util.SupplierUtil;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -268,10 +269,11 @@ public class DeepRLNeighborAdaptiveExp {
     }
 
 
-    public static void scaleFreeSim() throws StaleProxyException {
+    public static void scaleFreeSim() throws StaleProxyException, IOException {
 
+        boolean loadGraph = true;
         int numberOfAgents = 8;
-        int numberOfRounds = 2000;
+        int numberOfRounds = 5000;
 //        long duration = 600000;
 //        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
@@ -313,9 +315,20 @@ public class DeepRLNeighborAdaptiveExp {
                 };
 
                 Graph<String, DefaultWeightedEdge> scaleFreeGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-                // Scale-free graph
-                ScaleFreeGraphGenerator<String, DefaultWeightedEdge> scaleFreeGraphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
-                scaleFreeGraphGenerator.generateGraph(scaleFreeGraph);
+                if (loadGraph) {
+                    GraphImporter<String, DefaultWeightedEdge> importer = new DOTImporter<>();
+                    Reader reader = new FileReader("scaleFreeGraph.dot");
+                    importer.importGraph(scaleFreeGraph, reader);
+                    reader.close();
+                } else {
+                    ScaleFreeGraphGenerator<String, DefaultWeightedEdge> scaleFreeGraphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
+                    scaleFreeGraphGenerator.generateGraph(scaleFreeGraph);
+
+                    GraphExporter<String, DefaultWeightedEdge> exporter = new DOTExporter<>();
+                    Writer writer = new FileWriter("scaleFreeGraph.dot");
+                    exporter.exportGraph(scaleFreeGraph, writer);
+                    writer.close();
+                }
 
                 System.out.println("Scale-free:");
 //                Iterator<String> iter2 = new DepthFirstIterator<>(scaleFreeGraph);
@@ -324,17 +337,16 @@ public class DeepRLNeighborAdaptiveExp {
 //                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
 //                }
 
-//                Integer[][] scaleFreeAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
+                Integer[][] scaleFreeAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
-                //TODO: save the social network array in a text file in order to re-use it.
-                Integer[][] scaleFreeAdjacency = {{null, 1, 1, 1, 1, null, null, 1},
-                                    {1, null, null, null, null, null, null, null},
-                                    {1, null, null, null, 1, null, null, null},
-                                    {1, null, null, null, null, 1, null, 1},
-                                    {1, null, 1, null, null, 1, null, null},
-                                    {null, null, null, 1, 1, null, 1, null},
-                                    {null, null, null, null, null, 1, null, null},
-                                    {1, null, null, 1, null, null, null, null}};
+//                Integer[][] scaleFreeAdjacency = {{null, 1, 1, 1, 1, null, null, 1},
+//                                    {1, null, null, null, null, null, null, null},
+//                                    {1, null, null, null, 1, null, null, null},
+//                                    {1, null, null, null, null, 1, null, 1},
+//                                    {1, null, 1, null, null, 1, null, null},
+//                                    {null, null, null, 1, 1, null, 1, null},
+//                                    {null, null, null, null, null, 1, null, null},
+//                                    {1, null, null, 1, null, null, null, null}};
 
 
 //                Integer[][] scaleFreeAdjacency = {{null, 1, 1, null, 1, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
