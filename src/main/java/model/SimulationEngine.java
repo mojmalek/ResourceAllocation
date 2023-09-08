@@ -33,7 +33,7 @@ public class SimulationEngine {
 //            taskNums = new int[] {2};
 //        }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] quantities = new long[] {4};
+        long[] requiredQuantities = new long[] {4};
 //        long minUtil = 10;
 //        long utilVariation = 5;
 
@@ -47,11 +47,11 @@ public class SimulationEngine {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i=0; i<resourceTypeValues.length; i++) {
 //                if( bidders.contains(myAgent.getLocalName()) && resourceTypeValues[i] == ResourceType.A ) {
-//                    quantities = new long[] {4, 5};
+//                    requiredQuantities = new long[] {4, 5};
 //                } else {
-//                    quantities = new long[] {0, 1, 2, 3, 4};
+//                    requiredQuantities = new long[] {0, 1, 2, 3, 4};
 //                }
-                quantity = quantities[random.nextInt( quantities.length)];
+                quantity = requiredQuantities[random.nextInt( requiredQuantities.length)];
                 if (quantity > 0) {
                     requiredResources.put(resourceTypeValues[i], quantity);
                 }
