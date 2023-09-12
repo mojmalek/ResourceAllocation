@@ -95,6 +95,14 @@
             <version>1.1.1</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.gurobi</groupId>
+            <artifactId>gurobi</artifactId>
+            <version>10.02</version>
+            <scope>system</scope>
+            <systemPath>/opt/gurobi1002/linux64/lib/gurobi.jar</systemPath>
+        </dependency>
+
     </dependencies>
 
 </project>

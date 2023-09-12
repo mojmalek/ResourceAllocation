@@ -38,7 +38,7 @@ import java.util.*;
 
 public class DeepRLMasterAgent extends Agent {
 
-    private boolean debugMode = false;
+    private boolean debugMode = true;
     private String logFileName, resultFileName;
     private String agentType;
 
@@ -64,14 +64,14 @@ public class DeepRLMasterAgent extends Agent {
     private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
     private double  epsilon = 0.1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
 
-    private boolean cascading = false;
+    private boolean cascading = true;
     private boolean doubleLearning = true;
-    private boolean loadTrainedModel = true;
+    private boolean loadTrainedModel = false;
 
     private MultiLayerNetwork policyNetwork;
     private MultiLayerNetwork targetNetwork;
     private long C;
-    private long targetUpdateFreq = 100;
+    private long targetUpdateFreq = 10;
     private ReplayMemoryExperienceHandler replayMemoryExperienceHandler;
 
     @Override
@@ -101,7 +101,7 @@ public class DeepRLMasterAgent extends Agent {
             toDoAgentTasks.put(aid, new TreeSet<>(new Task.taskComparator()));
         }
 
-        replayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 128, new DefaultRandom()));
+        replayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 16, new DefaultRandom()));
 
         if (loadTrainedModel) {
             try {
@@ -184,9 +184,9 @@ public class DeepRLMasterAgent extends Agent {
                         for (var resourceInfo : resourcesInfo.entrySet() ) {
                             findNewResources (resourceInfo.getValue().get(r), resourceInfo.getKey());
                         }
-//                        performTasksOptimal( myAgent);
+                        performTasksOptimal( myAgent);
 //                        performTasksGreedy( myAgent);
-                        performTasksRL( myAgent);
+//                        performTasksRL( myAgent);
                         expireResourceItems( myAgent);
                         expireTasks( myAgent);
                     }
@@ -338,7 +338,40 @@ public class DeepRLMasterAgent extends Agent {
 
         // formulate as an ILP and solve using Gurobi
 
+        int numTasks = toDoTasks.size();
+        ResourceType[] resourceTypeValues = ResourceType.getValues();
+        int numResourceTypes = resourceTypeValues.length;
 
+        double[] util = new double[numTasks];  // Utility for each task
+        double[][] distance = new double[numberOfAgents][numTasks];  // Distance between each agent and task location
+        double[][] requirement = new double[numTasks][numResourceTypes];  // Resource requirement of each task for each resource type
+        double[][] resource = new double[numberOfAgents][numResourceTypes];  // Resources of each type available to each agent
+
+        int j = 0;
+        for (Task task : toDoTasks) {
+            util[j] = task.utility;
+            for (int i=0; i < numberOfAgents; i++) {
+                AID potentialProvider = new AID(agentType + (i+1), AID.ISLOCALNAME);
+                distance[i][j] = computeTransferCost(task.manager, potentialProvider);
+            }
+            for (int k = 0; k < numResourceTypes; k++) {
+                requirement[j][k] = task.requiredResources.get(resourceTypeValues[k]);
+            }
+            j++;
+        }
+
+        for (int i = 0; i < numberOfAgents; i++) {
+            AID aid = new AID(agentType + (i + 1), AID.ISLOCALNAME);
+            for (int k = 0; k < numResourceTypes; k++) {
+                if (agentAvailableResources.get(aid).containsKey(resourceTypeValues[k])) {
+                    resource[i][k] = agentAvailableResources.get(aid).get(resourceTypeValues[k]).size();
+                }
+            }
+        }
+
+        GurobiOptimizer optimizer = new GurobiOptimizer( numberOfAgents,  numTasks,  ResourceType.getSize(), util, distance, requirement, resource);
+
+        totalUtil = (long) optimizer.run();
     }
 
 
@@ -350,10 +383,10 @@ public class DeepRLMasterAgent extends Agent {
                 double transferCost = processTask(task);
                 doneTasks.add(task);
                 totalUtil += task.utility;
-//                totalUtil -= (long) transferCost;
+                totalUtil -= (long) transferCost;
                 totalTransferCost += (long) transferCost;
 
-                System.out.println( "task util: " + task.utility + " transferCost: " + transferCost);
+                System.out.println( "Round: " + round + " selected manager: " + task.manager.getLocalName() + " task util: " + task.utility + " transferCost: " + transferCost);
             }
         }
 
@@ -389,12 +422,17 @@ public class DeepRLMasterAgent extends Agent {
             toDoTasks.remove (selectedTask);
             toDoAgentTasks.get(selectedManager).remove(selectedTask);
             totalUtil += selectedTask.utility;
-//            totalUtil -= (long) transferCost;
+            totalUtil -= (long) transferCost;
             totalTransferCost += (long) transferCost;
 
 //            double reward = selectedTask.efficiency();
 //            double reward = (double) selectedTask.utility - transferCost;
             double reward = (double) selectedTask.utility;
+            double reward = (double) selectedTask.utility - transferCost;
+//            double reward = (double) selectedTask.utility;
+
+            System.out.println( "Round: " + round + " selected manager: " + selectedManager.getLocalName() + " task util: " + selectedTask.utility + " transferCost: " + transferCost);
+
 
             MasterAction action = new MasterAction( selectedTask, selectedManager);
             MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
@@ -527,7 +565,10 @@ public class DeepRLMasterAgent extends Agent {
 
     void updateMasterQFunction( MasterStateAction currentStateAction, MasterState nextState, double currentReward) {
 
-        replayMemoryExperienceHandler.addExperience(currentStateAction.state.deepObservation, currentStateAction.action, reward, false);
+//        StateActionRewardState stateActionRewardState = new StateActionRewardState(currentStateAction.state.deepObservation, currentStateAction.action, currentReward, false);
+//        stateActionRewardState.setNextObservation(nextState.deepObservation);
+
+        replayMemoryExperienceHandler.addExperience(currentStateAction.state.deepObservation, currentStateAction.action, currentReward, false);
 
         if (replayMemoryExperienceHandler.isTrainingBatchReady()) {
 
@@ -718,10 +759,12 @@ public class DeepRLMasterAgent extends Agent {
 
         if( debugMode) {
 //            logInf("transfer cost from " + provider.getLocalName() + " to " + taskManager.getLocalName() + " : " + distance);
+            System.out.println("task manager: " + taskManagerId + " provider: " + providerId + " distance: " + distance);
         }
 
         if (distance > 1) {
             System.out.println();
+            System.out.print("");
         }
 
         return distance;
