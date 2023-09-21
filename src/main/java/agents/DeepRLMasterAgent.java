@@ -38,7 +38,6 @@ import java.util.*;
 
 public class DeepRLMasterAgent extends Agent {
 
-    private boolean debugMode = true;
     private String logFileName, resultFileName;
     private String agentType;
 
@@ -49,10 +48,12 @@ public class DeepRLMasterAgent extends Agent {
     private Map<AID, SortedSet<Task>> toDoAgentTasks = new LinkedHashMap<>();
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
+
     private long totalUtil, totalTransferCost;
     private int numberOfRounds;
     private int round;
     private int numberOfAgents;
+
     Integer[][] adjacency;
     Graph<String, DefaultWeightedEdge> graph;
     ShortestPathAlgorithm shortestPathAlgorithm;
@@ -60,9 +61,14 @@ public class DeepRLMasterAgent extends Agent {
     private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources = new LinkedHashMap<>();
     private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
 
-    private final double alpha = 0.001; // Learning rate
-    private final double gamma = 0.9; // Eagerness - 0 looks in the near future, 1 looks in the distant future
-    private double  epsilon = 0.1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
+    private double epsilon = 1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
+    private double alpha = 0.1; // Learning rate
+    private final double gamma = 0.9; // Discount factor - 0 looks in the near future, 1 looks in the distant future
+
+    private final double epsilonDecayRate = 0.9995;
+    private final double minimumEpsilon = 0.1;
+    private final double alphaDecayRate = 0.5;
+    private final double minimumAlpha = 0.0001;
 
     private boolean cascading = true;
     private boolean doubleLearning = true;
@@ -70,9 +76,10 @@ public class DeepRLMasterAgent extends Agent {
 
     private MultiLayerNetwork policyNetwork;
     private MultiLayerNetwork targetNetwork;
-    private long C;
-    private long targetUpdateFreq = 10;
     private ReplayMemoryExperienceHandler replayMemoryExperienceHandler;
+    private long C;
+    private long targetUpdateFreq = 100;
+
 
     @Override
     protected void setup() {
@@ -101,53 +108,7 @@ public class DeepRLMasterAgent extends Agent {
             toDoAgentTasks.put(aid, new TreeSet<>(new Task.taskComparator()));
         }
 
-        replayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 16, new DefaultRandom()));
-
-        if (loadTrainedModel) {
-            try {
-                policyNetwork = ModelSerializer.restoreMultiLayerNetwork("trained_model.zip");
-//                policyNetwork = MultiLayerNetwork.load(new File("trained_model.zip"), true);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        } else {
-            final int numInputs = (2 + ResourceType.getSize()) * numberOfAgents;
-            int outputNum = numberOfAgents;
-            MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                    .seed(123)
-                    .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                    .activation(Activation.RELU)
-                    .weightInit(WeightInit.XAVIER)
-                    .updater(new Adam(alpha))
-                    .l2(0.001)
-                    .list()
-                    .layer(new DenseLayer.Builder()
-                            .nIn(numInputs)
-                            .nOut(256)
-                            .activation(Activation.RELU)
-                            .build())
-                    .layer(new DenseLayer.Builder()
-                            .nIn(256)
-                            .nOut(128)
-                            .activation(Activation.RELU)
-                            .build())
-                    .layer(new DenseLayer.Builder()
-                            .nIn(128)
-                            .nOut(64)
-                            .activation(Activation.RELU)
-                            .build())
-                    .layer( new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
-                            .nIn(64)
-                            .nOut(outputNum)
-                            .activation(Activation.IDENTITY)
-                            .build())
-                    .backpropType(BackpropType.Standard)
-                    .build();
-
-            policyNetwork = new MultiLayerNetwork(conf);
-            policyNetwork.init();
-        }
-        targetNetwork = policyNetwork;
+        createNeuralNet();
 
         addBehaviour(new CyclicBehaviour() {
             @Override
@@ -172,11 +133,15 @@ public class DeepRLMasterAgent extends Agent {
                 if (receivedInfoFromAll()) {
                     for (int r = 0; r < numberOfRounds; r++) {
                         round = r + 1;
-                        if (epsilon > 0.1) {
-                            epsilon -= 0.0005;
+                        epsilon = Math.max(minimumEpsilon, epsilon * epsilonDecayRate);
+//                        epsilon = 0;
+                        if (round % 500 == 0) {
+                            alpha = Math.max(minimumAlpha, alpha * alphaDecayRate);
+                            policyNetwork.setLearningRate(alpha);
                         }
                         if (round % 100 == 0) {
                             System.out.println(myAgent.getLocalName() + "  Round: " + round + "  Epsilon: " + epsilon);
+                            System.out.println("LearningRate: " + targetNetwork.getLearningRate(1));
                         }
                         for (var taskInfo : tasksInfo.entrySet() ) {
                             findNewTasks (taskInfo.getValue().get(r), taskInfo.getKey());
@@ -184,9 +149,9 @@ public class DeepRLMasterAgent extends Agent {
                         for (var resourceInfo : resourcesInfo.entrySet() ) {
                             findNewResources (resourceInfo.getValue().get(r), resourceInfo.getKey());
                         }
-                        performTasksOptimal( myAgent);
+//                        performTasksOptimal( myAgent);
 //                        performTasksGreedy( myAgent);
-//                        performTasksRL( myAgent);
+                        performTasksRL( myAgent);
                         expireResourceItems( myAgent);
                         expireTasks( myAgent);
                     }
@@ -338,6 +303,8 @@ public class DeepRLMasterAgent extends Agent {
 
         // formulate as an ILP and solve using Gurobi
 
+        System.out.println("======== Started performTasksOptimal =========");
+
         int numTasks = toDoTasks.size();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         int numResourceTypes = resourceTypeValues.length;
@@ -425,14 +392,9 @@ public class DeepRLMasterAgent extends Agent {
             totalUtil -= (long) transferCost;
             totalTransferCost += (long) transferCost;
 
-//            double reward = selectedTask.efficiency();
-//            double reward = (double) selectedTask.utility - transferCost;
-            double reward = (double) selectedTask.utility;
             double reward = (double) selectedTask.utility - transferCost;
-//            double reward = (double) selectedTask.utility;
 
-            System.out.println( "Round: " + round + " selected manager: " + selectedManager.getLocalName() + " task util: " + selectedTask.utility + " transferCost: " + transferCost);
-
+//            System.out.println( "Round: " + round + " selected manager: " + selectedManager.getLocalName() + " task util: " + selectedTask.utility + " transferCost: " + transferCost);
 
             MasterAction action = new MasterAction( selectedTask, selectedManager);
             MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
@@ -454,58 +416,136 @@ public class DeepRLMasterAgent extends Agent {
     }
 
 
+    void createNeuralNet() {
+
+        replayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
+
+        if (loadTrainedModel) {
+            try {
+                policyNetwork = ModelSerializer.restoreMultiLayerNetwork("trained_model.zip");
+//                policyNetwork = MultiLayerNetwork.load(new File("trained_model.zip"), true);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            InverseSchedule schedule = new InverseSchedule(ScheduleType.EPOCH, alpha, 0.5, 10000);
+            final int numInputs = (1 + ResourceType.getSize()) * numberOfAgents;
+            int outputNum = numberOfAgents;
+            MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                    .seed(123)
+                    .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                    .activation(Activation.RELU)
+                    .weightInit(WeightInit.XAVIER)
+                    .updater(new Adam(alpha))
+                    .l2(0.001)
+                    .list()
+                    .layer(new DenseLayer.Builder()
+                            .nIn(numInputs)
+                            .nOut(60)
+                            .activation(Activation.RELU)
+                            .build())
+                    .layer(new DenseLayer.Builder()
+                            .nIn(60)
+                            .nOut(50)
+                            .activation(Activation.RELU)
+                            .build())
+//                    .layer(new DenseLayer.Builder()
+//                            .nIn(256)
+//                            .nOut(128)
+//                            .activation(Activation.RELU)
+//                            .build())
+                    .layer( new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
+                            .nIn(50)
+                            .nOut(outputNum)
+                            .activation(Activation.IDENTITY)
+                            .build())
+                    .backpropType(BackpropType.Standard)
+                    .build();
+
+            policyNetwork = new MultiLayerNetwork(conf);
+            policyNetwork.init();
+        }
+
+        targetNetwork = policyNetwork;
+    }
+
+
     MasterState generateMasterState (long currentAllocatedQuantity) {
 
-        ArrayList<Double> efficiencies = new ArrayList<>();
-        for (Task task : toDoTasks) {
-            efficiencies.add( task.efficiency());
-        }
+//        ArrayList<Double> efficiencies = new ArrayList<>();
+//        for (Task task : toDoTasks) {
+//            efficiencies.add( task.efficiency());
+//        }
 
-        Map<ResourceType, Long> availableQuantities = new LinkedHashMap<>();
-        for (ResourceType resourceType : ResourceType.getValues()) {
-            availableQuantities.put( resourceType, 0L);
-        }
-        for (var agentResource : agentAvailableResources.entrySet()) {
-            for (var resource : agentResource.getValue().entrySet()) {
-                availableQuantities.put(resource.getKey(), availableQuantities.get(resource.getKey()) + (long) resource.getValue().size());
-            }
-        }
+//        Map<ResourceType, Long> availableQuantities = new LinkedHashMap<>();
+//        for (ResourceType resourceType : ResourceType.getValues()) {
+//            availableQuantities.put( resourceType, 0L);
+//        }
+//        for (var agentResource : agentAvailableResources.entrySet()) {
+//            for (var resource : agentResource.getValue().entrySet()) {
+//                availableQuantities.put(resource.getKey(), availableQuantities.get(resource.getKey()) + (long) resource.getValue().size());
+//            }
+//        }
 
         // because these sets are being updated
-        SortedSet<Task> tasksCopy = new TreeSet<>(toDoTasks);
-        Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentResourcesCopy = deepCopyAgentResourcesMap( agentAvailableResources);
+//        SortedSet<Task> tasksCopy = new TreeSet<>(toDoTasks);
+//        Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentResourcesCopy = deepCopyAgentResourcesMap( agentAvailableResources);
 
-        // utilitiesSum or efficienciesSum, available resources per type
-        double[][] array = new double[numberOfAgents][2 + ResourceType.getSize()];
-
-        for (int i=0; i<numberOfAgents; i++) {
-
-            array[i][0] = graph.degreeOf(String.valueOf(i+1));
-
-            double utilitiesSum = 0;
+        int numberOfTasks = 1;
+        ResourceType[] resourceTypeValues = ResourceType.getValues();
+        INDArray tasksMatrix = Nd4j.zeros(numberOfAgents, numberOfTasks);
+        INDArray resourcesMatrix = Nd4j.zeros(numberOfAgents, resourceTypeValues.length);
+        for (int i = 0; i < numberOfAgents; i++) {
             AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
-            for (Task task : toDoAgentTasks.get(aid)) {
-                if (hasEnoughResources(task, agentAvailableResources)) {
-                    utilitiesSum += task.utility;
-                }
+            if (toDoAgentTasks.get(aid).size() > 0) {
+                tasksMatrix.putScalar(i, 1, toDoAgentTasks.get(aid).first().utility);
+            } else {
+                tasksMatrix.putScalar(i, 1, 0);
             }
-            array[i][1] = utilitiesSum;
-            ResourceType[] resourceTypeValues = ResourceType.getValues();
             for (int j = 0; j < resourceTypeValues.length; j++) {
                 if (agentAvailableResources.get(aid).containsKey(resourceTypeValues[j])) {
-                    array[i][j+2] = agentAvailableResources.get(aid).get(resourceTypeValues[j]).size();
+                    resourcesMatrix.putScalar(i, j, agentAvailableResources.get(aid).get(resourceTypeValues[j]).size());
                 } else {
-                    array[i][j+2] = 0;
+                    resourcesMatrix.putScalar(i, j, 0);
                 }
             }
         }
 
-        INDArray indArray = Nd4j.create(array);
-        INDArray flattenedArray = indArray.ravel();
-        INDArray reshapedInput = flattenedArray.reshape(1, (2 + ResourceType.getSize()) * numberOfAgents);
+        INDArray stateVector = Nd4j.hstack(tasksMatrix.ravel(), resourcesMatrix.ravel());
+        INDArray reshapedInput = stateVector.reshape(1, stateVector.length());
         Observation observation = new Observation(reshapedInput);
 
-        MasterState masterState = new MasterState( tasksCopy, efficiencies, agentResourcesCopy, availableQuantities, currentAllocatedQuantity);
+        // utilitiesSum or efficienciesSum, available resources per type
+//        double[][] array = new double[numberOfAgents][2 + ResourceType.getSize()];
+//
+//        for (int i=0; i<numberOfAgents; i++) {
+//
+//            array[i][0] = graph.degreeOf(String.valueOf(i+1));
+//
+//            double utilitiesSum = 0;
+//            AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
+//            for (Task task : toDoAgentTasks.get(aid)) {
+//                if (hasEnoughResources(task, agentAvailableResources)) {
+//                    utilitiesSum += task.utility;
+//                }
+//            }
+//            array[i][1] = utilitiesSum;
+//            ResourceType[] resourceTypeValues = ResourceType.getValues();
+//            for (int j = 0; j < resourceTypeValues.length; j++) {
+//                if (agentAvailableResources.get(aid).containsKey(resourceTypeValues[j])) {
+//                    array[i][j+2] = agentAvailableResources.get(aid).get(resourceTypeValues[j]).size();
+//                } else {
+//                    array[i][j+2] = 0;
+//                }
+//            }
+//        }
+//
+//        INDArray indArray = Nd4j.create(array);
+//        INDArray flattenedArray = indArray.ravel();
+//        INDArray reshapedInput = flattenedArray.reshape(1, (2 + ResourceType.getSize()) * numberOfAgents);
+//        Observation observation = new Observation(reshapedInput);
+
+        MasterState masterState = new MasterState( null, null, null, null, currentAllocatedQuantity);
         masterState.deepObservation = observation;
         return masterState;
     }
@@ -565,9 +605,6 @@ public class DeepRLMasterAgent extends Agent {
 
     void updateMasterQFunction( MasterStateAction currentStateAction, MasterState nextState, double currentReward) {
 
-//        StateActionRewardState stateActionRewardState = new StateActionRewardState(currentStateAction.state.deepObservation, currentStateAction.action, currentReward, false);
-//        stateActionRewardState.setNextObservation(nextState.deepObservation);
-
         replayMemoryExperienceHandler.addExperience(currentStateAction.state.deepObservation, currentStateAction.action, currentReward, false);
 
         if (replayMemoryExperienceHandler.isTrainingBatchReady()) {
@@ -575,7 +612,7 @@ public class DeepRLMasterAgent extends Agent {
             List<StateActionRewardState> trainingBatch = replayMemoryExperienceHandler.generateTrainingBatch();
 
             // Define the input shape and label shape
-            int inputSize = (2 + ResourceType.getSize()) * numberOfAgents; // Specify the size of the input data
+            int inputSize = (1 + ResourceType.getSize()) * numberOfAgents; // Specify the size of the input data
             int numActions = numberOfAgents; // Specify the number of discrete actions
             int batchSize = trainingBatch.size();
 
@@ -757,13 +794,12 @@ public class DeepRLMasterAgent extends Agent {
             distance = adjacency[i-1][j-1];
         }
 
-        if( debugMode) {
-//            logInf("transfer cost from " + provider.getLocalName() + " to " + taskManager.getLocalName() + " : " + distance);
-            System.out.println("task manager: " + taskManagerId + " provider: " + providerId + " distance: " + distance);
-        }
+//        System.out.println("task manager: " + taskManagerId + " provider: " + providerId + " distance: " + distance);
 
         if (distance > 1) {
-            System.out.println();
+            System.out.print("");
+        }
+        if (distance > 2) {
             System.out.print("");
         }
 

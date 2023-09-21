@@ -33,7 +33,7 @@ public class SimulationEngine {
 //            taskNums = new int[] {2};
 //        }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] requiredQuantities = new long[] {4};
+        long[] requiredQuantities = new long[] {5};
 //        long minUtil = 10;
 //        long utilVariation = 5;
 

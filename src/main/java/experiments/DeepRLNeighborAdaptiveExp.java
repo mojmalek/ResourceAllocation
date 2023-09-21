@@ -61,9 +61,9 @@ public class DeepRLNeighborAdaptiveExp {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
-            logResults(resultFileName2, "");
-            logResults(resultFileName2, "param = " + param);
-            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "param = " + param);
+//            logResults(resultFileName2, "");
             simulationEngine1 = new SimulationEngine( param, agentType1);
             simulationEngine2 = new SimulationEngine( param, agentType2);
             for (int exp = 1; exp <= 1; exp++) {
@@ -171,9 +171,9 @@ public class DeepRLNeighborAdaptiveExp {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
-            logResults(resultFileName2, "");
-            logResults(resultFileName2, "param = " + param);
-            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "param = " + param);
+//            logResults(resultFileName2, "");
             simulationEngine1 = new SimulationEngine( param, agentType1);
             simulationEngine2 = new SimulationEngine( param, agentType2);
             for (int exp = 1; exp <= 1; exp++) {
@@ -272,7 +272,7 @@ public class DeepRLNeighborAdaptiveExp {
     public static void scaleFreeSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 40;
         int numberOfRounds = 5000;
 //        long duration = 600000;
 //        long currentTime, endTime;
@@ -289,9 +289,9 @@ public class DeepRLNeighborAdaptiveExp {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
-            logResults(resultFileName2, "");
-            logResults(resultFileName2, "param = " + param);
-            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "param = " + param);
+//            logResults(resultFileName2, "");
             simulationEngine1 = new SimulationEngine( param, agentType1);
             simulationEngine2 = new SimulationEngine( param, agentType2);
             for (int exp = 1; exp <= 1; exp++) {
@@ -370,21 +370,21 @@ public class DeepRLNeighborAdaptiveExp {
 //                    {null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, null, null},
 //                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null}};
 
-                System.out.println("Agent social network adjacency matrix: ");
-                System.out.print("{");
-                for (int i = 0; i < scaleFreeAdjacency.length; i++) {
-                    System.out.print("{");
-                    for (int j = 0; j < scaleFreeAdjacency[i].length; j++) {
-                        if (scaleFreeAdjacency[i][j] == null) {
-                            System.out.print("null, ");
-                        } else {
-                            System.out.print(scaleFreeAdjacency[i][j] + ", ");
-                        }
-                    }
-                    System.out.println("}");
-                }
-                System.out.print("}");
-                System.out.println();
+//                System.out.println("Agent social network adjacency matrix: ");
+//                System.out.print("{");
+//                for (int i = 0; i < scaleFreeAdjacency.length; i++) {
+//                    System.out.print("{");
+//                    for (int j = 0; j < scaleFreeAdjacency[i].length; j++) {
+//                        if (scaleFreeAdjacency[i][j] == null) {
+//                            System.out.print("null, ");
+//                        } else {
+//                            System.out.print(scaleFreeAdjacency[i][j] + ", ");
+//                        }
+//                    }
+//                    System.out.println("}");
+//                }
+//                System.out.print("}");
+//                System.out.println();
 
                 agentControllers.clear();
 //                currentTime = System.currentTimeMillis();
@@ -441,9 +441,9 @@ public class DeepRLNeighborAdaptiveExp {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "degree = " + degree);
 //            logResults(resultFileName1, "");
-            logResults(resultFileName2, "");
-            logResults(resultFileName2, "degree = " + degree);
-            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "degree = " + degree);
+//            logResults(resultFileName2, "");
             simulationEngine1 = new SimulationEngine( 8, agentType1);
             simulationEngine2 = new SimulationEngine( 8, agentType2);
             for (int exp = 1; exp <= 1; exp++) {
