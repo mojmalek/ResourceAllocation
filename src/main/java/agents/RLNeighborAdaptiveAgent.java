@@ -114,7 +114,7 @@ public class RLNeighborAdaptiveAgent extends Agent {
                     for (var resource : availableResources.entrySet()) {
                         totalAvailable += resource.getValue().size();
                     }
-                    System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
+//                    System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
                     if (totalReceivedResources - totalConsumedResource - totalExpiredResource != totalAvailable ) {
                         int difference = totalReceivedResources - totalConsumedResource - totalExpiredResource - totalAvailable;
                         System.out.println ("Error!! " + myAgent.getLocalName() + " has INCORRECT number of resources left. Diff: " + difference);

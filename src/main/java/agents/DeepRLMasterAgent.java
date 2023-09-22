@@ -31,6 +31,8 @@ import org.nd4j.linalg.api.rng.DefaultRandom;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.nd4j.linalg.schedule.InverseSchedule;
+import org.nd4j.linalg.schedule.ScheduleType;
 
 import java.io.*;
 import java.util.*;
@@ -149,9 +151,9 @@ public class DeepRLMasterAgent extends Agent {
                         for (var resourceInfo : resourcesInfo.entrySet() ) {
                             findNewResources (resourceInfo.getValue().get(r), resourceInfo.getKey());
                         }
-//                        performTasksOptimal( myAgent);
+                        performTasksOptimal( myAgent);
 //                        performTasksGreedy( myAgent);
-                        performTasksRL( myAgent);
+//                        performTasksRL( myAgent);
                         expireResourceItems( myAgent);
                         expireTasks( myAgent);
                     }
@@ -198,6 +200,7 @@ public class DeepRLMasterAgent extends Agent {
                 requiredResources.put( ResourceType.valueOf(resourceType), quantity);
             }
             Task newTask = new Task(id, utility.intValue(), deadline, requiredResources, agentId);
+            newTask.agentType = agentType;
             newTasks.add( newTask);
         }
         toDoTasks.addAll( newTasks);

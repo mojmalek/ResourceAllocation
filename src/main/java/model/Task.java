@@ -12,6 +12,7 @@ public class Task {
     public Map<ResourceType, Long> requiredResources;
 //    HashMap<ResourceType, HashMap<Integer, TimeInterval>> requiredResources;
     public AID manager;
+    public String agentType;
 
     public Task(String id, long utility, long deadline, Map<ResourceType, Long> requiredResources) {
         this.id = id;
@@ -75,18 +76,18 @@ public class Task {
         {
             Double efficiency1 = task1.efficiency();
             Double efficiency2 = task2.efficiency();
-//            Integer utility1 = task1.utility;
-//            Integer utility2 = task2.utility;
+            Integer managerId1 = Integer.valueOf(task1.manager.getLocalName().replace(task1.agentType, ""));
+            Integer managerId2 = Integer.valueOf(task2.manager.getLocalName().replace(task1.agentType, ""));
             String id1 = task1.id;
             String id2 = task2.id;
 
             if (efficiency1.equals(efficiency2)) {
-//                int check = id2.compareTo(id1);
-                return id2.compareTo(id1);
-            } else {
-//                int check = efficiency2.compareTo(efficiency1);
-                return efficiency2.compareTo(efficiency1);
+                if (managerId1.equals(managerId2)) {
+                    return id2.compareTo(id1);
+                }
+                return managerId2.compareTo(managerId1);
             }
+            return efficiency2.compareTo(efficiency1);
         }
     }
 

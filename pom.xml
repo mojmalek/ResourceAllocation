@@ -100,7 +100,10 @@
             <artifactId>gurobi</artifactId>
             <version>10.02</version>
             <scope>system</scope>
-            <systemPath>/opt/gurobi1002/linux64/lib/gurobi.jar</systemPath>
+<!--        on Linux -->
+<!--        <systemPath>/opt/gurobi1002/linux64/lib/gurobi.jar</systemPath> -->
+<!--        on Mac -->
+            <systemPath>/Library/gurobi1002/macos_universal2/lib/gurobi.jar</systemPath>
         </dependency>
 
     </dependencies>
