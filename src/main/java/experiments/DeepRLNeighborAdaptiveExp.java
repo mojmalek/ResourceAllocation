@@ -272,8 +272,8 @@ public class DeepRLNeighborAdaptiveExp {
     public static void scaleFreeSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 20;
-        int numberOfRounds = 1;
+        int numberOfAgents = 40;
+        int numberOfRounds = 10000;
 //        long duration = 600000;
 //        long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;

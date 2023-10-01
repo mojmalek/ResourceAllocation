@@ -41,7 +41,8 @@ public class GurobiOptimizer {
             for (int i = 0; i < numAgents; i++) {
                 for (int j = 0; j < numTasks; j++) {
                     for (int k = 0; k < numResourceTypes; k++) {
-                        x[i][j][k] = model.addVar(0.0, 1.0, 0.0, GRB.INTEGER, "x_" + i + "_" + j + "_" + k);
+//                        x[i][j][k] = model.addVar(0.0, resource[i][k], 0.0, GRB.INTEGER, "x_" + i + "_" + j + "_" + k);
+                        x[i][j][k] = model.addVar(0.0, requirement[j][k], 0.0, GRB.INTEGER, "x_" + i + "_" + j + "_" + k);
                     }
                 }
             }
@@ -88,9 +89,9 @@ public class GurobiOptimizer {
 
             // Display results
             System.out.println("Objective Value: " + model.get(GRB.DoubleAttr.ObjVal));
-//            for (int j = 0; j < numTasks; j++) {
-//                System.out.println("Task " + (j + 1) + ": " + y[j].get(GRB.DoubleAttr.X));
-//            }
+            for (int j = 0; j < numTasks; j++) {
+                System.out.println("Task " + (j + 1) + ": " + y[j].get(GRB.DoubleAttr.X));
+            }
 //            for (int i = 0; i < numAgents; i++) {
 //                for (int j = 0; j < numTasks; j++) {
 //                    for (int k = 0; k < numResourceTypes; k++) {
@@ -100,6 +101,9 @@ public class GurobiOptimizer {
 //            }
 
             objectiveValue = model.get(GRB.DoubleAttr.ObjVal);
+
+            //TODO:
+            // Printing the solution status after optimization. This will tell you if Gurobi found an optimal solution, an infeasible model, or something else.
 
             model.dispose();
             env.dispose();

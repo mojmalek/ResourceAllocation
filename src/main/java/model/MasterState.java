@@ -19,12 +19,12 @@ public class MasterState {
 
     public Map<ResourceType, Long> availableQuantities;
 
-    public long currentAllocatedQuantity;
+    public Long currentAllocatedQuantity;
 
-    public Observation deepObservation;
+    public Observation observation;
 
 
-    public MasterState(SortedSet<Task> toDoTasks, ArrayList<Double> efficiencies, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources, Map<ResourceType, Long> availableQuantities, long currentAllocatedQuantity) {
+    public MasterState(SortedSet<Task> toDoTasks, ArrayList<Double> efficiencies, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources, Map<ResourceType, Long> availableQuantities, Long currentAllocatedQuantity) {
         this.toDoTasks = toDoTasks;
         this.efficiencies = efficiencies;
         this.agentAvailableResources = agentAvailableResources;
@@ -32,6 +32,9 @@ public class MasterState {
         this.currentAllocatedQuantity = currentAllocatedQuantity;
     }
 
+    public MasterState(Observation observation) {
+        this.observation = observation;
+    }
 
     Double efficienciesSum () {
         Double sum = 0.0;

@@ -24,6 +24,10 @@ public class MasterAction {
         this.selectedManager = selectedManager;
     }
 
+    public MasterAction(AID selectedManager) {
+        this.selectedManager = selectedManager;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -25,36 +25,45 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
-//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4");
+        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10",
+                agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
 //        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
-        int[] taskNums = new int[] {2};
+
+        int[] taskNums = new int[] {4};
         if( requesters.contains(myAgent.getLocalName())) {
-            taskNums = new int[] {1};
+            taskNums = new int[] {2};
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] requiredQuantities = new long[] {3};
-        if( requesters.contains(myAgent.getLocalName())) {
-            requiredQuantities = new long[] {4};
-        }
+        long[] requiredQuantities;
+
 //        long minUtil = 10;
 //        long utilVariation = 5;
 
         int agentId = Integer.valueOf(myAgent.getLocalName().replace(agentType, ""));
-        long[] utilities = new long[] {10};
+        long[] utilities = new long[] {20};
         if( requesters.contains(myAgent.getLocalName())) {
-            utilities = new long[] {20};
+            utilities = new long[] {30};
 //            minUtil = 20;
         }
         long quantity, utility;
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i=0; i<resourceTypeValues.length; i++) {
-//                if( bidders.contains(myAgent.getLocalName()) && resourceTypeValues[i] == ResourceType.A ) {
-//                    requiredQuantities = new long[] {4, 5};
-//                } else {
-//                    requiredQuantities = new long[] {0, 1, 2, 3, 4};
-//                }
+                if( requesters.contains(myAgent.getLocalName())) {
+                    if (resourceTypeValues[i] == ResourceType.A) {
+                        requiredQuantities = new long[]{5};
+                    } else {
+                        requiredQuantities = new long[]{3};
+                    }
+                } else {
+                    if (resourceTypeValues[i] == ResourceType.A) {
+                        requiredQuantities = new long[]{4};
+                    } else {
+                        requiredQuantities = new long[]{2};
+                    }
+                }
                 quantity = requiredQuantities[random.nextInt( requiredQuantities.length)];
                 if (quantity > 0) {
                     requiredResources.put(resourceTypeValues[i], quantity);
@@ -81,17 +90,30 @@ public class SimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {2};
+        long[] quantities;
         long[] lifetimes = new long[] {1};
-        Set<String> offerers = Set.of(agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
-//        Set<String> offerers = Set.of(agentType + "5", agentType + "6", agentType + "7", agentType + "8");
+        Set<String> offerers = Set.of(agentType + "21", agentType + "22", agentType + "23", agentType + "24", agentType + "25", agentType + "26", agentType + "27", agentType + "28", agentType + "29", agentType + "30",
+                agentType + "31", agentType + "32", agentType + "33", agentType + "34", agentType + "35", agentType + "36", agentType + "37", agentType + "38", agentType + "39", agentType + "40");
+//        Set<String> offerers = Set.of(agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
+//        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
 //        Set<String> offerers = Set.of(agentType + "3", agentType + "4");
-        if( offerers.contains(myAgent.getLocalName())) {
-            quantities = new long[] {4};
-        }
+
         long quantity;
         long lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
+            if( offerers.contains(myAgent.getLocalName())) {
+                if (resourceTypeValues[i] == ResourceType.A) {
+                    quantities = new long[]{10};
+                } else {
+                    quantities = new long[]{6};
+                }
+            } else {
+                if (resourceTypeValues[i] == ResourceType.A) {
+                    quantities = new long[]{8};
+                } else {
+                    quantities = new long[]{4};
+                }
+            }
             quantity = quantities[random.nextInt( quantities.length)];
 //            if (quantity > 0) {
                 lifetime = lifetimes[random.nextInt( lifetimes.length)];
