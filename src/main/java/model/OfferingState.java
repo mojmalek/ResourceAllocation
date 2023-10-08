@@ -1,10 +1,12 @@
 package model;
 
 import jade.core.AID;
+import org.deeplearning4j.rl4j.observation.Observation;
 
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class OfferingState {
 
@@ -17,12 +19,24 @@ public class OfferingState {
 
     public long availableQuantity;
 
+    public Observation observation;
+
+    public Set<OfferingAction> possibleActions;
+
     public OfferingState(ResourceType resourceType, ArrayList<Request> requests, Map<AID, Map<Long, Long>> netUtils, long availableQuantity) {
         this.resourceType = resourceType;
         this.requests = requests;
         this.netUtils = netUtils;
         this.availableQuantity = availableQuantity;
     }
+
+    public OfferingState(ResourceType resourceType, ArrayList<Request> requests, Observation observation, Set<OfferingAction> possibleActions) {
+        this.resourceType = resourceType;
+        this.requests = requests;
+        this.observation = observation;
+        this.possibleActions = possibleActions;
+    }
+
 
     @Override
     public boolean equals(Object o) {

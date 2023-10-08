@@ -81,7 +81,7 @@ public class DeepRLMasterAgent extends Agent {
     private long C;
     private long targetUpdateFreq = 200;
 
-    ReduceLROnPlateau scheduler;
+    private ReduceLROnPlateau scheduler;
 
 
     @Override
@@ -168,7 +168,7 @@ public class DeepRLMasterAgent extends Agent {
                     }
 
                     try {
-                        policyNetwork.save(new File("trained_model.zip"));
+                        policyNetwork.save(new File("master_trained_model.zip"));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
@@ -456,13 +456,16 @@ public class DeepRLMasterAgent extends Agent {
 
         if (loadTrainedModel) {
             try {
-                policyNetwork = ModelSerializer.restoreMultiLayerNetwork("trained_model.zip");
-//                policyNetwork = MultiLayerNetwork.load(new File("trained_model.zip"), true);
+                policyNetwork = ModelSerializer.restoreMultiLayerNetwork("master_trained_model.zip");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         } else {
             int outputNum = numberOfAgents;
+            // Hidden Layer 1: Approximately 2/3 of the input layer size + output layer size
+            int hl1 = (int) (0.6 * masterStateVectorSize) + outputNum;
+            // Hidden Layer 2: Around half of the previous hidden layer
+            int hl2 = hl1 / 2;
             MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                     .seed(123)
                     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
@@ -473,21 +476,21 @@ public class DeepRLMasterAgent extends Agent {
                     .list()
                     .layer(new DenseLayer.Builder()
                             .nIn(masterStateVectorSize)
-                            .nOut(400)
+                            .nOut(hl1)
                             .activation(Activation.RELU)
                             .build())
                     .layer(new DenseLayer.Builder()
-                            .nIn(400)
-                            .nOut(200)
+                            .nIn(hl1)
+                            .nOut(hl2)
                             .activation(Activation.RELU)
                             .build())
 //                    .layer(new DenseLayer.Builder()
-//                            .nIn(260)
-//                            .nOut(130)
+//                            .nIn(hl2)
+//                            .nOut(hl3)
 //                            .activation(Activation.RELU)
 //                            .build())
                     .layer( new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
-                            .nIn(200)
+                            .nIn(hl2)
                             .nOut(outputNum)
                             .activation(Activation.IDENTITY)
                             .build())
@@ -555,7 +558,6 @@ public class DeepRLMasterAgent extends Agent {
     AID selectEplisonGreedyMasterAction (MasterState currentState, Set<AID> possibleManagers) {
 
         AID selectedManager = null;
-        MasterStateAction masterStateAction;
         Random random = new Random();
         double r = random.nextDouble();
         Iterator<AID> iter1 = possibleManagers.iterator();

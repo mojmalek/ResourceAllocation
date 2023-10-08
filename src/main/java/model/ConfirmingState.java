@@ -1,6 +1,7 @@
 package model;
 
 import jade.core.AID;
+import org.deeplearning4j.rl4j.observation.Observation;
 
 import java.util.Map;
 import java.util.Objects;
@@ -21,6 +22,10 @@ public class ConfirmingState {
 //    public long currentConfirmedQuantity;
     public long remainingRequestedQuantity;
 
+    public Observation observation;
+
+    public Set<ConfirmingAction> possibleActions;
+
 
     public ConfirmingState(ResourceType resourceType, Request request, Map<Long, Long> requestUtilFunction, Set<Offer> offers, Map<AID, Map<Long, Long>> offerCosts, long remainingRequestedQuantity) {
         this.resourceType = resourceType;
@@ -29,6 +34,11 @@ public class ConfirmingState {
         this.offers = offers;
         this.offerCosts = offerCosts;
         this.remainingRequestedQuantity = remainingRequestedQuantity;
+    }
+
+    public ConfirmingState(Observation observation, Set<ConfirmingAction> possibleActions) {
+        this.observation = observation;
+        this.possibleActions = possibleActions;
     }
 
     @Override
