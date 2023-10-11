@@ -12,6 +12,10 @@ import org.jgrapht.generate.ScaleFreeGraphGenerator;
 import org.jgrapht.generate.WattsStrogatzGraphGenerator;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleWeightedGraph;
+import org.jgrapht.nio.GraphExporter;
+import org.jgrapht.nio.GraphImporter;
+import org.jgrapht.nio.dot.DOTExporter;
+import org.jgrapht.nio.dot.DOTImporter;
 import org.jgrapht.traverse.DepthFirstIterator;
 import org.jgrapht.util.SupplierUtil;
 
@@ -186,43 +190,41 @@ public class DeepRLTimedSocialAdaptiveExp {
     }
 
 
-    public static void scaleFreeSim() throws StaleProxyException {
+    public static void scaleFreeSim() throws StaleProxyException, IOException {
 
+        boolean loadGraph = false;
         int numberOfAgents = 10;
         long duration = 60000;
         long currentTime, endTime;
         SimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
-        String agentType1 = "ScaleFree-A";
-        String agentType2 = "ScaleFree-NoCasA";
+        String agentType1 = "ScaleFree-DeepRL-A";
+//        String agentType2 = "ScaleFree-NoCas-A";
 
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
-        String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
+//        String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
         for (long resource = 4; resource <= 16; resource+=2) {
-            logResults(resultFileName1, "");
-            logResults(resultFileName1, "resource = " + resource);
-            logResults(resultFileName1, "");
-            logResults(resultFileName2, "");
-            logResults(resultFileName2, "resource = " + resource);
-            logResults(resultFileName2, "");
+//            logResults(resultFileName1, "");
+//            logResults(resultFileName1, "resource = " + resource);
+//            logResults(resultFileName1, "");
+//            logResults(resultFileName2, "");
+//            logResults(resultFileName2, "resource = " + resource);
+//            logResults(resultFileName2, "");
             simulationEngine1 = new SimulationEngine( resource, agentType1);
-            simulationEngine2 = new SimulationEngine( resource, agentType2);
+//            simulationEngine2 = new SimulationEngine( resource, agentType2);
             for (int exp = 1; exp <= 20; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
 
                 Runtime rt = Runtime.instance();
                 Profile profile = new ProfileImpl();
                 profile.setParameter(Profile.MAIN_HOST, "localhost");
 //              profile.setParameter(Profile.GUI, "true");
                 ContainerController containerController = rt.createMainContainer(profile);
-
-//              double connectivity = 0.0;
-//              Integer[][] adjacency = simulationEngine.generateRandomAdjacencyMatrix(numberOfAgents, connectivity);
 
                 Supplier<String> vSupplier = new Supplier<String>() {
                     private int id = 1;
@@ -233,21 +235,31 @@ public class DeepRLTimedSocialAdaptiveExp {
                 };
 
                 Graph<String, DefaultWeightedEdge> scaleFreeGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-                // Scale-free graph
-                ScaleFreeGraphGenerator<String, DefaultWeightedEdge> scaleFreeGraphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
-                scaleFreeGraphGenerator.generateGraph(scaleFreeGraph);
+                if (loadGraph) {
+                    GraphImporter<String, DefaultWeightedEdge> importer = new DOTImporter<>();
+                    Reader reader = new FileReader("scaleFreeGraph.dot");
+                    importer.importGraph(scaleFreeGraph, reader);
+                    reader.close();
+                } else {
+                    ScaleFreeGraphGenerator<String, DefaultWeightedEdge> scaleFreeGraphGenerator = new ScaleFreeGraphGenerator<>(numberOfAgents);
+                    scaleFreeGraphGenerator.generateGraph(scaleFreeGraph);
+
+                    GraphExporter<String, DefaultWeightedEdge> exporter = new DOTExporter<>();
+                    Writer writer = new FileWriter("scaleFreeGraph.dot");
+                    exporter.exportGraph(scaleFreeGraph, writer);
+                    writer.close();
+                }
 
                 System.out.println("Scale-free:");
-                Iterator<String> iter2 = new DepthFirstIterator<>(scaleFreeGraph);
-                while (iter2.hasNext()) {
-                    String vertex = iter2.next();
-                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
-                }
+//                Iterator<String> iter2 = new DepthFirstIterator<>(scaleFreeGraph);
+//                while (iter2.hasNext()) {
+//                    String vertex = iter2.next();
+//                    System.out.println(vertex + " is connected to: " + scaleFreeGraph.edgesOf(vertex).toString());
+//                }
 
                 Integer[][] scaleFreeAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
-                //TODO: save the social network array in a text file in order to re-use it.
-//              Integer[][] adjacency = {{null, 1, 1, null, null, null, 1, 1},
+//              Integer[][] scaleFreeAdjacency = {{null, 1, 1, null, null, null, 1, 1},
 //                                     {1, null, 1, null, 1, null, null, 1},
 //                                     {1, 1, null, 1, null, null, 1, null},
 //                                     {null, null, 1, null, 1, null, null, 1},
@@ -257,17 +269,20 @@ public class DeepRLTimedSocialAdaptiveExp {
 //                                     {1, 1, null, 1, 1, null, 1, null}};
 
 //                System.out.println("Agent social network adjacency matrix: ");
-//                for (int i = 0; i < adjacency.length; i++) {
-//                    for (int j = 0; j < adjacency[i].length; j++) {
-//                        if (adjacency[i][j] == null) {
-//                            System.out.print("0, ");
+//                System.out.print("{");
+//                for (int i = 0; i < scaleFreeAdjacency.length; i++) {
+//                    System.out.print("{");
+//                    for (int j = 0; j < scaleFreeAdjacency[i].length; j++) {
+//                        if (scaleFreeAdjacency[i][j] == null) {
+//                            System.out.print("null, ");
 //                        } else {
-//                            System.out.print(adjacency[i][j] + ", ");
+//                            System.out.print(scaleFreeAdjacency[i][j] + ", ");
 //                        }
 //                    }
-//                    System.out.println();
+//                    System.out.println("}");
 //                }
-                System.out.println();
+//                System.out.print("}");
+//                System.out.println();
 
                 agentControllers.clear();
                 currentTime = System.currentTimeMillis();
@@ -276,18 +291,18 @@ public class DeepRLTimedSocialAdaptiveExp {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLTimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
                             agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
-                            agentController2.start();
+//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLTimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+//                            agentController2.start();
                         } else {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLTimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
                             agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.TimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll2, simulationEngine2, false, agentType2});
-                            agentController2.start();
+//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLTimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll2, simulationEngine2, false, agentType2});
+//                            agentController2.start();
                         }
                         agentControllers.add( agentController1);
-                        agentControllers.add( agentController2);
+//                        agentControllers.add( agentController2);
                     } catch (StaleProxyException e) {
                         e.printStackTrace();
                     }

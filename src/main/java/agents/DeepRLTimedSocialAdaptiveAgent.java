@@ -1873,16 +1873,22 @@ public class DeepRLTimedSocialAdaptiveAgent extends Agent {
             ConfirmingStateAction currentStateAction = new ConfirmingStateAction (currentState, action);
             ConfirmingState nextState = generateConfirmingState (request, offers, remainingRequestedQuantity);
 
-            updateConfirmingQFunction(currentStateAction, nextState, reward);
+            updateConfirmingPolicyNetwork(currentStateAction, nextState, reward);
 
-            // or update based on episodes
-            confirmingStepCount += 1;
-            if (confirmingStepCount % targetUpdateFreq == 0) {
-                confirmingTargetNetwork = confirmingPolicyNetwork;
-            }
+            updateConfirmingTargetNetwork();
         }
 
         return confirmQuantities;
+    }
+
+
+    void updateConfirmingTargetNetwork() {
+
+        // or update based on episodes
+        confirmingStepCount += 1;
+        if (confirmingStepCount % targetUpdateFreq == 0) {
+            confirmingTargetNetwork = confirmingPolicyNetwork;
+        }
     }
 
 
@@ -2058,7 +2064,13 @@ public class DeepRLTimedSocialAdaptiveAgent extends Agent {
             receivedOffers.remove(cascadedRequest.id);
         }
 
-        updateOfferingQFunction( sentOffer.currentStateAction, sentOffer.nextState, confirmQuantity);
+        updateOfferingPolicyNetwork( sentOffer.currentStateAction, sentOffer.nextState, confirmQuantity);
+
+        updateOfferingTargetNetwork();
+    }
+
+
+    void updateOfferingTargetNetwork() {
 
         // or update based on episodes
         offeringStepCount += 1;
@@ -2106,7 +2118,7 @@ public class DeepRLTimedSocialAdaptiveAgent extends Agent {
     }
 
 
-    void updateOfferingQFunction( OfferingStateAction currentStateAction, OfferingState nextState, long confirmQuantity) {
+    void updateOfferingPolicyNetwork(OfferingStateAction currentStateAction, OfferingState nextState, long confirmQuantity) {
 
         long currentReward = 0;
         if (confirmQuantity > 0) {
@@ -2165,7 +2177,7 @@ public class DeepRLTimedSocialAdaptiveAgent extends Agent {
     }
 
 
-    void updateConfirmingQFunction( ConfirmingStateAction currentStateAction, ConfirmingState nextState, long currentReward) {
+    void updateConfirmingPolicyNetwork(ConfirmingStateAction currentStateAction, ConfirmingState nextState, long currentReward) {
 
         boolean isTerminal = false;
         if (nextState.possibleActions.isEmpty()) {
