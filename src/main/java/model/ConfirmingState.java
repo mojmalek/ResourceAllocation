@@ -36,7 +36,9 @@ public class ConfirmingState {
         this.remainingRequestedQuantity = remainingRequestedQuantity;
     }
 
-    public ConfirmingState(Observation observation, Set<ConfirmingAction> possibleActions) {
+    public ConfirmingState(ResourceType resourceType, Set<Offer> offers, Observation observation, Set<ConfirmingAction> possibleActions) {
+        this.resourceType = resourceType;
+        this.offers = offers;
         this.observation = observation;
         this.possibleActions = possibleActions;
     }

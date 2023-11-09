@@ -6,7 +6,7 @@ import jade.core.Runtime;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
-import model.SimulationEngine;
+import model.TimedSimulationEngine;
 import org.jgrapht.Graph;
 import org.jgrapht.generate.GnmRandomGraphGenerator;
 import org.jgrapht.generate.ScaleFreeGraphGenerator;
@@ -73,7 +73,7 @@ public class TimedSocialAdaptiveExp {
         int numberOfAgents = 10;
         long duration = 60000;
         long currentTime, endTime;
-        SimulationEngine simulationEngine1, simulationEngine2;
+        TimedSimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
         String agentType1 = "SmallWorld-A";
@@ -89,8 +89,8 @@ public class TimedSocialAdaptiveExp {
             logResults(resultFileName2, "");
             logResults(resultFileName2, "param = " + param);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( param, agentType1);
-            simulationEngine2 = new SimulationEngine( param, agentType2);
+            simulationEngine1 = new TimedSimulationEngine( param, agentType1);
+            simulationEngine2 = new TimedSimulationEngine( param, agentType2);
             for (int exp = 1; exp <= 20; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
@@ -192,7 +192,7 @@ public class TimedSocialAdaptiveExp {
         int numberOfAgents = 10;
         long duration = 60000;
         long currentTime, endTime;
-        SimulationEngine simulationEngine1, simulationEngine2;
+        TimedSimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
         String agentType1 = "ScaleFree-A";
@@ -208,8 +208,8 @@ public class TimedSocialAdaptiveExp {
             logResults(resultFileName2, "");
             logResults(resultFileName2, "resource = " + resource);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( resource, agentType1);
-            simulationEngine2 = new SimulationEngine( resource, agentType2);
+            simulationEngine1 = new TimedSimulationEngine( resource, agentType1);
+            simulationEngine2 = new TimedSimulationEngine( resource, agentType2);
             for (int exp = 1; exp <= 20; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
@@ -311,7 +311,7 @@ public class TimedSocialAdaptiveExp {
         int numberOfAgents = 10;
         long duration = 60000;
         long currentTime, endTime;
-        SimulationEngine simulationEngine1, simulationEngine2;
+        TimedSimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
         String agentType1 = "Random-A";
@@ -327,8 +327,8 @@ public class TimedSocialAdaptiveExp {
             logResults(resultFileName2, "");
             logResults(resultFileName2, "degree = " + degree);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( 16, agentType1);
-            simulationEngine2 = new SimulationEngine( 16, agentType2);
+            simulationEngine1 = new TimedSimulationEngine( 16, agentType1);
+            simulationEngine2 = new TimedSimulationEngine( 16, agentType2);
             for (int exp = 1; exp <= 20; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";

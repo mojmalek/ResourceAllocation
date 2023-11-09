@@ -6,7 +6,7 @@ import jade.core.Runtime;
 import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
-import model.SimulationEngine;
+import model.TimedSimulationEngine;
 import org.jgrapht.Graph;
 import org.jgrapht.generate.ScaleFreeGraphGenerator;
 import org.jgrapht.generate.WattsStrogatzGraphGenerator;
@@ -76,7 +76,7 @@ public class DeepRLTimedSocialAdaptiveExp {
         int numberOfAgents = 10;
         long duration = 60000;
         long currentTime, endTime;
-        SimulationEngine simulationEngine1, simulationEngine2;
+        TimedSimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
         String agentType1 = "SmallWorld-A";
@@ -92,8 +92,8 @@ public class DeepRLTimedSocialAdaptiveExp {
             logResults(resultFileName2, "");
             logResults(resultFileName2, "param = " + param);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( param, agentType1);
-            simulationEngine2 = new SimulationEngine( param, agentType2);
+            simulationEngine1 = new TimedSimulationEngine( param, agentType1);
+            simulationEngine2 = new TimedSimulationEngine( param, agentType2);
             for (int exp = 1; exp <= 20; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
@@ -192,11 +192,11 @@ public class DeepRLTimedSocialAdaptiveExp {
 
     public static void scaleFreeSim() throws StaleProxyException, IOException {
 
-        boolean loadGraph = false;
+        boolean loadGraph = true;
         int numberOfAgents = 10;
-        long duration = 60000;
+        long duration = 5000;
         long currentTime, endTime;
-        SimulationEngine simulationEngine1, simulationEngine2;
+        TimedSimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
         String agentType1 = "ScaleFree-DeepRL-A";
@@ -205,16 +205,16 @@ public class DeepRLTimedSocialAdaptiveExp {
         String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
 //        String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long resource = 4; resource <= 16; resource+=2) {
+        for (long resource = 4; resource <= 4; resource+=2) {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "resource = " + resource);
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName2, "");
 //            logResults(resultFileName2, "resource = " + resource);
 //            logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( resource, agentType1);
-//            simulationEngine2 = new SimulationEngine( resource, agentType2);
-            for (int exp = 1; exp <= 20; exp++) {
+            simulationEngine1 = new TimedSimulationEngine( resource, agentType1);
+//            simulationEngine2 = new TimedSimulationEngine( resource, agentType2);
+            for (int exp = 1; exp <= 1; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
 //                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-resource=" + resource + "-exp" + exp + "-" + new Date() + ".txt";
@@ -308,12 +308,12 @@ public class DeepRLTimedSocialAdaptiveExp {
                     }
                 }
 
-                while (currentTime < endTime + 1500) {
-                    currentTime = System.currentTimeMillis();
-                }
-                for( AgentController agentController : agentControllers) {
-                    agentController.kill();
-                }
+//                while (currentTime < endTime + 1500) {
+//                    currentTime = System.currentTimeMillis();
+//                }
+//                for( AgentController agentController : agentControllers) {
+//                    agentController.kill();
+//                }
 //                containerController.kill();
             }
         }
@@ -325,7 +325,7 @@ public class DeepRLTimedSocialAdaptiveExp {
         int numberOfAgents = 10;
         long duration = 60000;
         long currentTime, endTime;
-        SimulationEngine simulationEngine1, simulationEngine2;
+        TimedSimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
         String agentType1 = "Random-A";
@@ -341,8 +341,8 @@ public class DeepRLTimedSocialAdaptiveExp {
             logResults(resultFileName2, "");
             logResults(resultFileName2, "degree = " + degree);
             logResults(resultFileName2, "");
-            simulationEngine1 = new SimulationEngine( 16, agentType1);
-            simulationEngine2 = new SimulationEngine( 16, agentType2);
+            simulationEngine1 = new TimedSimulationEngine( 16, agentType1);
+            simulationEngine2 = new TimedSimulationEngine( 16, agentType2);
             for (int exp = 1; exp <= 20; exp++) {
                 String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";
                 String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-degree=" + degree + "-exp" + exp + "-" + new Date() + ".txt";

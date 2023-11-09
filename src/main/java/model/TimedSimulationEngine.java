@@ -27,29 +27,44 @@ public class TimedSimulationEngine {
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
 //        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "7", agentType + "8", agentType + "13", agentType + "14");
-        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
-        int[] taskNums = new int[] {1};
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10",
+//                agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
+        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
+        int[] taskNums = new int[] {4};
         if( requesters.contains(myAgent.getLocalName())) {
-            taskNums = new int[] {4};
+            taskNums = new int[] {2};
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] quantities = new long[] {4};
+        long[] requiredQuantities;
 //        long minUtil = 10;
 //        long utilVariation = 5;
-        long[] utilities = new long[] {10};
-//        if( bidders.contains(myAgent.getLocalName())) {
+        long[] utilities = new long[] {20};
+        if( requesters.contains(myAgent.getLocalName())) {
+            utilities = new long[] {30};
 //            minUtil = 20;
-//        }
+        }
         long quantity, utility;
+        //all tasks for this agent will have the same deadline
+        currentTime = System.currentTimeMillis();
         for (int j=0; j<numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i=0; i<resourceTypeValues.length; i++) {
-//                if( bidders.contains(myAgent.getLocalName()) && resourceTypeValues[i] == ResourceType.A ) {
-//                    quantities = new long[] {4, 5};
-//                } else {
-//                    quantities = new long[] {0, 1, 2, 3, 4};
-//                }
-                quantity = quantities[random.nextInt( quantities.length)];
+                if( requesters.contains(myAgent.getLocalName())) {
+                    if (resourceTypeValues[i] == ResourceType.A) {
+                        requiredQuantities = new long[]{5};
+                    } else {
+                        requiredQuantities = new long[]{3};
+                    }
+                } else {
+                    if (resourceTypeValues[i] == ResourceType.A) {
+                        requiredQuantities = new long[]{4};
+                    } else {
+                        requiredQuantities = new long[]{2};
+                    }
+                }
+                quantity = requiredQuantities[random.nextInt( requiredQuantities.length)];
                 if (quantity > 0) {
                     requiredResources.put(resourceTypeValues[i], quantity);
                 }
@@ -58,8 +73,8 @@ public class TimedSimulationEngine {
             utility = utilities[random.nextInt( utilities.length)];
             String id = UUID.randomUUID().toString();
             if (!requiredResources.isEmpty()) {
-                currentTime = System.currentTimeMillis();
-                Task newTask = new Task(id, utility, currentTime + 2000, requiredResources);
+                Task newTask = new Task(id, utility, currentTime + 20000, requiredResources, myAgent.getAID());
+                newTask.agentType = agentType;
                 tasks.add(newTask);
             } else {
 //                System.out.println(" ");
@@ -75,16 +90,31 @@ public class TimedSimulationEngine {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities = new long[] {2};
-        long[] lifetimes = new long[] {10000};
+        long[] quantities;
+        long[] lifetimes = new long[] {20000};
 //        Set<String> offerers = Set.of(agentType + "17", agentType + "18", agentType + "23", agentType + "24", agentType + "27", agentType + "28");
-        Set<String> offerers = Set.of(agentType + "6", agentType + "7");
-        if( offerers.contains(myAgent.getLocalName())) {
-            quantities = new long[] {parameter};
-        }
+//        Set<String> offerers = Set.of(agentType + "6", agentType + "7");
+//        Set<String> offerers = Set.of(agentType + "21", agentType + "22", agentType + "23", agentType + "24", agentType + "25", agentType + "26", agentType + "27", agentType + "28", agentType + "29", agentType + "30",
+//                agentType + "31", agentType + "32", agentType + "33", agentType + "34", agentType + "35", agentType + "36", agentType + "37", agentType + "38", agentType + "39", agentType + "40");
+//        Set<String> offerers = Set.of(agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
+        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
+//        Set<String> offerers = Set.of(agentType + "3", agentType + "4");
         long quantity;
         long lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
+            if( offerers.contains(myAgent.getLocalName())) {
+                if (resourceTypeValues[i] == ResourceType.A) {
+                    quantities = new long[]{10};
+                } else {
+                    quantities = new long[]{6};
+                }
+            } else {
+                if (resourceTypeValues[i] == ResourceType.A) {
+                    quantities = new long[]{8};
+                } else {
+                    quantities = new long[]{4};
+                }
+            }
             quantity = quantities[random.nextInt( quantities.length)];
 //            if (quantity > 0) {
             lifetime = lifetimes[random.nextInt( lifetimes.length)];
@@ -101,9 +131,10 @@ public class TimedSimulationEngine {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
         String id;
+        //all resource items for this agent will have the same expiry time
+        currentTime = System.currentTimeMillis();
         for (long i=0; i<quantity; i++) {
             id = UUID.randomUUID().toString() + '-' + agentName;
-            currentTime = System.currentTimeMillis();
             resourceItems.add(new ResourceItem (id, resourceType, currentTime + lifeTime));
         }
         return resourceItems;

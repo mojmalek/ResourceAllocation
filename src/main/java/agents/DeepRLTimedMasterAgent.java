@@ -43,6 +43,8 @@ public class DeepRLTimedMasterAgent extends Agent {
     private String logFileName, resultFileName;
     private String agentType;
 
+    private Map<AID, Boolean> episodeTasksReceived = new LinkedHashMap<>();
+    private Map<AID, Boolean> episodeResourcesReceived = new LinkedHashMap<>();
     private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
 
     private Map<AID, SortedSet<Task>> toDoAgentTasks = new LinkedHashMap<>();
@@ -51,7 +53,8 @@ public class DeepRLTimedMasterAgent extends Agent {
 
     private long totalUtil, totalTransferCost;
     private long endTime, currentTime;
-    private int episode, numberOfAgents, maxTaskNumPerAgent, masterStateVectorSize;
+    private int numberOfAgents, maxTaskNumPerAgent, masterStateVectorSize;
+    private int episode = 0;
 
     Integer[][] adjacency;
     Graph<String, DefaultWeightedEdge> graph;
@@ -65,16 +68,16 @@ public class DeepRLTimedMasterAgent extends Agent {
     private final double gamma = 0.95; // Discount factor - 0 looks in the near future, 1 looks in the distant future
 
     // for 5k episodes
-//    private final double epsilonDecayRate = 0.9995;
+    private final double epsilonDecayRate = 0.9995;
     // for 10k episodes
-    private final double epsilonDecayRate = 0.99965;
+//    private final double epsilonDecayRate = 0.99965;
     private final double minimumEpsilon = 0.1;
     private final double alphaDecayRate = 0.5;
     private final double minimumAlpha = 0.000001;
 
     private boolean cascading = true;
     private boolean doubleLearning = true;
-    private boolean loadTrainedModel = false;
+    private boolean loadTrainedModel = true;
 
     private MultiLayerNetwork policyNetwork;
     private MultiLayerNetwork targetNetwork;
@@ -103,6 +106,8 @@ public class DeepRLTimedMasterAgent extends Agent {
 
         for (int i = 1; i <= numberOfAgents; i++) {
             AID aid = new AID(agentType + i, AID.ISLOCALNAME);
+            episodeTasksReceived.put( aid, false);
+            episodeResourcesReceived.put( aid, false);
             utilitiesInfo.put( aid, new ArrayList<>());
             agentAvailableResources.put(aid, new LinkedHashMap<>());
             agentExpiredResources.put(aid, new LinkedHashMap<>());
@@ -112,13 +117,18 @@ public class DeepRLTimedMasterAgent extends Agent {
         //TODO: get as a param
         maxTaskNumPerAgent = 4;
         masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * ResourceType.getSize() + numberOfAgents * maxTaskNumPerAgent * ResourceType.getSize();
-        createNeuralNet();
+//        createNeuralNet();
 
         scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
 
 
-        addBehaviour (new WakerBehaviour(this, new Date(endTime + 500)) {
+        addBehaviour (new WakerBehaviour(this, new Date(endTime + 2000)) {
             protected void onWake() {
+//                try {
+//                    policyNetwork.save(new File("trained_models/master_trained_model.zip"));
+//                } catch (IOException e) {
+//                    throw new RuntimeException(e);
+//                }
                 System.out.println ("Centralized total util for " + agentType + " : " + totalUtil);
 //                System.out.println ("transfer cost: " + transferCost);
                 System.out.println ("Decentralized total util for " + agentType + " : " + agentUtilitiesSum());
@@ -126,12 +136,6 @@ public class DeepRLTimedMasterAgent extends Agent {
                 System.out.println ("");
 //                printUtils();
 //                logResults( String.valueOf(agentUtilitiesSum()));
-
-                try {
-                    policyNetwork.save(new File("master_trained_model.zip"));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
             }
         } );
 
@@ -140,11 +144,19 @@ public class DeepRLTimedMasterAgent extends Agent {
             protected void onTick() {
                 currentTime = System.currentTimeMillis();
                 if (currentTime <= endTime) {
-                    expireResourceItems (myAgent);
-                    expireTasks (myAgent);
-//                    performTasksOptimal( myAgent);
-//                    performTasksGreedy( myAgent);
-                    performTasksRL( myAgent);
+                    if (receivedEpisodeTasksResourcesFromAll()) {
+                        epsilon = 0;
+                        episode++;
+                        System.out.println(myAgent.getLocalName() + "  Episode: " + episode + "  Epsilon: " + epsilon);
+//                        System.out.println("LearningRate: " + policyNetwork.getLearningRate(1));
+                        expireResourceItems(myAgent);
+                        expireTasks(myAgent);
+//                        performTasksOptimal( myAgent);
+//                        performTasksGreedy( myAgent);
+//                        performTasksRL(myAgent);
+//                        decayEpsilon();
+//                        decayAlpha();
+                    }
                 }
             }
         });
@@ -273,6 +285,11 @@ public class DeepRLTimedMasterAgent extends Agent {
                 }
             }
         }
+
+        // reset episode resources info
+        for (var entry : episodeResourcesReceived.entrySet()) {
+            entry.setValue(false);
+        }
     }
 
 
@@ -294,6 +311,28 @@ public class DeepRLTimedMasterAgent extends Agent {
 
         // unless it is needed to keep track of all done tasks in all episodes
         doneTasks.clear();
+
+        // reset episode resources info
+        for (var entry : episodeTasksReceived.entrySet()) {
+            entry.setValue(false);
+        }
+    }
+
+
+    boolean receivedEpisodeTasksResourcesFromAll() {
+
+        for (var taskInfo : episodeTasksReceived.entrySet() ) {
+            if (taskInfo.getValue() == false) {
+                return false;
+            }
+        }
+        for (var resourceInfo : episodeResourcesReceived.entrySet() ) {
+            if (resourceInfo.getValue() == false) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 
@@ -343,10 +382,12 @@ public class DeepRLTimedMasterAgent extends Agent {
     private void performTasksGreedy(Agent myAgent) {
 
         // Centralized greedy algorithm: tasks are sorted by efficiency in toDoTasks
+
+//        currentTime = System.currentTimeMillis();
         for (Task task : toDoTasks) {
-            currentTime = System.currentTimeMillis();
-            if (task.deadline - currentTime < 200) {
-                if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
+//            if (task.deadline - currentTime < 200) {
+//                if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
+                if (hasEnoughResources(task, agentAvailableResources)) {
                     double transferCost = processTask(task);
                     doneTasks.add(task);
                     totalUtil += task.utility;
@@ -355,7 +396,7 @@ public class DeepRLTimedMasterAgent extends Agent {
 
                     System.out.println("Episode: " + episode + " selected manager: " + task.manager.getLocalName() + " task util: " + task.utility + " transferCost: " + transferCost);
                 }
-            }
+//            }
         }
 
         toDoTasks.removeAll (doneTasks);
@@ -418,7 +459,7 @@ public class DeepRLTimedMasterAgent extends Agent {
 
             MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
 
-            updatePolicyNetwork(currentStateAction, reward);
+//            updatePolicyNetwork(currentStateAction, reward);
 
             updateTargetNetwork();
         }
@@ -441,7 +482,7 @@ public class DeepRLTimedMasterAgent extends Agent {
 
         if (loadTrainedModel) {
             try {
-                policyNetwork = ModelSerializer.restoreMultiLayerNetwork("master_trained_model.zip");
+                policyNetwork = ModelSerializer.restoreMultiLayerNetwork("trained_models/master_trained_model.zip");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -449,8 +490,10 @@ public class DeepRLTimedMasterAgent extends Agent {
             int outputNum = numberOfAgents;
             // Hidden Layer 1: Approximately 2/3 of the input layer size + output layer size
             int hl1 = (int) (0.6 * masterStateVectorSize) + outputNum;
+            hl1 = 120;
             // Hidden Layer 2: Around half of the previous hidden layer
             int hl2 = hl1 / 2;
+            hl2 = 60;
             MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                     .seed(123)
                     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
@@ -528,15 +571,16 @@ public class DeepRLTimedMasterAgent extends Agent {
     Set<AID> generatePossibleMasterActions() {
 
         Set<AID> managers = new HashSet<>();
+//        currentTime = System.currentTimeMillis();
         for (var agentTasks : toDoAgentTasks.entrySet()) {
             for (Task task : agentTasks.getValue()) {
-                currentTime = System.currentTimeMillis();
-                if (task.deadline - currentTime < 200) {
-                    if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
+//                if (task.deadline - currentTime < 200) {
+//                    if (currentTime <= task.deadline && hasEnoughResources(task, agentAvailableResources)) {
+                    if (hasEnoughResources(task, agentAvailableResources)) {
                         managers.add(task.manager);
                         break;
                     }
-                }
+//                }
             }
         }
         return managers;
@@ -825,19 +869,13 @@ public class DeepRLTimedMasterAgent extends Agent {
         Long totalUtil = (Long) jo.get("totalUtil");
 
         if (joNewTasks != null) {
-            if (agentId.getLocalName().equals(agentType + "1")) {
-                episode++;
-                if (episode > 1) {
-                    decayEpsilon();
-                    decayAlpha();
-                }
-                System.out.println("LearningRate: " + policyNetwork.getLearningRate(1));
-            }
             findNewTasks( joNewTasks, agentId);
+            episodeTasksReceived.put(agentId, true);
         }
 
         if (joNewResources != null) {
             findNewResources( joNewResources, agentId);
+            episodeResourcesReceived.put(agentId, true);
         }
 
         if (totalUtil != null) {
@@ -916,6 +954,9 @@ public class DeepRLTimedMasterAgent extends Agent {
 /*
 ToDO:
 - how to deal with large action space ?
+
+
+Note: do not run RL methods for master and protocol in parallel. Do one of them with greedy to make it faster and avoid missing task deadlines.
 
 
 */

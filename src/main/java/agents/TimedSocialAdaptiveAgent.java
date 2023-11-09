@@ -22,7 +22,7 @@ import java.util.*;
 
 public class TimedSocialAdaptiveAgent extends Agent {
 
-    SimulationEngine simulationEngine;
+    TimedSimulationEngine simulationEngine;
     private boolean debugMode = true;
     private boolean cascading = true;
     private String logFileName, agentLogFileName;
@@ -42,8 +42,8 @@ public class TimedSocialAdaptiveAgent extends Agent {
     private Map<ResourceType, SortedSet<ResourceItem>> expiredResources = new LinkedHashMap<>();
 
     private int totalReceivedResources;
-    private int totalConsumedResource;
-    private int totalExpiredResource;
+    private int totalConsumedResources;
+    private int totalExpiredResources;
 
     // reqId
     public Map<String, Request> sentRequests = new LinkedHashMap<>();
@@ -75,7 +75,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             endTime = (long) args[2];
             neighbors = (Integer[]) args[3];
             logFileName = (String) args[4];
-            simulationEngine = (SimulationEngine) args[5];
+            simulationEngine = (TimedSimulationEngine) args[5];
             cascading = (boolean) args[6];
             agentType = (String) args[7];
         }
@@ -94,8 +94,8 @@ public class TimedSocialAdaptiveAgent extends Agent {
                     totalAvailable += resource.getValue().size();
                 }
 //                System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
-                if (totalReceivedResources - totalConsumedResource - totalExpiredResource != totalAvailable ) {
-                    int difference = totalReceivedResources - totalConsumedResource - totalExpiredResource - totalAvailable;
+                if (totalReceivedResources - totalConsumedResources - totalExpiredResources != totalAvailable ) {
+                    int difference = totalReceivedResources - totalConsumedResources - totalExpiredResources - totalAvailable;
                     System.out.println ("Error!! " + myAgent.getLocalName() + " has INCORRECT number of resources left. Diff: " + difference);
                 }
             }
@@ -226,7 +226,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             }
             int initialSize = availableItems.size();
             availableItems.removeAll( expiredItemsNow);
-            totalExpiredResource += expiredItemsNow.size();
+            totalExpiredResources += expiredItemsNow.size();
             if ( initialSize - expiredItemsNow.size() != availableItems.size()) {
                 logErr( myAgent.getLocalName(), "initialSize - expiredItemsNow.size() != availableItems.size()");
             }
@@ -441,7 +441,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             for (int i = 0; i < requiredResource.getValue(); i++) {
                 ResourceItem item = resourceItems.first();
                 resourceItems.remove(item);
-                totalConsumedResource++;
+                totalConsumedResources++;
 //                logInf( this.getLocalName(), "consumed resource item with id: " + item.getId());
             }
         }
@@ -858,7 +858,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             ResourceItem item = availableItems.first();
             reservedItems.put(item.getId(), item.getExpiryTime());
             availableItems.remove( item);
-            totalConsumedResource++;
+            totalConsumedResources++;
 //            logInf( this.getLocalName(), "reserved resource item with id: " + item.getId());
         }
 
@@ -932,7 +932,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             ResourceItem item = availableItems.first();
             offeredItems.put(item.getId(), item.getExpiryTime());
             availableItems.remove( item);
-            totalConsumedResource++;
+            totalConsumedResources++;
 //            logInf( this.getLocalName(), "offered resource item with id: " + item.getId() + " to " + requester.getLocalName());
         }
 
@@ -1189,7 +1189,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
 //            logInf( this.getLocalName(), "(restoreReservedItems) restored resource item with id: " + offeredItem.getKey());
         }
         availableResources.get(cascadedRequest.resourceType).addAll(reserevedItems);
-        totalConsumedResource -= reserevedItems.size();
+        totalConsumedResources -= reserevedItems.size();
     }
 
 
@@ -1586,7 +1586,7 @@ public class TimedSocialAdaptiveAgent extends Agent {
             for (var offeredItem : sentOffer.reservedItems.entrySet()) {
                 if (confirmQuantity == 0 || confirmedItems.containsKey(offeredItem.getKey()) == false) {
                     availableResources.get(sentOffer.resourceType).add( new ResourceItem(offeredItem.getKey(), sentOffer.resourceType, offeredItem.getValue()));
-                    totalConsumedResource --;
+                    totalConsumedResources--;
 //                    logInf( this.getLocalName(), "(restoreOfferedResources) restored resource item with id: " + offeredItem.getKey());
                 }
             }
