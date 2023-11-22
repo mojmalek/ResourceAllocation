@@ -2,10 +2,9 @@ package agents;
 
 import jade.core.AID;
 import jade.core.Agent;
-import jade.core.behaviours.CyclicBehaviour;
-import jade.core.behaviours.OneShotBehaviour;
-import jade.core.behaviours.WakerBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import model.*;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.BackpropType;
@@ -44,13 +43,13 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     private Integer[] adjacency;
     private ArrayList<AID> neighbors = new ArrayList<>();
+    private Map<AID, ProtocolPhase> neighborsPhases = new LinkedHashMap<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
     private long totalUtil;
-    private long startTime, endTime;
-    private long currentTime;
+    private int numberOfEpisodes;
     private int numberOfAgents;
     private long maxRequestQuantity;
     private long offeringStateVectorSize, confirmingStateVectorSize;
@@ -71,23 +70,13 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
-    private long requestLifetime = 6000;
-    private long minTimeToCascadeRequest = 200;
-    private long minTimeToOffer = 200;
-    private long requestTimeoutReduction = 30;
-    private long offerTimeoutExtension = 200;
-    private long waitUntilCascadeOffer = 100;
-    private long waitUntilConfirm = 50;
-
-//    private long requestLifetime = 5000;
-//    private long minTimeToCascadeRequest = 0;
-//    private long minTimeToOffer = 0;
-//    private long requestTimeoutReduction = 10;
-//    private long offerTimeoutExtension = 400;
-//    private long waitUntilCascadeRequest = 0;
-//    private long waitUntilOffer = 0;
+    private long requestLifetime = 20;
+    private long minTimeToCascadeRequest = 0;
+    private long minTimeToOffer = 0;
+    private long requestTimeoutReduction = 1;
+    private long offerTimeoutExtension = 0;
 //    private long waitUntilCascadeOffer = 0;
-//    private long waitUntilConfirm = 0;
+//    private long waitUntilConfirmOffer = 0;
 
     private int errorCount;
 
@@ -137,18 +126,18 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
             int myId = (int) args[1];
-            startTime = (long) args[2];
-            endTime = (long) args[3];
-            adjacency = (Integer[]) args[4];
-            logFileName = (String) args[5];
-            simulationEngine = (TimedSimulationEngine) args[6];
-            cascading = (boolean) args[7];
-            agentType = (String) args[8];
+            numberOfEpisodes = (int) args[2];
+            adjacency = (Integer[]) args[3];
+            logFileName = (String) args[4];
+            simulationEngine = (TimedSimulationEngine) args[5];
+            cascading = (boolean) args[6];
+            agentType = (String) args[7];
         }
 
         for (int i = 0; i < adjacency.length; i++) {
             if (adjacency[i] != null) {
                 AID aid = new AID(agentType + (i + 1), AID.ISLOCALNAME);
+                neighborsPhases.put(aid, ProtocolPhase.REQUESTING);
                 neighbors.add( aid);
             }
         }
@@ -171,96 +160,22 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         confirmingScheduler = new ReduceLROnPlateau(100, confirmingAlphaDecayRate, confirmingMinimumAlpha, Double.MAX_VALUE);
 
 
-        addBehaviour (new WakerBehaviour(this, new Date(startTime + 1000)) {
-            protected void onWake() {
-                if(cascading) {
-                    currentTime = System.currentTimeMillis();
-                    while (currentTime < startTime + 1600) {
-                        currentTime = System.currentTimeMillis();
-                        deliberateOnCascadingRequest(myAgent);
+
+
+        addBehaviour (new TickerBehaviour(this, 1) {
+            protected void onTick() {
+
+                if (this.getTickCount() <= numberOfEpisodes) {
+                    if( myAgent.getLocalName().equals(agentType + "1") && this.getTickCount() % 100 == 0) {
+                        System.out.println(myAgent.getLocalName() + " Episode: " + this.getTickCount());
                     }
-                }
-            }
-        });
+                    findTasks(myAgent);
+                    findResources(myAgent);
+                    negotiate(myAgent);
+                    performTasks(myAgent);
+                    decayAlpha();
+                    decayEpsilon();
 
-        addBehaviour (new WakerBehaviour(this, new Date(startTime + 2000)) {
-            protected void onWake() {
-//                deliberateOnOfferingGreedy( myAgent);
-                deliberateOnOfferingRL( myAgent);
-            }
-        });
-
-        addBehaviour (new WakerBehaviour(this, new Date(startTime + 3000)) {
-            protected void onWake() {
-                if(cascading) {
-                    currentTime = System.currentTimeMillis();
-                    while (currentTime < startTime + 3600) {
-                        currentTime = System.currentTimeMillis();
-                        deliberateOnCascadingOffers(myAgent);
-                    }
-                }
-            }
-        });
-
-        addBehaviour (new WakerBehaviour(this, new Date(startTime + 4000)) {
-            protected void onWake() {
-//                deliberateOnConfirmingGreedy( myAgent);
-                deliberateOnConfirmingRL( myAgent);
-            }
-        });
-
-
-        addBehaviour (new WakerBehaviour(this, new Date(startTime + 5000)) {
-            protected void onWake() {
-
-                performTasks(myAgent);
-                sendTotalUtilToMasterAgent(totalUtil, myAgent);
-
-                try {
-                    offeringPolicyNetwork.save(new File("trained_models/offering_" + myAgent.getLocalName() + ".zip"));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                try {
-                    confirmingPolicyNetwork.save(new File("trained_models/confirming_" + myAgent.getLocalName() + ".zip"));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                int totalAvailable = 0;
-                for (var resource : availableResources.entrySet()) {
-                    totalAvailable += resource.getValue().size();
-                }
-//                System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
-                if (totalReceivedResources - totalConsumedResources - totalExpiredResources != totalAvailable ) {
-                    int difference = totalReceivedResources - totalConsumedResources - totalExpiredResources - totalAvailable;
-                    System.out.println ("Error!! " + myAgent.getLocalName() + " has INCORRECT number of resources left. Diff: " + difference);
-                }
-            }
-        });
-
-
-        addBehaviour (new OneShotBehaviour() {
-            @Override
-            public void action() {
-//                if( myAgent.getLocalName().contains("4")) {
-//                    System.out.println("OneShotBehaviour");
-//                }
-                findTasks(myAgent);
-                findResources(myAgent);
-                deliberateOnRequesting (myAgent);
-            }
-        });
-
-
-//        addBehaviour(new CyclicBehaviour() {
-//            @Override
-//            public void action() {
-////        addBehaviour (new TickerBehaviour(this, 1) {
-////            protected void onTick() {
-//                currentTime = System.currentTimeMillis();
-////                if (currentTime <= endTime - 5000) {
-////                    if (getTickCount() == 5000 || getTickCount() == 10000) {
-//                    if (currentTime == startTime + 5000 || currentTime == startTime + 10000) {
 //                        performTasks(myAgent);
 //                        sendTotalUtilToMasterAgent(totalUtil, myAgent);
 //                        resetRound();
@@ -271,142 +186,74 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 //                        findTasks(myAgent);
 //                        findResources(myAgent);
 //                        deliberateOnRequesting (myAgent);
-//                    }
-//
-////                    if (getTickCount() == 1000 || getTickCount() == 6000 || getTickCount() == 11000) {
-//                    if (currentTime == startTime + 1000 || currentTime == startTime + 6000 || currentTime == startTime + 11000) {
-//                        if(cascading) {
-//                            deliberateOnCascadingRequest(myAgent);
-//                        }
-//                    }
-//
-////                    if (getTickCount() == 2000 || getTickCount() == 7000 || getTickCount() == 12000) {
-//                    if (currentTime == startTime + 2000 || currentTime == startTime + 7000 || currentTime == startTime + 12000) {
-//                        deliberateOnOfferingGreedy( myAgent);
-////                    deliberateOnOfferingRL( myAgent);
-//                    }
-//
-////                    if (getTickCount() == 3000 || getTickCount() == 8000 || getTickCount() == 13000) {
-//                    if (currentTime == startTime + 3000 || currentTime == startTime + 8000 || currentTime == startTime + 13000) {
-//                        if(cascading) {
-//                            deliberateOnCascadingOffers( myAgent);
-//                        }
-//                    }
-//
-////                    if (getTickCount() == 4000 || getTickCount() == 9000 || getTickCount() == 14000) {
-//                    if (currentTime == startTime + 4000 || currentTime == startTime + 9000 || currentTime == startTime + 14000) {
-//                        deliberateOnConfirmingGreedy( myAgent);
-////                    deliberateOnConfirmingRL( myAgent);
-//                    }
-////                }
-//            }
-//        });
+                }
 
-
-//        addBehaviour (new TickerBehaviour(this, 1000) {
-//            protected void onTick() {
-//                currentTime = System.currentTimeMillis();
-//                if (currentTime <= endTime - 5000) {
-//                    if( myAgent.getLocalName().contains("4")) {
-//                        System.out.println(getTickCount());
-//                    }
-//                    performTasks(myAgent);
-//                    sendTotalUtilToMasterAgent(totalUtil, myAgent);
-//                    resetRound();
-//                    decayEpsilon();
-//                    decayAlpha();
-//                    expireTasks( myAgent);
-//                    expireResourceItems( myAgent);
-//                    findTasks(myAgent);
-//                    findResources(myAgent);
-//                    deliberateOnRequesting (myAgent);
-//                    myAgent.doWait(1000);
-//                    if(cascading) {
-//                        deliberateOnCascadingRequest(myAgent);
-//                    }
-//                    myAgent.doWait(1000);
-//                    deliberateOnOfferingGreedy( myAgent);
-////                    deliberateOnOfferingRL( myAgent);
-//                    myAgent.doWait(1000);
-//                    if(cascading) {
-//                        deliberateOnCascadingOffers( myAgent);
-//                    }
-//                    myAgent.doWait(1000);
-//                    deliberateOnConfirmingGreedy( myAgent);
-////                    deliberateOnConfirmingRL( myAgent);
-//                }
-//            }
-//        });
-
-
-//        addBehaviour (new TickerBehaviour(this, 1000) {
-//            protected void onTick() {
-//                currentTime = System.currentTimeMillis();
-//                if (currentTime <= endTime - 2000) {
-////                    System.out.println(getTickCount());
-////                    decayEpsilon();
-////                    decayAlpha();
-//                    findTasks(myAgent);
-//                    findResources(myAgent);
-//                }
-//            }
-//        });
-
-
-//        addBehaviour (new TickerBehaviour(this, 1) {
-//            protected void onTick() {
-//                currentTime = System.currentTimeMillis();
-//                if (currentTime <= endTime) {
-//                    negotiate(myAgent);
-//                    expireResourceItems( myAgent);
-//                    expireTasks( myAgent);
-//                    performTasks(myAgent);
-//                }
-//            }
-//        });
-
-
-        addBehaviour(new CyclicBehaviour() {
-            @Override
-            public void action() {
-                ACLMessage msg=receive();
-                if (msg != null) {
-                    int performative = msg.getPerformative();
-                    switch (performative) {
-                        case ACLMessage.REQUEST:
-                            try {
-                                storeRequest(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-                            break;
-                        case ACLMessage.PROPOSE:
-                            try {
-                                storeOffer(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-                            break;
-                        case ACLMessage.CONFIRM:
-                            try {
-                                processConfirmation(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-                            break;
-                        case ACLMessage.INFORM:
-                            try {
-                                processNotification(myAgent, msg);
-                            } catch (ParseException e) {
-                                e.printStackTrace();
-                            }
-                            break;
+                if (this.getTickCount() == numberOfEpisodes + 1) {
+                    try {
+                        offeringPolicyNetwork.save(new File("trained_models/offering_" + myAgent.getLocalName() + ".zip"));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
-                } else {
-                    block();
+                    try {
+                        confirmingPolicyNetwork.save(new File("trained_models/confirming_" + myAgent.getLocalName() + ".zip"));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                    int totalAvailable = 0;
+                    for (var resource : availableResources.entrySet()) {
+                        totalAvailable += resource.getValue().size();
+                    }
+//                System.out.println (myAgent.getLocalName() + " totalReceivedResources " + totalReceivedResources + " totalConsumedResource " + totalConsumedResource + " totalExpiredResource " + totalExpiredResource + " totalAvailable " + totalAvailable);
+                    if (totalReceivedResources - totalConsumedResources - totalExpiredResources != totalAvailable) {
+                        int difference = totalReceivedResources - totalConsumedResources - totalExpiredResources - totalAvailable;
+                        System.out.println("Error!! " + myAgent.getLocalName() + " has INCORRECT number of resources left. Diff: " + difference);
+                    }
                 }
             }
         });
+
+
+//        addBehaviour(new CyclicBehaviour() {
+//            @Override
+//            public void action() {
+//                ACLMessage msg=receive();
+//                if (msg != null) {
+//                    int performative = msg.getPerformative();
+//                    switch (performative) {
+//                        case ACLMessage.REQUEST:
+//                            try {
+//                                storeRequest(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                        case ACLMessage.PROPOSE:
+//                            try {
+//                                storeOffer(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                        case ACLMessage.CONFIRM:
+//                            try {
+//                                processConfirmation(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                        case ACLMessage.INFORM:
+//                            try {
+//                                processNotification(myAgent, msg);
+//                            } catch (ParseException e) {
+//                                e.printStackTrace();
+//                            }
+//                            break;
+//                    }
+//                } else {
+//                    block();
+//                }
+//            }
+//        });
     }
 
 
@@ -551,6 +398,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     private void findTasks(Agent myAgent) {
 
+        expireTasks( myAgent);
+
         SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
         if (newTasks.size() > 0) {
             toDoTasks.addAll(newTasks);
@@ -560,6 +409,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
 
     private void findResources(Agent myAgent) {
+
+        expireResourceItems( myAgent);
 
         Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources( myAgent);
 
@@ -579,24 +430,24 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         SortedSet<ResourceItem> availableItems;
         SortedSet<ResourceItem> expiredItems;
-        SortedSet<ResourceItem> expiredItemsNow = new TreeSet<>(new ResourceItem.resourceItemComparator());
+        SortedSet<ResourceItem> expiredItemsInThisEpisode = new TreeSet<>(new ResourceItem.resourceItemComparator());
         for (var resource : availableResources.entrySet()) {
-            expiredItemsNow.clear();
+            expiredItemsInThisEpisode.clear();
             availableItems = availableResources.get( resource.getKey());
             expiredItems = expiredResources.get( resource.getKey());
             for (ResourceItem item : availableItems) {
-                currentTime = System.currentTimeMillis();
-                if (currentTime > item.getExpiryTime()) {
-                    expiredItemsNow.add( item);
+                item.setExpiryTime( item.getExpiryTime() - 1);
+                if (item.getExpiryTime() == 0) {
+                    expiredItemsInThisEpisode.add( item);
                     expiredItems.add( item);
 //                    logInf(myAgent.getLocalName(), "expired resource item with id: " + item.getId());
                 }
             }
             int initialSize = availableItems.size();
-            availableItems.removeAll( expiredItemsNow);
-            totalExpiredResources += expiredItemsNow.size();
-            if ( initialSize - expiredItemsNow.size() != availableItems.size()) {
-                logErr( myAgent.getLocalName(), "initialSize - expiredItemsNow.size() != availableItems.size()");
+            availableItems.removeAll( expiredItemsInThisEpisode);
+            totalExpiredResources += expiredItemsInThisEpisode.size();
+            if ( initialSize - expiredItemsInThisEpisode.size() != availableItems.size()) {
+                logErr( myAgent.getLocalName(), "initialSize - expiredItemsInThisEpisode.size() != availableItems.size()");
             }
         }
     }
@@ -604,21 +455,21 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     void expireTasks(Agent myAgent) {
 
-        SortedSet<Task> lateTasks = new TreeSet<>(new Task.taskComparator());
+        SortedSet<Task> lateTasksInThisEpisode = new TreeSet<>(new Task.taskComparator());
         int count = 0;
         for (Task task : toDoTasks) {
-            currentTime = System.currentTimeMillis();
-            if (currentTime > task.deadline) {
-                lateTasks.add( task);
+            task.deadline--;
+            if (task.deadline == 0) {
+                lateTasksInThisEpisode.add( task);
                 count += 1;
             }
         }
 
-        if (lateTasks.size() != count) {
+        if (lateTasksInThisEpisode.size() != count) {
             System.out.println("Error!!");
         }
         int initialSize = toDoTasks.size();
-        toDoTasks.removeAll( lateTasks);
+        toDoTasks.removeAll( lateTasksInThisEpisode);
         if ( initialSize - count != toDoTasks.size()) {
             System.out.println("Error!!");
         }
@@ -627,19 +478,53 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     private void negotiate (Agent myAgent) {
 
-        expireRequests();
+        resetRound();
         deliberateOnRequesting (myAgent);
-        if(cascading) {
-            deliberateOnCascadingRequest(myAgent);
+        sendNextPhaseNotification (ProtocolPhase.CASCADING_REQUEST);
+        waitForRequests( myAgent);
+        if (cascading) {
+            for (int n = 0; n < numberOfAgents; n++) {
+                deliberateOnCascadingRequest(myAgent);
+            }
         }
-        expireOffers();
-        deliberateOnOfferingGreedy( myAgent);
+        sendNextPhaseNotification (ProtocolPhase.OFFERING);
+        waitForCascadingRequests( myAgent);
+        deliberateOnOfferingGreedy(myAgent);
 //        deliberateOnOfferingRL( myAgent);
+        sendNextPhaseNotification (ProtocolPhase.CASCADING_OFFER);
+        waitForOffers( myAgent);
         if(cascading) {
-            deliberateOnCascadingOffers( myAgent);
+//            for (int n = 0; n < numberOfAgents; n++) {
+                deliberateOnCascadingOffers(myAgent);
+//            }
         }
+        sendNextPhaseNotification (ProtocolPhase.CONFORMING);
+        waitForCascadingOffers( myAgent);
         deliberateOnConfirmingGreedy( myAgent);
 //        deliberateOnConfirmingRL( myAgent);
+        sendNextPhaseNotification (ProtocolPhase.CASCADING_CONFIRM);
+        waitForConfirmations( myAgent);
+
+        if (cascading) {
+            while (remainingSentOffers()) {
+                myAgent.doWait(1);
+                receiveMessages( myAgent, ACLMessage.CONFIRM);
+            }
+        }
+
+        sendNextPhaseNotification (ProtocolPhase.REQUESTING);
+        waitForCascadingConfirms( myAgent);
+    }
+
+
+    boolean remainingSentOffers() {
+        boolean remaining = false;
+
+        if( sentOffers.size() > 0) {
+            remaining = true;
+        }
+
+        return remaining;
     }
 
 
@@ -653,14 +538,11 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         Map<ResourceType, SortedSet<ResourceItem>> remainingResources = deepCopyResourcesMap( availableResources);
 
         for (Task task : toDoTasks) {
-            currentTime = System.currentTimeMillis();
-            if (currentTime < task.deadline - 550) {
                 if (hasEnoughResources(task, remainingResources)) {
                     remainingResources = evaluateTask(task, remainingResources);
                 } else {
                     blockedTasks.add((task));
                 }
-            }
         }
 
         if (blockedTasks.size() > 0) {
@@ -669,77 +551,161 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     }
 
 
-    void expireRequests() {
+    void sendNextPhaseNotification (ProtocolPhase phase) {
 
-        ArrayList<Request> expiredReceivedRequests = new ArrayList<>();
-        for (var requestsForType : receivedRequests.entrySet()) {
-            ArrayList<Request> requests = requestsForType.getValue();
-            expiredReceivedRequests.clear();
-            for (Request request : requests) {
-                currentTime = System.currentTimeMillis();
-                if (currentTime > request.timeout + 500) {
-                    expiredReceivedRequests.add( request);
-                }
-            }
-            requests.removeAll(expiredReceivedRequests);
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+
+        for (AID aid : neighbors) {
+            msg.addReceiver(aid);
         }
 
-        Set<Request> expiredSentRequests = new HashSet<>();
-        for( Request sentRequest : sentRequests.values()) {
-            currentTime = System.currentTimeMillis();
-            if (sentRequest.cascaded == false && currentTime > sentRequest.timeout + 500) {
-//                if( sentRequest.cascaded == true) {
-//                    restoreReservedItems( sentRequest);
-//                }
-                expiredSentRequests.add( sentRequest);
-            }
-        }
-        for (Request expiredRequest : expiredSentRequests) {
-            sentRequests.remove( expiredRequest.id);
-            if (expiredRequest.cascaded == true) {
-                logInf(this.getLocalName(), "request expired with id " + expiredRequest.id + " originId " + expiredRequest.originalId + " timeSent " + expiredRequest.timeSent + " originalSender " + expiredRequest.originalSender.getLocalName());
-            } else {
-                logInf(this.getLocalName(), "request expired with id " + expiredRequest.id + " timeSent " + expiredRequest.timeSent);
-            }
-            receivedOffers.remove(expiredRequest.id);
-        }
+        JSONObject jo = new JSONObject();
+        jo.put(Ontology.PROTOCOL_PHASE, phase.name());
+
+        msg.setContent( jo.toJSONString());
+        send(msg);
     }
 
 
-    void expireOffers() {
+    void waitForRequests( Agent myAgent) {
 
-        // No offer should be expired! It should be confirmed or rejected.
+        while(inRequestingPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.REQUEST);
+    }
 
-        Set<Offer> expiredSentOffers = new HashSet<>();
-        for( Offer sentOffer : sentOffers.values()) {
-            currentTime = System.currentTimeMillis();
-            if (currentTime > sentOffer.timeout + 1000) {
-                expiredSentOffers.add( sentOffer);
+
+    void waitForCascadingRequests( Agent myAgent) {
+
+        while(inCascadingRequestPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.REQUEST);
+    }
+
+
+    void waitForOffers(Agent myAgent) {
+
+        while(inOfferingPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.PROPOSE);
+    }
+
+
+    void waitForCascadingOffers(Agent myAgent) {
+
+        while(inCascadingOfferPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.PROPOSE);
+    }
+
+
+    void waitForConfirmations( Agent myAgent) {
+
+        while(inConfirmingPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.CONFIRM);
+    }
+
+
+    void waitForCascadingConfirms( Agent myAgent) {
+
+        while(inCascadingConfirmPhase()) {
+            myAgent.doWait(1);
+            receiveMessages( myAgent, ACLMessage.INFORM);
+        }
+        receiveMessages( myAgent, ACLMessage.CONFIRM);
+    }
+
+
+    boolean inRequestingPhase() {
+
+        boolean requesting = false;
+        for (var agentPhase : neighborsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.REQUESTING) {
+                requesting = true;
+                break;
             }
         }
-//        Request cascadedRequest;
-        for (Offer expiredOffer : expiredSentOffers) {
-            sentOffers.remove( expiredOffer.id);
-            logErr( this.getLocalName(), "offer expired with id " + expiredOffer.id);
-//            cascadedRequest = null;
-//            for (Request sentRequest : sentRequests.values()) {
-//                if (sentRequest.previousId == expiredOffer.reqId) {
-//                    cascadedRequest = sentRequest;
-//                }
-//            }
-            restoreOfferedResources( expiredOffer, null);
-//            if (cascadedRequest != null) {
-//                sentRequests.remove(cascadedRequest.id);
-//                logInf( this.getLocalName(), "cascadedRequest with id " + cascadedRequest.id + " is removed because expiredOffer with id " + expiredOffer.id + " is removed");
-//                receivedOffers.remove(cascadedRequest.id);
-//            }
+        return requesting;
+    }
+
+
+    boolean inCascadingRequestPhase() {
+
+        boolean cascadingRequest = false;
+        for (var agentPhase : neighborsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CASCADING_REQUEST) {
+                cascadingRequest = true;
+                break;
+            }
         }
+        return cascadingRequest;
+    }
+
+
+    boolean inOfferingPhase() {
+
+        boolean offering = false;
+        for (var agentPhase : neighborsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.OFFERING) {
+                offering = true;
+            }
+        }
+        return offering;
+    }
+
+
+    boolean inCascadingOfferPhase() {
+
+        boolean cascadingOffer = false;
+        for (var agentPhase : neighborsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CASCADING_OFFER) {
+                cascadingOffer = true;
+            }
+        }
+        return cascadingOffer;
+    }
+
+
+    boolean inConfirmingPhase() {
+
+        boolean confirming = false;
+        for (var agentPhase : neighborsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CONFORMING) {
+                confirming = true;
+                break;
+            }
+        }
+        return confirming;
+    }
+
+
+    boolean inCascadingConfirmPhase() {
+
+        boolean cascadingConfirm = false;
+        for (var agentPhase : neighborsPhases.entrySet() ) {
+            if (agentPhase.getValue() == ProtocolPhase.CASCADING_CONFIRM) {
+                cascadingConfirm = true;
+                break;
+            }
+        }
+        return cascadingConfirm;
     }
 
 
     void resetRound() {
 
-//        blockedTasks.clear();
+        blockedTasks.clear();
         receivedRequests.clear();
         sentRequests.clear();
         receivedOffers.clear();
@@ -757,22 +723,18 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         int count = 0;
         SortedSet<Task> doneTasksNow = new TreeSet<>(new Task.taskComparator());
         // Greedy algorithm: tasks are sorted by utility in toDoTasks
-        currentTime = System.currentTimeMillis();
         for (Task task : toDoTasks) {
-//            if (task.deadline - currentTime < 200) {
-//                if (currentTime <= task.deadline && hasEnoughResources(task, availableResources)) {
-                if (hasEnoughResources(task, availableResources)) {
-                    processTask(task);
-                    doneTasksNow.add(task);
-                    boolean check = doneTasks.add(task);
-                    if (check == false) {
-                        logErr(this.getLocalName(), "in performTasks");
-                    }
-                    totalUtil = totalUtil + task.utility;
-                    count += 1;
-                    performed = true;
+            if (hasEnoughResources(task, availableResources)) {
+                processTask(task);
+                doneTasksNow.add(task);
+                boolean check = doneTasks.add(task);
+                if (check == false) {
+                    logErr(this.getLocalName(), "in performTasks");
                 }
-//            }
+                totalUtil = totalUtil + task.utility;
+                count += 1;
+                performed = true;
+            }
         }
 
         if (doneTasksNow.size() != count) {
@@ -791,9 +753,9 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 //            System.out.println(myAgent.getLocalName() + " has performed " + doneTasks.size() + " tasks and gained total utility of " + totalUtil);
         }
 
-//        if (performed == true) {
-//            sendTotalUtilToMasterAgent(totalUtil, myAgent);
-//        }
+        if (performed == true) {
+            sendTotalUtilToMasterAgent(totalUtil, myAgent);
+        }
     }
 
 
@@ -833,17 +795,11 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         // creates a request based on the missing quantity for each resource type
         Map<ResourceType, Long> totalRequiredResources = new LinkedHashMap<>();
-        currentTime = System.currentTimeMillis();
-        long requestTimeout = currentTime + requestLifetime;
 
         for (Task task : blockedTasks) {
             for (var entry : task.requiredResources.entrySet()) {
                 totalRequiredResources.put(entry.getKey(),  totalRequiredResources.getOrDefault(entry.getKey(), 0L) + entry.getValue());
             }
-            //TODO: minimum or maximum task deadline
-//            if( task.deadline < requestTimeout) {
-//                requestTimeout = task.deadline;
-//            }
         }
 
         for (var resourceTypeQuantity : totalRequiredResources.entrySet()) {
@@ -856,7 +812,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 missingQuantity = resourceTypeQuantity.getValue();
             }
 
-            if (missingQuantity > 0 && !hasSentRequest(resourceTypeQuantity.getKey())) {
+            if (missingQuantity > 0) {
                 Map<Long, Long> utilityFunction = computeRequestUtilityFunction(blockedTasks, resourceTypeQuantity.getKey(), remainingResources, missingQuantity);
                 Set<Integer> allReceivers = new HashSet<>();
                 Set<AID> receiverIds = new HashSet<>();
@@ -868,32 +824,14 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                     }
                 }
                 String reqId = UUID.randomUUID().toString();
-//                currentTime = System.currentTimeMillis();
                 if( debugMode) {
                     logInf(this.getLocalName(), "created request with id " + reqId + " with quantity: " + missingQuantity + " for " + resourceTypeQuantity.getKey().name() + " to " + getReceiverNames(receiverIds));
                     logAgentInf(this.getLocalName(), "created request U: " + utilityFunction.toString());
                 }
-                sendRequest( reqId, null, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, allReceivers, receiverIds, currentTime, requestTimeout, null, null);
-                sentRequests.put( reqId, new Request(reqId, null, null, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, null, null, allReceivers, null, currentTime, requestTimeout, null));
+                sendRequest( reqId, null, resourceTypeQuantity.getKey(), missingQuantity, utilityFunction, allReceivers, receiverIds, requestLifetime, null, null);
+                sentRequests.put( reqId, new Request(reqId, null, null, false, missingQuantity, resourceTypeQuantity.getKey(), utilityFunction, myAgent.getAID(), null, allReceivers, null, 0, requestLifetime, null));
             }
         }
-    }
-
-
-    boolean hasSentRequest (ResourceType resourceType) {
-        boolean hasSent = false;
-        for( Request sentRequest : sentRequests.values()) {
-            currentTime = System.currentTimeMillis();
-            if (sentRequest.resourceType.equals(resourceType) && sentRequest.cascaded == false && currentTime < sentRequest.timeout) {
-//            if (sentRequest.resourceType.equals(resourceType) && sentRequest.cascaded == false) {
-                if(currentTime > sentRequest.timeout) {
-                    System.out.println("Error!! currentTime > sentRequest.timeout");
-                }
-                hasSent = true;
-                break;
-            }
-        }
-        return hasSent;
     }
 
 
@@ -984,7 +922,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     }
 
 
-    private void sendRequest (String reqId, String originalId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> allReceivers, Set<AID> receiverIds, long timeSent, long timeout, Long originalTimeout, AID originalSender) {
+    private void sendRequest (String reqId, String originalId, ResourceType resourceType, long missingQuantity, Map<Long, Long> utilityFunction, Set<Integer> allReceivers, Set<AID> receiverIds, long timeout, Long originalTimeout, AID originalSender) {
 
         ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
@@ -1004,7 +942,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             jo.put(Ontology.ORIGINAL_SENDER, originalSender.getLocalName());
         }
         jo.put(Ontology.ALL_RECEIVERS, allReceivers);
-        jo.put(Ontology.REQUEST_TIME_SENT, timeSent);
         jo.put(Ontology.REQUEST_TIMEOUT, timeout);
         if (originalTimeout != null) {
             jo.put(Ontology.ORIGINAL_REQUEST_TIMEOUT, originalTimeout);
@@ -1061,11 +998,10 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             utilityFunction.put( Long.valueOf(key), value);
         }
 
-        long timeSent = (long) jo.get(Ontology.REQUEST_TIME_SENT);
         long timeout = (long) jo.get(Ontology.REQUEST_TIMEOUT);
         Long originReqTimeout = (jo.get(Ontology.ORIGINAL_REQUEST_TIMEOUT) == null) ? timeout : (long) jo.get(Ontology.ORIGINAL_REQUEST_TIMEOUT);
 
-        Request request = new Request(reqId, null, originalId, cascaded, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), originalSender, allReceivers, null, timeSent, timeout, originReqTimeout);
+        Request request = new Request(reqId, null, originalId, cascaded, requestedQuantity.intValue(), resourceType, utilityFunction, msg.getSender(), originalSender, allReceivers, null, 0, timeout, originReqTimeout);
 
         if ( receivedRequests.containsKey(resourceType) == false) {
             receivedRequests.put(resourceType, new ArrayList<>());
@@ -1157,8 +1093,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     boolean thereIsTimeToCascadeRequest (long timeout) {
 
-        currentTime = System.currentTimeMillis();
-        if(currentTime < timeout - minTimeToCascadeRequest) {
+        if(timeout > minTimeToCascadeRequest) {
             return true;
         } else {
             return false;
@@ -1184,8 +1119,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 //                    }
 
                     Request selectedRequest = selectBestRequest( copyOfRequests, availableQuantity);
-                    currentTime = System.currentTimeMillis();
-                    if (currentTime < selectedRequest.timeout - minTimeToOffer) {
+                    if (selectedRequest.timeout > minTimeToOffer) {
                         if( availableQuantity < selectedRequest.quantity) {
                             offerQuantity = availableQuantity;
                         } else {
@@ -1256,8 +1190,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         for (int i = 0; i < neighbors.size(); i++) {
             AID aid = neighbors.get(i);
             for (Request request : requests) {
-                currentTime = System.currentTimeMillis();
-                if (currentTime < request.timeout - minTimeToOffer) {
+                if (request.timeout > minTimeToOffer) {
                     if (request.sender.equals(aid)) {
                         long cost;
                         for (long q = 1; q <= request.utilityFunction.size(); q++) {
@@ -1479,10 +1412,12 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         long newTimeout = request.timeout - requestTimeoutReduction;
         //TODO: make sure new timeout is valid
+        if (newTimeout <= 0) {
+            logErr(this.getLocalName(), "newTimeout <= 0");
+        }
 
-        currentTime = System.currentTimeMillis();
-        sendRequest(reqId, request.originalId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds, currentTime, newTimeout, request.originalTimeout, request.originalSender);
-        sentRequests.put(reqId, new Request(reqId, request.id, request.originalId, true, missingQuantity, request.resourceType, request.utilityFunction, request.sender, request.originalSender, allReceivers, reservedItems, currentTime, newTimeout, request.originalTimeout));
+        sendRequest(reqId, request.originalId, request.resourceType, missingQuantity, utilityFunction, allReceivers, receiverIds, newTimeout, request.originalTimeout, request.originalSender);
+        sentRequests.put(reqId, new Request(reqId, request.id, request.originalId, true, missingQuantity, request.resourceType, request.utilityFunction, request.sender, request.originalSender, allReceivers, reservedItems, 0, newTimeout, request.originalTimeout));
     }
 
 
@@ -1613,9 +1548,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         JSONObject joCostFunction = (JSONObject) jo.get(Ontology.OFFER_COST_FUNCTION);
         JSONObject joOfferedItems = (JSONObject) jo.get(Ontology.OFFERED_ITEMS);
 
-        currentTime = System.currentTimeMillis();
-//        if (sentRequests.keySet().contains(reqId) == true) {
-        if (sentRequests.keySet().contains(reqId) == true && currentTime < sentRequests.get(reqId).timeout) {
+        if (sentRequests.keySet().contains(reqId) == true && sentRequests.get(reqId).timeout > 0) {
             if (debugMode) {
                 logInf(myAgent.getLocalName(), "received offer with id " + offerId + " with quantity " + offerQuantity + " for reqId " + reqId + " for " + resourceType.name() + " from " + msg.getSender().getLocalName());
             }
@@ -1664,9 +1597,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         for (var request : sentRequests.entrySet()) {
             if (request.getValue().cascaded == true && request.getValue().processed == false) {
-                currentTime = System.currentTimeMillis();
-//                if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < waitUntilCascadeOffer) {
-                if (currentTime < request.getValue().timeout) {
+                if (request.getValue().timeout > 0) {
                     cascadeOffers(request.getValue());
                 }
             }
@@ -1705,13 +1636,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             String selectedId;
             String id;
             for (Offer offer : offers) {
-                currentTime = System.currentTimeMillis();
-//                if(currentTime < offer.timeout) {
-                    offerQuantities.put(offer, 0L);
-//                    if (offer.timeout > offerTimeout) {
-//                        offerTimeout = offer.timeout;
-//                    }
-//                }
+                offerQuantities.put(offer, 0L);
             }
             for (long q=offerQuantity+1; q<=offerQuantity+cascadedRequest.quantity; q++) {
                 minCost = Integer.MAX_VALUE;
@@ -1719,21 +1644,18 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 lowCostOffer = null;
                 for (Offer offer : offers) {
                     id = offer.sender.getLocalName().replace(agentType, "");
-                    currentTime = System.currentTimeMillis();
-//                    if (currentTime < offer.timeout) {
-                        if (hasExtraItem(offer, offerQuantities)) {
-                            cost = totalCost(offer, offerQuantities);
-                            if (cost < minCost) {
-                                minCost = cost;
+                    if (hasExtraItem(offer, offerQuantities)) {
+                        cost = totalCost(offer, offerQuantities);
+                        if (cost < minCost) {
+                            minCost = cost;
+                            lowCostOffer = offer;
+                        } else if (cost == minCost) {
+                            selectedId = lowCostOffer.sender.getLocalName().replace(agentType, "");
+                            if (Integer.valueOf(id) < Integer.valueOf(selectedId)) {
                                 lowCostOffer = offer;
-                            } else if (cost == minCost) {
-                                selectedId = lowCostOffer.sender.getLocalName().replace(agentType, "");
-                                if (Integer.valueOf(id) < Integer.valueOf(selectedId)) {
-                                    lowCostOffer = offer;
-                                }
                             }
                         }
-//                    }
+                    }
                 }
                 if (lowCostOffer != null) {
                     minCost += distance * q;
@@ -1828,9 +1750,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         Map<Request, Map<Offer, Long>> selectedOffersForAllRequests = new LinkedHashMap<>();
 
         for (var request : sentRequests.entrySet()) {
-            currentTime = System.currentTimeMillis();
-//            if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < waitUntilConfirm) {
-            if (currentTime < request.getValue().timeout) {
+            if (request.getValue().timeout > 0) {
                 if (request.getValue().cascaded == false && receivedOffers.containsKey(request.getKey())) {
                     Map<Offer, Long> confirmQuantities = processOffersGreedy(request.getValue());
                     if (confirmQuantities.size() > 0) {
@@ -1853,6 +1773,10 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 receivedOffers.remove(selectedOffersForReq.getKey().id);
             }
         }
+
+        if (receivedOffers.size() > 0) {
+            logErr( this.getLocalName(), "receivedOffers.size() > 0");
+        }
     }
 
 
@@ -1865,9 +1789,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         Map<Request, Map<Offer, Long>> selectedOffersForAllRequests = new LinkedHashMap<>();
 
         for (var request : sentRequests.entrySet()) {
-            currentTime = System.currentTimeMillis();
-//            if (currentTime < request.getValue().timeout && request.getValue().timeout - currentTime < waitUntilConfirm) {
-            if (currentTime < request.getValue().timeout) {
+            if (request.getValue().timeout > 0) {
                 if (request.getValue().cascaded == false && receivedOffers.containsKey(request.getKey())) {
                     Map<Offer, Long> confirmQuantities = processOffersRL(request.getValue());
                     if (confirmQuantities.size() > 0) {
@@ -1889,6 +1811,10 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 logInf( this.getLocalName(), "sentRequest with id " + selectedOffersForReq.getKey().id + " is confirmed and removed");
                 receivedOffers.remove(selectedOffersForReq.getKey().id);
             }
+        }
+
+        if (receivedOffers.size() > 0) {
+            logErr( this.getLocalName(), "receivedOffers.size() > 0");
         }
     }
 
@@ -2027,10 +1953,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         String id;
         Map<Offer, Long> confirmQuantities = new LinkedHashMap<>();
         for (Offer offer : offers) {
-            currentTime = System.currentTimeMillis();
-//            if(currentTime < offer.timeout) {
-                confirmQuantities.put(offer, 0L);
-//            }
+            confirmQuantities.put(offer, 0L);
         }
 
         for (long q=1; q<=request.quantity; q++) {
@@ -2038,21 +1961,18 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             lowCostOffer = null;
             for (Offer offer : offers) {
                 id = offer.sender.getLocalName().replace(agentType, "");
-                currentTime = System.currentTimeMillis();
-//                if(currentTime < offer.timeout) {
-                    if (hasExtraItem(offer, confirmQuantities)) {
-                        cost = totalCost(offer, confirmQuantities);
-                        if (cost < minCost) {
-                            minCost = cost;
+                if (hasExtraItem(offer, confirmQuantities)) {
+                    cost = totalCost(offer, confirmQuantities);
+                    if (cost < minCost) {
+                        minCost = cost;
+                        lowCostOffer = offer;
+                    } else if (cost == minCost) {
+                        selectedId = lowCostOffer.sender.getLocalName().replace(agentType, "");
+                        if (Integer.valueOf(id) < Integer.valueOf(selectedId)) {
                             lowCostOffer = offer;
-                        } else if (cost == minCost) {
-                            selectedId = lowCostOffer.sender.getLocalName().replace(agentType, "");
-                            if (Integer.valueOf(id) < Integer.valueOf(selectedId)) {
-                                lowCostOffer = offer;
-                            }
                         }
                     }
-//                }
+                }
             }
             if (lowCostOffer != null) {
                     confirmQuantities.put(lowCostOffer, confirmQuantities.get(lowCostOffer) + 1);
@@ -2106,8 +2026,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             ConfirmingStateAction currentStateAction = new ConfirmingStateAction (currentState, action);
             ConfirmingState nextState = generateConfirmingState (request, offers, remainingRequestedQuantity);
 
-//            updateConfirmingPolicyNetwork(currentStateAction, nextState, reward);
-//            updateConfirmingTargetNetwork();
+            updateConfirmingPolicyNetwork(currentStateAction, nextState, reward);
+            updateConfirmingTargetNetwork();
         }
 
         return confirmQuantities;
@@ -2297,8 +2217,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         }
 
         if( sentOffer.cascaded == false) {
-//            updateOfferingPolicyNetwork( sentOffer.currentStateAction, sentOffer.nextState, confirmQuantity);
-//            updateOfferingTargetNetwork();
+            updateOfferingPolicyNetwork( sentOffer.currentStateAction, sentOffer.nextState, confirmQuantity);
+            updateOfferingTargetNetwork();
         }
     }
 
@@ -2480,74 +2400,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     }
 
 
-    long computeExpectedUtilityOfResources ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
-
-        double exp = 0.0;
-        ArrayList<Task> doneTasksWithThisResourceType = new ArrayList<>();
-        long totalUtilityWithThisResourceType = 0;
-        long totalQuantityOfThisResourceType = 0;
-
-        for (Task task : doneTasks) {
-            if (task.requiredResources.containsKey(resourceType)) {
-                doneTasksWithThisResourceType.add( task);
-                totalUtilityWithThisResourceType = totalUtilityWithThisResourceType + task.utility;
-                totalQuantityOfThisResourceType = totalQuantityOfThisResourceType + task.requiredResources.get(resourceType);
-            }
-        }
-
-        if (doneTasks.size() > 0 && totalQuantityOfThisResourceType > 0) {
-            Iterator<ResourceItem> itr = resourceItems.iterator();
-            long q=1;
-            while (q <= quantity) {
-                ResourceItem item = itr.next();
-                if (item.getExpiryTime() > 1) {
-//                    exp = exp + ((double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType);
-                    exp = exp + (( (double) doneTasksWithThisResourceType.size() / doneTasks.size()) * ( (double) totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
-                }
-//                exp = exp + (item.getLifetime() * (doneTasksWithThisResourceType.size() / doneTasks.size()) * (totalUtilityWithThisResourceType / totalQuantityOfThisResourceType));
-                q++;
-            }
-        }
-
-        return Math.round(exp);
-    }
-
-
-    long computeExpectedCost ( ResourceType resourceType, long quantity, SortedSet<ResourceItem> resourceItems) {
-
-        Set<String> requesters = Set.of("8Agent1", "8Agent2", "8Agent3", "8Agent4");
-        Set<String> offerers = Set.of("8Agent5", "8Agent6", "8Agent7", "8Agent8");
-
-        double exp = 0.0;
-        double averageRequiredQuantity;
-        double averageUtil;
-
-//        if( offerers.contains(this.getLocalName()) && resourceType == ResourceType.A ) {
-//            averageRequiredQuantity = 4.5 / 2 + 4.5 ;
-//        } else {
-            averageRequiredQuantity = 3;
-//        }
-
-//        if( offerers.contains(this.getLocalName())) {
-//            averageUtil = 22.5;
-//        } else {
-            averageUtil = 18.14;
-//        }
-
-        Iterator<ResourceItem> itr = resourceItems.iterator();
-        long q=1;
-        while (q <= quantity) {
-            ResourceItem item = itr.next();
-            if (item.getExpiryTime() > 1) {
-                exp = exp + averageUtil / averageRequiredQuantity;
-            }
-            q++;
-        }
-
-        return Math.round(exp);
-    }
-
-
     public static Map<ResourceType, SortedSet<ResourceItem>> deepCopyResourcesMap(Map<ResourceType, SortedSet<ResourceItem>> original) {
         Map<ResourceType, SortedSet<ResourceItem>> copy = new LinkedHashMap<>();
         for (var entry : original.entrySet()) {
@@ -2564,6 +2416,10 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         Object obj = new JSONParser().parse(content);
         JSONObject jo = (JSONObject) obj;
 
+        String pp = (String) jo.get(Ontology.PROTOCOL_PHASE);
+        ProtocolPhase protocolPhase = ProtocolPhase.valueOf(pp);
+
+        neighborsPhases.put( msg.getSender(), protocolPhase);
     }
 
 
@@ -2636,6 +2492,69 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         send(msg);
 
 //        System.out.println( myAgent.getLocalName() + " sent total utility: " + totalUtil + " to the master agent" );
+    }
+
+
+    void receiveMessages(Agent myAgent, int performative) {
+
+//        if( myAgent.getLocalName().equals("Agent1")) {
+//            System.out.print("");
+//        }
+        MessageTemplate mt = MessageTemplate.MatchPerformative( performative);
+        ACLMessage msg = myAgent.receive( mt);
+
+        while (msg != null) {
+            String content = msg.getContent();
+
+            switch (performative) {
+                case ACLMessage.REQUEST:
+//                    System.out.println(myAgent.getLocalName() + " received a REQUEST message from " + msg.getSender().getLocalName());
+                    try {
+                        storeRequest(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+
+                case ACLMessage.PROPOSE:
+//                    System.out.println(myAgent.getLocalName() + " received a BID message from " + msg.getSender().getLocalName());
+                    try {
+                        storeOffer(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+
+                case ACLMessage.CONFIRM:
+//                    System.out.println(myAgent.getLocalName() + " received a CONFIRM message from " + msg.getSender().getLocalName());
+                    try {
+                        processConfirmation(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+
+                case ACLMessage.REFUSE:
+                    System.out.println(myAgent.getLocalName() + " received a REFUSE message from " + msg.getSender().getLocalName());
+                    break;
+
+                case ACLMessage.REJECT_PROPOSAL:
+                    System.out.println(myAgent.getLocalName() + " received a REJECT_PROPOSAL message from " + msg.getSender().getLocalName());
+                    break;
+
+                case ACLMessage.INFORM:
+//                    System.out.println(myAgent.getLocalName() + " received an INFORM message from " + msg.getSender().getLocalName());
+                    try {
+                        processNotification(myAgent, msg);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+            }
+
+            msg = myAgent.receive( mt);
+        }
+//        System.out.println( "This is the end!");
     }
 
 
