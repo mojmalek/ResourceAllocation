@@ -271,21 +271,20 @@ public class DeepRLSocialAdaptiveExp {
 
     public static void scaleFreeSim() throws StaleProxyException, IOException {
 
-        boolean loadGraph = false;
+        boolean loadGraph = true;
         int numberOfAgents = 40;
-        int numberOfRounds = 10000;
-//        long duration = 600000;
-//        long currentTime, endTime;
+        int numberOfRounds = 1000;
+
         SimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
-        String agentType1 = "ScaleFree-NoCas-RL-A";
-        String agentType2 = "ScaleFree-NoCas-A";
+        String agentType1 = "A";
+//        String agentType2 = "ScaleFree-NoCas-A";
 
-//        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
-        String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
+        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
+//        String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
 
-        for (long param = 8; param <= 8; param+=2) {
+        for (long param = 4; param <= 4; param+=2) {
 //            logResults(resultFileName1, "");
 //            logResults(resultFileName1, "param = " + param);
 //            logResults(resultFileName1, "");
@@ -293,12 +292,12 @@ public class DeepRLSocialAdaptiveExp {
 //            logResults(resultFileName2, "param = " + param);
 //            logResults(resultFileName2, "");
             simulationEngine1 = new SimulationEngine( param, agentType1);
-            simulationEngine2 = new SimulationEngine( param, agentType2);
+//            simulationEngine2 = new SimulationEngine( param, agentType2);
             for (int exp = 1; exp <= 1; exp++) {
-//                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-//                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
+//                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
 
                 Runtime rt = Runtime.instance();
                 Profile profile = new ProfileImpl();
@@ -348,28 +347,6 @@ public class DeepRLSocialAdaptiveExp {
 //                                    {null, null, null, null, null, 1, null, null},
 //                                    {1, null, null, 1, null, null, null, null}};
 
-
-//                Integer[][] scaleFreeAdjacency = {{null, 1, 1, null, 1, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
-//                    {1, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, 1, null, null, null, null},
-//                    {1, null, null, null, null, null, null, null, null, null, null, 1, 1, null, 1, null, null, null, 1, null},
-//                    {null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
-//                    {1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
-//                    {1, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null},
-//                    {null, null, null, null, null, 1, null, 1, 1, null, null, null, null, 1, null, null, null, 1, null, 1},
-//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null},
-//                    {null, null, null, null, null, null, 1, null, null, 1, 1, null, null, null, null, null, null, null, null, null},
-//                    {null, null, null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null},
-//                    {null, null, null, null, null, null, null, null, 1, null, null, null, 1, null, null, null, null, null, null, null},
-//                    {null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
-//                    {null, null, 1, null, null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null},
-//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null},
-//                    {null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
-//                    {1, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null},
-//                    {null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, 1},
-//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, null, null, 1, null},
-//                    {null, null, 1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 1, null, null},
-//                    {null, null, null, null, null, null, 1, null, null, null, null, null, null, null, null, null, 1, null, null, null}};
-
 //                System.out.println("Agent social network adjacency matrix: ");
 //                System.out.print("{");
 //                for (int i = 0; i < scaleFreeAdjacency.length; i++) {
@@ -387,36 +364,26 @@ public class DeepRLSocialAdaptiveExp {
 //                System.out.println();
 
                 agentControllers.clear();
-//                currentTime = System.currentTimeMillis();
-//                endTime = currentTime + duration;
                 for (int i = 0; i <= numberOfAgents; i++) {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
-//                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
-                            agentController2.start();
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+                            agentController1.start();
+//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
+//                            agentController2.start();
                         } else {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, false, agentType1});
-//                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, scaleFreeAdjacency[i - 1], logFileNameAll2, simulationEngine2, true, agentType2});
-                            agentController2.start();
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, agentType1});
+                            agentController1.start();
+//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, scaleFreeAdjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
+//                            agentController2.start();
                         }
-//                        agentControllers.add( agentController1);
-                        agentControllers.add( agentController2);
+                        agentControllers.add( agentController1);
+//                        agentControllers.add( agentController2);
                     } catch (StaleProxyException e) {
                         e.printStackTrace();
                     }
                 }
-
-//                while (currentTime < endTime + 1500) {
-//                    currentTime = System.currentTimeMillis();
-//                }
-//                for( AgentController agentController : agentControllers) {
-//                    agentController.kill();
-//                }
-//                containerController.kill();
             }
         }
     }

@@ -45,14 +45,14 @@ public class DeepRLTimedMasterAgent extends Agent {
 
     private Map<AID, Boolean> episodeTasksReceived = new LinkedHashMap<>();
     private Map<AID, Boolean> episodeResourcesReceived = new LinkedHashMap<>();
-    private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
+    private Map<AID, Long> utilitiesInfo = new LinkedHashMap<>();
 
     private Map<AID, SortedSet<Task>> toDoAgentTasks = new LinkedHashMap<>();
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
 
     private long totalUtil, totalTransferCost;
-    private long endTime, currentTime;
+    private long startTime, endTime, currentTime;
     private int numberOfAgents, maxTaskNumPerAgent, masterStateVectorSize;
     private int episode = 0;
 
@@ -94,12 +94,13 @@ public class DeepRLTimedMasterAgent extends Agent {
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
-            endTime = (long) args[1];
-            graph = (Graph) args[2];
-            adjacency = (Integer[][]) args[3];
-            logFileName = (String) args[4];
-            resultFileName = (String) args[5];
-            agentType = (String) args[6];
+            startTime = (long) args[1];
+            endTime = (long) args[2];
+            graph = (Graph) args[3];
+            adjacency = (Integer[][]) args[4];
+            logFileName = (String) args[5];
+            resultFileName = (String) args[6];
+            agentType = (String) args[7];
         }
 
         shortestPathAlgorithm = new DijkstraShortestPath(graph);
@@ -108,7 +109,7 @@ public class DeepRLTimedMasterAgent extends Agent {
             AID aid = new AID(agentType + i, AID.ISLOCALNAME);
             episodeTasksReceived.put( aid, false);
             episodeResourcesReceived.put( aid, false);
-            utilitiesInfo.put( aid, new ArrayList<>());
+            utilitiesInfo.put( aid, 0L);
             agentAvailableResources.put(aid, new LinkedHashMap<>());
             agentExpiredResources.put(aid, new LinkedHashMap<>());
             toDoAgentTasks.put(aid, new TreeSet<>(new Task.taskComparator()));
@@ -122,7 +123,7 @@ public class DeepRLTimedMasterAgent extends Agent {
         scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
 
 
-        addBehaviour (new WakerBehaviour(this, new Date(endTime + 2000)) {
+        addBehaviour (new WakerBehaviour(this, new Date(startTime + 6000)) {
             protected void onWake() {
 //                try {
 //                    policyNetwork.save(new File("trained_models/master_trained_model.zip"));
@@ -134,7 +135,6 @@ public class DeepRLTimedMasterAgent extends Agent {
                 System.out.println ("Decentralized total util for " + agentType + " : " + agentUtilitiesSum());
                 System.out.println ("Percentage ratio for " + agentType + " : " + ((double) agentUtilitiesSum() / totalUtil * 100));
                 System.out.println ("");
-//                printUtils();
 //                logResults( String.valueOf(agentUtilitiesSum()));
             }
         } );
@@ -152,7 +152,7 @@ public class DeepRLTimedMasterAgent extends Agent {
                         expireResourceItems(myAgent);
                         expireTasks(myAgent);
 //                        performTasksOptimal( myAgent);
-//                        performTasksGreedy( myAgent);
+                        performTasksGreedy( myAgent);
 //                        performTasksRL(myAgent);
 //                        decayEpsilon();
 //                        decayAlpha();
@@ -879,7 +879,7 @@ public class DeepRLTimedMasterAgent extends Agent {
         }
 
         if (totalUtil != null) {
-            utilitiesInfo.get(agentId).add( totalUtil);
+            utilitiesInfo.put(agentId, totalUtil);
         }
     }
 
@@ -887,26 +887,9 @@ public class DeepRLTimedMasterAgent extends Agent {
     long agentUtilitiesSum() {
         long sum = 0;
         for( var utilInfo: utilitiesInfo.entrySet()) {
-            sum += utilInfo.getValue().get(episode - 1);
+            sum += utilInfo.getValue();
         }
         return sum;
-    }
-
-
-    void printUtils() {
-
-        long sum;
-        for( int i=0; i<episode; i=i+1000) {
-            sum = 0;
-            for( var utilInfo: utilitiesInfo.entrySet()) {
-                if (i==0) {
-                    sum += utilInfo.getValue().get(i);
-                } else {
-                    sum += utilInfo.getValue().get(i) - utilInfo.getValue().get(i-1000);
-                }
-            }
-            System.out.println("At episode " + (i+1) + " : " + sum);
-        }
     }
 
 

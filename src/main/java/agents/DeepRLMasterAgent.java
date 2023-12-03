@@ -67,6 +67,8 @@ public class DeepRLMasterAgent extends Agent {
 //    private final double epsilonDecayRate = 0.9995;
     // for 10k episodes
     private final double epsilonDecayRate = 0.99965;
+    // for 20k episodes
+//    private final double epsilonDecayRate = 0.99982;
     private final double minimumEpsilon = 0.1;
     private final double alphaDecayRate = 0.5;
     private final double minimumAlpha = 0.000001;
@@ -114,7 +116,7 @@ public class DeepRLMasterAgent extends Agent {
         //TODO: get as a param
         maxTaskNumPerAgent = 4;
         masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * ResourceType.getSize() + numberOfAgents * maxTaskNumPerAgent * ResourceType.getSize();
-        createNeuralNet();
+//        createNeuralNet();
 
         scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
 
@@ -142,7 +144,7 @@ public class DeepRLMasterAgent extends Agent {
                     for (int r = 0; r < numberOfRounds; r++) {
                         round = r + 1;
                         epsilon = Math.max(minimumEpsilon, epsilon * epsilonDecayRate);
-//                        epsilon = 0;
+                        epsilon = 0;
                         // for 5k episodes
 //                        if (round % 500 == 0) {
                         // for 10k episodes
@@ -151,8 +153,8 @@ public class DeepRLMasterAgent extends Agent {
 //                            policyNetwork.setLearningRate(alpha);
 //                        }
 //                        if (round % 100 == 0) {
-                            System.out.println(myAgent.getLocalName() + "  Round: " + round + "  Epsilon: " + epsilon);
-                            System.out.println("LearningRate: " + policyNetwork.getLearningRate(1));
+//                            System.out.println(myAgent.getLocalName() + "  Round: " + round + "  Epsilon: " + epsilon);
+//                            System.out.println("LearningRate: " + policyNetwork.getLearningRate(1));
 //                        }
                         for (var taskInfo : tasksInfo.entrySet() ) {
                             findNewTasks (taskInfo.getValue().get(r), taskInfo.getKey());
@@ -161,17 +163,17 @@ public class DeepRLMasterAgent extends Agent {
                             findNewResources (resourceInfo.getValue().get(r), resourceInfo.getKey());
                         }
 //                        performTasksOptimal( myAgent);
-//                        performTasksGreedy( myAgent);
-                        performTasksRL( myAgent);
+                        performTasksGreedy( myAgent);
+//                        performTasksRL( myAgent);
                         expireResourceItems( myAgent);
                         expireTasks( myAgent);
                     }
 
-                    try {
-                        policyNetwork.save(new File("master_trained_model.zip"));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+//                    try {
+//                        policyNetwork.save(new File("trained_models/master_trained_model.zip"));
+//                    } catch (IOException e) {
+//                        throw new RuntimeException(e);
+//                    }
 
                     System.out.println ("Centralized total util for " + agentType + " : " + totalUtil);
                     System.out.println ("Centralized total transferCost for " + agentType + " : " + totalTransferCost);
@@ -368,7 +370,7 @@ public class DeepRLMasterAgent extends Agent {
                 totalUtil -= (long) transferCost;
                 totalTransferCost += (long) transferCost;
 
-                System.out.println( "Round: " + round + " selected manager: " + task.manager.getLocalName() + " task util: " + task.utility + " transferCost: " + transferCost);
+//                System.out.println( "Round: " + round + " selected manager: " + task.manager.getLocalName() + " task util: " + task.utility + " transferCost: " + transferCost);
             }
         }
 
@@ -958,11 +960,11 @@ public class DeepRLMasterAgent extends Agent {
 
     protected void logInf(String msg) {
 
-//      System.out.println("Time:" + System.currentTimeMillis() + " " + agentType + "0: " + msg);
+//      System.out.println( agentType + "0: " + msg);
 
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
-            out.println(System.currentTimeMillis() + " " + agentType + "0: " + msg);
+            out.println( agentType + "0: " + msg);
             out.close();
         } catch (IOException e) {
             System.err.println("Error writing file..." + e.getMessage());

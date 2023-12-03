@@ -17,6 +17,7 @@ public class Request {
     public Map<Long, Long> utilityFunction;
     public AID sender;
     public AID originalSender;
+    public Set<Integer> previousReceivers;
     public Set<Integer> allReceivers;
     // id, lifetime
     public Map<String, Long> reservedItems;

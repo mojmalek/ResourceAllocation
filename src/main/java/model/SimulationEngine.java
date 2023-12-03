@@ -29,7 +29,7 @@ public class SimulationEngine {
                 agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
 //        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
 //        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
-//        Set<String> requesters = Set.of( agentType + "1", agentType + "2");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3");
 
         int[] taskNums = new int[] {4};
         if( requesters.contains(myAgent.getLocalName())) {
@@ -37,11 +37,9 @@ public class SimulationEngine {
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
         long[] requiredQuantities;
-
+        //ToDo: experiment with different utilities for different agents for evaluating the RL approach
 //        long minUtil = 10;
 //        long utilVariation = 5;
-
-        int agentId = Integer.valueOf(myAgent.getLocalName().replace(agentType, ""));
         long[] utilities = new long[] {20};
         if( requesters.contains(myAgent.getLocalName())) {
             utilities = new long[] {30};
@@ -53,7 +51,7 @@ public class SimulationEngine {
             for (int i=0; i<resourceTypeValues.length; i++) {
                 if( requesters.contains(myAgent.getLocalName())) {
                     if (resourceTypeValues[i] == ResourceType.A) {
-                        requiredQuantities = new long[]{5};
+                        requiredQuantities = new long[]{6};
                     } else {
                         requiredQuantities = new long[]{3};
                     }
@@ -96,20 +94,19 @@ public class SimulationEngine {
                 agentType + "31", agentType + "32", agentType + "33", agentType + "34", agentType + "35", agentType + "36", agentType + "37", agentType + "38", agentType + "39", agentType + "40");
 //        Set<String> offerers = Set.of(agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
 //        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
-//        Set<String> offerers = Set.of(agentType + "3", agentType + "4");
-
+//        Set<String> offerers = Set.of(agentType + "4");
         long quantity;
         long lifetime;
         for (int i = 0; i < resourceTypeValues.length; i++) {
             if( offerers.contains(myAgent.getLocalName())) {
                 if (resourceTypeValues[i] == ResourceType.A) {
-                    quantities = new long[]{10};
+                    quantities = new long[]{5};
                 } else {
                     quantities = new long[]{6};
                 }
             } else {
                 if (resourceTypeValues[i] == ResourceType.A) {
-                    quantities = new long[]{8};
+                    quantities = new long[]{4};
                 } else {
                     quantities = new long[]{4};
                 }

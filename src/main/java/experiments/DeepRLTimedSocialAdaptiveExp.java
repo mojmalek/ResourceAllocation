@@ -195,7 +195,7 @@ public class DeepRLTimedSocialAdaptiveExp {
         boolean loadGraph = true;
         int numberOfAgents = 10;
         long duration = 5000;
-        long currentTime, endTime;
+        long startTime, endTime;
         TimedSimulationEngine simulationEngine1, simulationEngine2;
         Set<AgentController> agentControllers = new HashSet<>();
 
@@ -285,18 +285,18 @@ public class DeepRLTimedSocialAdaptiveExp {
 //                System.out.println();
 
                 agentControllers.clear();
-                currentTime = System.currentTimeMillis();
-                endTime = currentTime + duration;
+                startTime = System.currentTimeMillis();
+                endTime = startTime + duration;
                 for (int i = 0; i <= numberOfAgents; i++) {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLTimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLTimedMasterAgent", new Object[]{numberOfAgents, startTime, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
                             agentController1.start();
 //                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLTimedMasterAgent", new Object[]{numberOfAgents, endTime, scaleFreeGraph, scaleFreeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
 //                            agentController2.start();
                         } else {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLTimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLTimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, startTime, endTime, scaleFreeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
                             agentController1.start();
 //                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLTimedSocialAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, scaleFreeAdjacency[i - 1], logFileNameAll2, simulationEngine2, false, agentType2});
 //                            agentController2.start();
@@ -308,8 +308,8 @@ public class DeepRLTimedSocialAdaptiveExp {
                     }
                 }
 
-//                while (currentTime < endTime + 1500) {
-//                    currentTime = System.currentTimeMillis();
+//                while (startTime < endTime + 1500) {
+//                    startTime = System.currentTimeMillis();
 //                }
 //                for( AgentController agentController : agentControllers) {
 //                    agentController.kill();
