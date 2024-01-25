@@ -38,14 +38,6 @@ public class Task {
     }
 
 
-//    int util (Date currentTime) {
-//
-//        int util = 1000;
-//
-//        return util;
-//    }
-
-
     @Override
     public String toString() {
         return "Task{" +

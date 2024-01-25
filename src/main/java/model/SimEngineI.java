@@ -1,0 +1,18 @@
+package model;
+
+import jade.core.Agent;
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultWeightedEdge;
+
+import java.util.Map;
+import java.util.SortedSet;
+
+public interface SimEngineI {
+
+    SortedSet<Task> findTasks(Agent myAgent);
+    Map<ResourceType, SortedSet<ResourceItem>> findResources (Agent myAgent);
+    SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, String agentName);
+    Integer[][] generateRandomAdjacencyMatrix2(int numberOfAgents, int numberOfEdges);
+    Integer[][] generateAdjacencyMatrixFromGraph (Graph<String, DefaultWeightedEdge> graph, int numberOfAgents);
+
+}

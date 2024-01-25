@@ -46,11 +46,12 @@ public class DeepRLMasterAgent extends Agent {
     private Map<AID, ArrayList<Long>> utilitiesInfo = new LinkedHashMap<>();
 
     private Map<AID, SortedSet<Task>> toDoAgentTasks = new LinkedHashMap<>();
-    private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
-    private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
+    private List<Task> toDoTasks = new ArrayList<>();
+    private List<Task> doneTasks = new ArrayList<>();
 
     private long totalUtil, totalTransferCost;
     private int numberOfRounds, round, numberOfAgents, maxTaskNumPerAgent, masterStateVectorSize;
+    private int packageSize = 10;
 
     Integer[][] adjacency;
     Graph<String, DefaultWeightedEdge> graph;
@@ -176,12 +177,12 @@ public class DeepRLMasterAgent extends Agent {
 //                    }
 
                     System.out.println ("Centralized total util for " + agentType + " : " + totalUtil);
-                    System.out.println ("Centralized total transferCost for " + agentType + " : " + totalTransferCost);
+//                    System.out.println ("Centralized total transferCost for " + agentType + " : " + totalTransferCost);
                     System.out.println ("Decentralized total util for " + agentType + " : " + agentUtilitiesSum());
                     System.out.println ("Percentage ratio for " + agentType + " : " + ((double) agentUtilitiesSum() / totalUtil * 100));
                     System.out.println ("");
-//                    printUtils();
-//                    logResults( String.valueOf(agentUtilitiesSum()));
+                    printUtils();
+                    logResults( String.valueOf(agentUtilitiesSum()));
 
                     block();
                 }
@@ -326,17 +327,17 @@ public class DeepRLMasterAgent extends Agent {
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         int numResourceTypes = resourceTypeValues.length;
 
-        double[] util = new double[numTasks];  // Utility for each task
-        double[][] distance = new double[numberOfAgents][numTasks];  // Distance between each agent and task location
-        double[][] requirement = new double[numTasks][numResourceTypes];  // Resource requirement of each task for each resource type
-        double[][] resource = new double[numberOfAgents][numResourceTypes];  // Resources of each type available to each agent
+        long[] util = new long[numTasks];  // Utility for each task
+        long[][] distance = new long[numberOfAgents][numTasks];  // Distance between each agent and task location
+        long[][] requirement = new long[numTasks][numResourceTypes];  // Resource requirement of each task for each resource type
+        long[][] resource = new long[numberOfAgents][numResourceTypes];  // Resources of each type available to each agent
 
         int j = 0;
         for (Task task : toDoTasks) {
             util[j] = task.utility;
             for (int i=0; i < numberOfAgents; i++) {
                 AID potentialProvider = new AID(agentType + (i+1), AID.ISLOCALNAME);
-                distance[i][j] = computeTransferCost(task.manager, potentialProvider);
+                distance[i][j] = getDistance(task.manager, potentialProvider);
             }
             for (int k = 0; k < numResourceTypes; k++) {
                 requirement[j][k] = task.requiredResources.get(resourceTypeValues[k]);
@@ -353,7 +354,7 @@ public class DeepRLMasterAgent extends Agent {
             }
         }
 
-        GurobiOptimizer optimizer = new GurobiOptimizer( numberOfAgents,  numTasks,  ResourceType.getSize(), util, distance, requirement, resource);
+        GurobiOptimizer optimizer = new GurobiOptimizer( numberOfAgents,  numTasks,  ResourceType.getSize(), packageSize, util, distance, requirement, resource);
 
         totalUtil = (long) optimizer.run();
     }
@@ -362,6 +363,14 @@ public class DeepRLMasterAgent extends Agent {
     private void performTasksGreedy(Agent myAgent) {
 
         // Centralized greedy algorithm: tasks are sorted by efficiency in toDoTasks
+
+        Collections.sort(toDoTasks, new Comparator<Task>() {
+            @Override
+            public int compare(Task t1, Task t2) {
+                return Double.compare(taskNetEfficiency(t2), taskNetEfficiency(t1));
+            }
+        });
+
         for (Task task : toDoTasks) {
             if (hasEnoughResources(task, agentAvailableResources)) {
                 double transferCost = processTask(task);
@@ -710,28 +719,78 @@ public class DeepRLMasterAgent extends Agent {
     double processTask (Task task) {
 
         // When No cascading, it only uses resources of the task manager and its direct neighbors, already checked in hasEnoughResources method.
-        long allocatedQuantity;
+        long allocatedQuantity, transferredQuantity;
         double transferCost = 0;
         Set<AID> providers;
         for (var requiredResource : task.requiredResources.entrySet()) {
             allocatedQuantity = 0;
+            transferredQuantity = allocateResource (task.manager, requiredResource.getKey(), requiredResource.getValue(), allocatedQuantity, agentAvailableResources);
+            allocatedQuantity += transferredQuantity;
             providers = new HashSet<>();
             providers.add(task.manager);
             while (allocatedQuantity < requiredResource.getValue()) {
-                while (isMissingResource( providers, requiredResource.getKey())) {
+                while (isMissingResource( providers, requiredResource.getKey(), agentAvailableResources)) {
                     providers = addNeighbors( providers);
                 }
-                AID selectedProvider = selectBestProvider( providers, requiredResource.getKey());
-                allocateResource (selectedProvider, requiredResource.getKey());
-                transferCost += computeTransferCost(task.manager, selectedProvider);
-                allocatedQuantity++;
+                AID selectedProvider = selectBestProvider( providers, requiredResource.getKey(), agentAvailableResources);
+                transferredQuantity = allocateResource (selectedProvider, requiredResource.getKey(), requiredResource.getValue(), allocatedQuantity, agentAvailableResources);
+                transferCost += computeTransferCost(task.manager, selectedProvider, transferredQuantity, requiredResource.getKey());
+                allocatedQuantity += transferredQuantity;
             }
         }
         return transferCost;
     }
 
 
-    boolean isMissingResource( Set<AID> providers, ResourceType resourceType) {
+    double evaluateTask (Task task) {
+
+        Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResourcesCopy = deepCopyAgentResourcesMap( agentAvailableResources);
+
+        // used for sorting the tasks based on net efficiency
+        long allocatedQuantity, transferredQuantity;
+        double transferCost = 0;
+        Set<AID> providers;
+        for (var requiredResource : task.requiredResources.entrySet()) {
+            allocatedQuantity = 0;
+            transferredQuantity = allocateResource (task.manager, requiredResource.getKey(), requiredResource.getValue(), allocatedQuantity, agentAvailableResourcesCopy);
+            allocatedQuantity += transferredQuantity;
+            providers = new HashSet<>();
+            providers.add(task.manager);
+            while (allocatedQuantity < requiredResource.getValue()) {
+                while (isMissingResource( providers, requiredResource.getKey(), agentAvailableResourcesCopy)) {
+                    providers = addNeighbors( providers);
+                }
+                AID selectedProvider = selectBestProvider( providers, requiredResource.getKey(), agentAvailableResourcesCopy);
+                transferredQuantity = allocateResource (selectedProvider, requiredResource.getKey(), requiredResource.getValue(), allocatedQuantity, agentAvailableResourcesCopy);
+                transferCost += computeTransferCost(task.manager, selectedProvider, transferredQuantity, requiredResource.getKey());
+                allocatedQuantity += transferredQuantity;
+            }
+        }
+        return transferCost;
+    }
+
+
+    public double taskNetEfficiency(Task task) {
+        //This is used to sort tasks in the greedy approach
+        double netEfficiency;
+        if (hasEnoughResources(task, agentAvailableResources)) {
+            int count = 0;
+            for (var resource: task.requiredResources.entrySet()) {
+                count += resource.getValue();
+            }
+            double transferCost = evaluateTask( task);
+            netEfficiency = (task.utility - transferCost) / count;
+//            netEfficiency = task.utility - transferCost;
+//            netEfficiency = (double) task.utility / count;
+        } else {
+            netEfficiency = -Double.MAX_VALUE;
+        }
+
+        return netEfficiency;
+    }
+
+
+    boolean isMissingResource( Set<AID> providers, ResourceType resourceType, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
         boolean missing = true;
         for (AID aid : providers) {
             if( agentAvailableResources.get(aid).containsKey(resourceType)) {
@@ -762,10 +821,10 @@ public class DeepRLMasterAgent extends Agent {
     }
 
 
-    AID selectBestProvider(Set<AID> providers, ResourceType resourceType) {
+    AID selectBestProvider(Set<AID> providers, ResourceType resourceType, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
 
         // should be deterministic
-        //TODO: sort the providers by their workload + shortest distance from task manager
+        //TODO: sort the providers by shortest distance from task manager
 
         Set<AID> potentialProviders = new HashSet<>();
         for (AID aid : providers) {
@@ -810,14 +869,50 @@ public class DeepRLMasterAgent extends Agent {
     }
 
 
-    void allocateResource (AID selectedProvider, ResourceType resourceType) {
+    long allocateResource (AID selectedProvider, ResourceType resourceType, long requiredQuantity, long allocatedQuantity, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
 
-        ResourceItem item = agentAvailableResources.get(selectedProvider).get(resourceType).first();
-        agentAvailableResources.get(selectedProvider).get(resourceType).remove((item));
+        long availableQuantity = agentAvailableResources.get(selectedProvider).get(resourceType).size();
+        long transferredQuantity = Math.min(requiredQuantity - allocatedQuantity, availableQuantity);
+
+        for (int i=0; i<transferredQuantity; i++) {
+            ResourceItem item = agentAvailableResources.get(selectedProvider).get(resourceType).first();
+            agentAvailableResources.get(selectedProvider).get(resourceType).remove((item));
+        }
+
+        return transferredQuantity;
     }
 
 
-    double computeTransferCost(AID taskManager, AID provider) {
+    double computeTransferCost(AID taskManager, AID provider, long quantity, ResourceType resourceType) {
+
+        double transferCost = 0;
+
+        if (quantity > 0) {
+            long distance = getDistance(taskManager, provider);
+
+            long numberOfPackages;
+            if (quantity < packageSize) {
+                numberOfPackages = 1;
+            } else {
+                numberOfPackages = (int) quantity / packageSize;
+            }
+
+//            transferCost = distance * numberOfPackages;
+            transferCost = distance * 1;
+
+            //TODO: define transfer cost per resource type
+            if (resourceType == ResourceType.A) {
+                transferCost = transferCost * 1;
+            } else {
+                transferCost = transferCost * 1;
+            }
+        }
+
+        return transferCost;
+    }
+
+
+    long getDistance(AID taskManager, AID provider) {
 
         String taskManagerName = taskManager.getLocalName();
         String taskManagerId = taskManagerName.replace(agentType, "");
@@ -826,10 +921,10 @@ public class DeepRLMasterAgent extends Agent {
 
         int i = Integer.valueOf(taskManagerId);
         int j = Integer.valueOf(providerId);
-        double distance = 0;
+        long distance = 0;
         if (adjacency[i-1][j-1] == null) {
             try {
-                distance = shortestPathAlgorithm.getPathWeight (taskManagerId, providerId);
+                distance = (long) shortestPathAlgorithm.getPathWeight (taskManagerId, providerId);
             } catch (Exception e) {
                 System.out.println("Exception: incurTransferCost " + e.getMessage());
             }
@@ -839,13 +934,6 @@ public class DeepRLMasterAgent extends Agent {
         }
 
 //        System.out.println("task manager: " + taskManagerId + " provider: " + providerId + " distance: " + distance);
-
-        if (distance > 1) {
-            System.out.print("");
-        }
-        if (distance > 2) {
-            System.out.print("");
-        }
 
         return distance;
     }
@@ -931,13 +1019,13 @@ public class DeepRLMasterAgent extends Agent {
 
     void printUtils() {
         long sum;
-        for( int r=0; r<=numberOfRounds; r=r+1000) {
+        for( int r=0; r<numberOfRounds; r=r+1) {
             sum = 0;
             for( var utilInfo: utilitiesInfo.entrySet()) {
                 if (r==0) {
                     sum += utilInfo.getValue().get(r);
                 } else {
-                    sum += utilInfo.getValue().get(r) - utilInfo.getValue().get(r-1000);
+                    sum += utilInfo.getValue().get(r) - utilInfo.getValue().get(r-1);
                 }
             }
             System.out.println("At round " + (r+1) + " : " + sum);
@@ -988,7 +1076,7 @@ public class DeepRLMasterAgent extends Agent {
 
     protected void logResults(String msg) {
 
-//        System.out.println(msg);
+        System.out.println(msg);
 
         try {
             PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(resultFileName, true)));
