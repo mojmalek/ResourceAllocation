@@ -38,7 +38,7 @@ import java.util.*;
 
 public class DeepRLMasterAgent extends Agent {
 
-    private String logFileName, resultFileName;
+    private String logFileMaster, resultFileCen, resultFileDec;
     private String agentType;
 
     private Map<AID, ArrayList<JSONObject>> tasksInfo = new LinkedHashMap<>();
@@ -50,7 +50,7 @@ public class DeepRLMasterAgent extends Agent {
     private List<Task> doneTasks = new ArrayList<>();
 
     private long totalUtil, totalTransferCost;
-    private int numberOfRounds, round, numberOfAgents, maxTaskNumPerAgent, masterStateVectorSize;
+    private int numberOfEpisodes, episode, numberOfAgents, maxTaskNumPerAgent, masterStateVectorSize;
     private int packageSize = 10;
 
     Integer[][] adjacency;
@@ -94,12 +94,14 @@ public class DeepRLMasterAgent extends Agent {
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
-            numberOfRounds = (int) args[1];
+            numberOfEpisodes = (int) args[1];
             graph = (Graph) args[2];
             adjacency = (Integer[][]) args[3];
-            logFileName = (String) args[4];
-            resultFileName = (String) args[5];
-            agentType = (String) args[6];
+            logFileMaster = (String) args[4];
+            resultFileCen = (String) args[5];
+            resultFileDec = (String) args[6];
+            agentType = (String) args[7];
+            maxTaskNumPerAgent = (int) args[8];
         }
 
         shortestPathAlgorithm = new DijkstraShortestPath(graph);
@@ -114,8 +116,6 @@ public class DeepRLMasterAgent extends Agent {
             toDoAgentTasks.put(aid, new TreeSet<>(new Task.taskComparator()));
         }
 
-        //TODO: get as a param
-        maxTaskNumPerAgent = 4;
         masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * ResourceType.getSize() + numberOfAgents * maxTaskNumPerAgent * ResourceType.getSize();
 //        createNeuralNet();
 
@@ -142,8 +142,8 @@ public class DeepRLMasterAgent extends Agent {
                 }
 
                 if (receivedInfoFromAll()) {
-                    for (int r = 0; r < numberOfRounds; r++) {
-                        round = r + 1;
+                    for (int r = 0; r < numberOfEpisodes; r++) {
+                        episode = r + 1;
                         epsilon = Math.max(minimumEpsilon, epsilon * epsilonDecayRate);
                         epsilon = 0;
                         // for 5k episodes
@@ -176,15 +176,18 @@ public class DeepRLMasterAgent extends Agent {
 //                        throw new RuntimeException(e);
 //                    }
 
+//                    printUtils();
                     System.out.println ("Centralized total util for " + agentType + " : " + totalUtil);
 //                    System.out.println ("Centralized total transferCost for " + agentType + " : " + totalTransferCost);
                     System.out.println ("Decentralized total util for " + agentType + " : " + agentUtilitiesSum());
                     System.out.println ("Percentage ratio for " + agentType + " : " + ((double) agentUtilitiesSum() / totalUtil * 100));
                     System.out.println ("");
-                    printUtils();
-                    logResults( String.valueOf(agentUtilitiesSum()));
-
+                    logResultsCen( String.valueOf(totalUtil / numberOfEpisodes));
+                    logResultsDec( String.valueOf(agentUtilitiesSum() / numberOfEpisodes));
+//                    ExpDynamic.inProcess = false;
+//                    SimEngDynamic.inProcess = false;
                     block();
+                    this.getAgent().doSuspend();
                 }
             }
         });
@@ -299,17 +302,17 @@ public class DeepRLMasterAgent extends Agent {
     boolean receivedInfoFromAll() {
 
         for (var taskInfo : tasksInfo.entrySet() ) {
-            if (taskInfo.getValue().size() < numberOfRounds) {
+            if (taskInfo.getValue().size() < numberOfEpisodes) {
                 return false;
             }
         }
         for (var taskInfo : resourcesInfo.entrySet() ) {
-            if (taskInfo.getValue().size() < numberOfRounds) {
+            if (taskInfo.getValue().size() < numberOfEpisodes) {
                 return false;
             }
         }
         for (var taskInfo : utilitiesInfo.entrySet() ) {
-            if (taskInfo.getValue().size() < numberOfRounds) {
+            if (taskInfo.getValue().size() < numberOfEpisodes) {
                 return false;
             }
         }
@@ -871,7 +874,10 @@ public class DeepRLMasterAgent extends Agent {
 
     long allocateResource (AID selectedProvider, ResourceType resourceType, long requiredQuantity, long allocatedQuantity, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
 
-        long availableQuantity = agentAvailableResources.get(selectedProvider).get(resourceType).size();
+        long availableQuantity = 0;
+        if (agentAvailableResources.get(selectedProvider).containsKey(resourceType)) {
+            availableQuantity = agentAvailableResources.get(selectedProvider).get(resourceType).size();
+        }
         long transferredQuantity = Math.min(requiredQuantity - allocatedQuantity, availableQuantity);
 
         for (int i=0; i<transferredQuantity; i++) {
@@ -1011,7 +1017,7 @@ public class DeepRLMasterAgent extends Agent {
     long agentUtilitiesSum() {
         long sum = 0;
         for( var utilInfo: utilitiesInfo.entrySet()) {
-            sum += utilInfo.getValue().get( numberOfRounds - 1);
+            sum += utilInfo.getValue().get( numberOfEpisodes - 1);
         }
         return sum;
     }
@@ -1019,7 +1025,7 @@ public class DeepRLMasterAgent extends Agent {
 
     void printUtils() {
         long sum;
-        for( int r=0; r<numberOfRounds; r=r+1) {
+        for(int r = 0; r< numberOfEpisodes; r=r+100) {
             sum = 0;
             for( var utilInfo: utilitiesInfo.entrySet()) {
                 if (r==0) {
@@ -1051,7 +1057,7 @@ public class DeepRLMasterAgent extends Agent {
 //      System.out.println( agentType + "0: " + msg);
 
         try {
-            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileMaster, true)));
             out.println( agentType + "0: " + msg);
             out.close();
         } catch (IOException e) {
@@ -1065,7 +1071,7 @@ public class DeepRLMasterAgent extends Agent {
       System.out.println( agentType + "0: " + msg);
 
         try {
-            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileMaster, true)));
             out.println( agentType + "0: " + msg);
             out.close();
         } catch (IOException e) {
@@ -1074,12 +1080,26 @@ public class DeepRLMasterAgent extends Agent {
     }
 
 
-    protected void logResults(String msg) {
+    protected void logResultsCen(String msg) {
 
-        System.out.println(msg);
+//        System.out.println(msg);
 
         try {
-            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(resultFileName, true)));
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(resultFileCen, true)));
+            out.println(msg);
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
+        }
+    }
+
+
+    protected void logResultsDec(String msg) {
+
+//        System.out.println(msg);
+
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(resultFileDec, true)));
             out.println(msg);
             out.close();
         } catch (IOException e) {

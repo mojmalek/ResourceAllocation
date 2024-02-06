@@ -70,7 +70,6 @@ public class GurobiOptimizer {
                         // Subtract transfer cost
 //                        expr.addConstant(-distance[i][j]);
 //                        expr.addTerm(-distance[i][j], x[i][j][k]);
-                        // Subtract transfer cost
                         //TODO: define transfer cost per resource type - multiply -distance[i][j] by a factor
 //                        expr.addTerm(-distance[i][j], numberOfPackages[i][j][k]);
 //                        expr.addTerm(-distance[i][j], xRemainder[i][j][k]);

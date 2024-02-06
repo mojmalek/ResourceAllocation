@@ -37,9 +37,10 @@ import java.util.*;
 public class DeepRLSocialAdaptiveAgent extends Agent {
 
     SimEngineI simulationEngine;
-    private boolean debugMode = true;
-    private String logFileName, agentLogFileName;
+    private boolean debugMode = false;
+    private String logFileAll, agentLogFile;
     private String agentType;
+    private String trainedModelPath;
 
     private Integer[] adjacency;
     private ArrayList<AID> neighbors = new ArrayList<>();
@@ -125,9 +126,11 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             int myId = (int) args[1];
             numberOfEpisodes = (int) args[2];
             adjacency = (Integer[]) args[3];
-            logFileName = (String) args[4];
+            logFileAll = (String) args[4];
             simulationEngine = (SimEngineI) args[5];
             agentType = (String) args[6];
+            maxRequestQuantity = (int) args[7];
+            trainedModelPath = (String) args[8];
         }
 
         for (int i = 0; i < adjacency.length; i++) {
@@ -143,10 +146,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             expiredResources.put( resourceType, new TreeSet<>(new ResourceItem.resourceItemComparator()));
         }
 
-        agentLogFileName = "logs/" + this.getLocalName() + "-" + new Date() + ".txt";
-
-        //TODO: get as a param
-        maxRequestQuantity = 15;
+        agentLogFile = "logs/" + this.getLocalName() + "-" + new Date() + ".txt";
 
         if (learning) {
             offeringStateVectorSize = 2 + neighbors.size() * maxRequestQuantity;
@@ -165,7 +165,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 offeringEpsilonDecayRate = 0.99982;
                 confirmingEpsilonDecayRate = 0.99982;
             } else {
-                //ToDO: set for more number of episodes
+                //ToDo: set for more number of episodes
             }
         }
 
@@ -195,13 +195,14 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
                 if (episode == numberOfEpisodes + 1) {
                     if (learning) {
+                        int myId = Integer.valueOf(myAgent.getLocalName().replace(agentType, ""));
                         try {
-                            offeringPolicyNetwork.save(new File("trained_models/offering_" + myAgent.getLocalName() + ".zip"));
+                            offeringPolicyNetwork.save(new File(trainedModelPath + "_offering_" + myId + ".zip"));
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                         try {
-                            confirmingPolicyNetwork.save(new File("trained_models/confirming_" + myAgent.getLocalName() + ".zip"));
+                            confirmingPolicyNetwork.save(new File(trainedModelPath + "_confirming_" + myId + ".zip"));
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -269,8 +270,9 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         offeringReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
 
         if (loadTrainedModel) {
+            int myId = Integer.valueOf(this.getLocalName().replace(agentType, ""));
             try {
-                offeringPolicyNetwork = ModelSerializer.restoreMultiLayerNetwork("trained_models/offering_" + this.getLocalName() + ".zip");
+                offeringPolicyNetwork = ModelSerializer.restoreMultiLayerNetwork(trainedModelPath + "_offering_" + myId + ".zip");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -323,8 +325,9 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         confirmingReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
 
         if (loadTrainedModel) {
+            int myId = Integer.valueOf(this.getLocalName().replace(agentType, ""));
             try {
-                confirmingPolicyNetwork = ModelSerializer.restoreMultiLayerNetwork("trained_models/confirming_" + this.getLocalName() + ".zip");
+                confirmingPolicyNetwork = ModelSerializer.restoreMultiLayerNetwork(trainedModelPath + "_confirming_" + myId + ".zip");
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -1822,7 +1825,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         for (var request : sentRequests.entrySet()) {
 
             if (request.getValue().cascaded == false && request.getValue().allReceivers.size() > 0) {
-                logErr( this.getLocalName(), "Episode: " + episode + " request.getValue().allReceivers.size() > 0");
+                logErr( this.getLocalName(), "request.getValue().allReceivers.size() > 0");
             }
 
             if (request.getValue().timeout > 0) {
@@ -1866,7 +1869,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         for (var request : sentRequests.entrySet()) {
 
             if (request.getValue().cascaded == false && request.getValue().allReceivers.size() > 0) {
-                logErr( this.getLocalName(), "Episode: " + episode + " request.getValue().allReceivers.size() > 0");
+                logErr( this.getLocalName(), "request.getValue().allReceivers.size() > 0");
             }
 
             if (request.getValue().timeout > 0) {
@@ -2639,7 +2642,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         if (debugMode) {
             try {
-                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileAll, true)));
                 out.println("E: " + episode + " " + agentId + " " + msg);
                 out.println();
                 out.close();
@@ -2655,7 +2658,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         System.out.println("Error!! " + "E: " + episode + " " + agentId + " " + msg);
 
         try {
-            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileName, true)));
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(logFileAll, true)));
             out.println("Error!! " + agentId + " " + msg);
             out.println();
             out.close();
@@ -2669,7 +2672,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
 //        if (debugMode) {
 //            try {
-//                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(agentLogFileName, true)));
+//                PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(agentLogFile, true)));
 //                out.println(agentId + " Episode: " + episode + " " + msg);
 //                out.println();
 //                out.close();
