@@ -149,6 +149,10 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         agentLogFile = "logs/" + this.getLocalName() + "-" + new Date() + ".txt";
 
         if (learning) {
+            if (loadTrainedModel) {
+                offeringAlpha = 0.000001;
+                confirmingAlpha = 0.000001;
+            }
             offeringStateVectorSize = 2 + neighbors.size() * maxRequestQuantity;
             confirmingStateVectorSize = 1 + maxRequestQuantity + neighbors.size() * maxRequestQuantity;
             createOfferingNeuralNet();
@@ -267,7 +271,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     void createOfferingNeuralNet() {
 
-        offeringReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
+        offeringReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 16, new DefaultRandom()));
 
         if (loadTrainedModel) {
             int myId = Integer.valueOf(this.getLocalName().replace(agentType, ""));
@@ -429,7 +433,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         expireResourceItems( myAgent);
 
-        Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources( myAgent);
+        Map<ResourceType, SortedSet<ResourceItem>> newResources = simulationEngine.findResources( myAgent, episode);
 
         for (var newResource : newResources.entrySet()) {
             availableResources.get(newResource.getKey()).addAll( newResource.getValue());
@@ -1336,31 +1340,14 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             INDArray qValues = offeringPolicyNetwork.output(input);
             double[] qVector = qValues.toDoubleVector();
             //exploitation: pick the best known action from possible actions in this state using Q table
-            OfferingAction action;
             Double highestQ = -Double.MAX_VALUE;
-            //TODO: loop over possible actions instead of qVector
-            for (int i = 0; i < qVector.length; i++) {
-                int q = (int) ((i+1) % maxRequestQuantity);
-                int neighborIndex = (int) (i / maxRequestQuantity);
-//                if (neighborIndex == neighbors.size()) {
-//                    System.out.println();
-//                }
-                AID aid = neighbors.get(neighborIndex);
-                Request selectedRequest = null;
-                for (Request request : state.requests) {
-                    if (request.sender.equals(aid)) {
-                        selectedRequest = request;
-                        break;
-                    }
-                }
-                if (selectedRequest != null) {
-                    action = new OfferingAction(state.resourceType, selectedRequest, q);
-                    if (state.possibleActions.contains(action)) {
-                        if (qVector[i] > highestQ) {
-                            highestQ = qVector[i];
-                            selectedAction = action;
-                        }
-                    }
+            int neighborIndex, actionIndex;
+            for (OfferingAction action : state.possibleActions) {
+                neighborIndex = neighbors.indexOf(action.selectedRequest.sender);
+                actionIndex = (int) (neighborIndex * maxRequestQuantity + action.offerQuantity - 1);
+                if (qVector[actionIndex] > highestQ) {
+                    highestQ = qVector[actionIndex];
+                    selectedAction = action;
                 }
             }
         }
@@ -1391,31 +1378,14 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             INDArray qValues = confirmingPolicyNetwork.output(input);
             double[] qVector = qValues.toDoubleVector();
             //exploitation: pick the best known action from possible actions in this state using Q table
-            ConfirmingAction action;
             Double highestQ = -Double.MAX_VALUE;
-            //TODO: loop over possible actions instead of qVector
-            for (int i = 0; i < qVector.length; i++) {
-                int q = (int) ((i+1) % maxRequestQuantity);
-                int neighborIndex = (int) (i / maxRequestQuantity);
-                AID aid = neighbors.get(neighborIndex);
-                Offer selectedOffer = null;
-//                if (state.offers == null) {
-//                    System.out.println();
-//                }
-                for (Offer offer : state.offers) {
-                    if (offer.sender.equals(aid)) {
-                        selectedOffer = offer;
-                        break;
-                    }
-                }
-                if (selectedOffer != null) {
-                    action = new ConfirmingAction(state.resourceType, selectedOffer, q);
-                    if (state.possibleActions.contains(action)) {
-                        if (qVector[i] > highestQ) {
-                            highestQ = qVector[i];
-                            selectedAction = action;
-                        }
-                    }
+            int neighborIndex, actionIndex;
+            for (ConfirmingAction action : state.possibleActions) {
+                neighborIndex = neighbors.indexOf(action.selectedOffer.sender);
+                actionIndex = (int) (neighborIndex * maxRequestQuantity + action.confirmQuantity - 1);
+                if (qVector[actionIndex] > highestQ) {
+                    highestQ = qVector[actionIndex];
+                    selectedAction = action;
                 }
             }
         }
@@ -2391,7 +2361,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 OfferingAction action = experience.getAction();
                 double reward = experience.getReward();
                 int neighborIndex = neighbors.indexOf(action.selectedRequest.sender);
-                int actionIndex = (int) (neighborIndex * maxRequestQuantity + action.offerQuantity);
+                int actionIndex = (int) (neighborIndex * maxRequestQuantity + action.offerQuantity - 1);
                 if (experience.isTerminal()) {
                     currentQValuesBatch.putScalar(i, actionIndex, reward);
                 } else {
@@ -2444,7 +2414,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 ConfirmingAction action = experience.getAction();
                 double reward = experience.getReward();
                 int neighborIndex = neighbors.indexOf(action.selectedOffer.sender);
-                int actionIndex = (int) (neighborIndex * maxRequestQuantity + action.confirmQuantity);
+                int actionIndex = (int) (neighborIndex * maxRequestQuantity + action.confirmQuantity - 1);
                 if (experience.isTerminal()) {
                     currentQValuesBatch.putScalar(i, actionIndex, reward);
                 } else {
