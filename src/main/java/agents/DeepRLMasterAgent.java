@@ -51,7 +51,7 @@ public class DeepRLMasterAgent extends Agent {
     private List<Task> doneTasks = new ArrayList<>();
 
     private long totalUtil, totalTransferCost;
-    private int numberOfEpisodes, episode, numberOfAgents, maxTaskNumPerAgent, resourceTypesNum, masterStateVectorSize;
+    private int numberOfEpisodes, episode, numberOfAgents, maxTaskNumPerAgent, resourceTypesNum, maxResourceTypesNum, masterStateVectorSize;
     private int packageSize = 10;
 
     Integer[][] adjacency;
@@ -101,7 +101,8 @@ public class DeepRLMasterAgent extends Agent {
             agentType = (String) args[7];
             maxTaskNumPerAgent = (int) args[8];
             resourceTypesNum = (int) args[9];
-            trainedModelPath = (String) args[10];
+            maxResourceTypesNum = (int) args[10];
+            trainedModelPath = (String) args[11];
         }
 
         shortestPathAlgorithm = new DijkstraShortestPath(graph);
@@ -120,9 +121,9 @@ public class DeepRLMasterAgent extends Agent {
             if (loadTrainedModel) {
                 alpha = 0.000001;
             }
-//            masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * resourceTypesNum + numberOfAgents * maxTaskNumPerAgent * resourceTypesNum;
-//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * resourceTypesNum + numberOfAgents * maxTaskNumPerAgent * resourceTypesNum;
-            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * resourceTypesNum;
+//            masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
+            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
+//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
             createNeuralNet();
             scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
             if (numberOfEpisodes == 5000) {
@@ -390,7 +391,8 @@ public class DeepRLMasterAgent extends Agent {
 
         GurobiOptimizer optimizer = new GurobiOptimizer( numberOfAgents,  numTasks,  resourceTypesNum, packageSize, util, distance, requirement, resource);
 
-        totalUtil = (long) optimizer.run();
+        totalUtil += (long) optimizer.run();
+        toDoTasks.clear();
     }
 
 
@@ -507,7 +509,7 @@ public class DeepRLMasterAgent extends Agent {
 
     void createNeuralNet() {
 
-        replayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 16, new DefaultRandom()));
+        replayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
 
         if (loadTrainedModel) {
             try {
@@ -576,8 +578,8 @@ public class DeepRLMasterAgent extends Agent {
         ResourceType[] resourceTypeValues = ResourceType.getValues();
 //        INDArray tasksMatrix = Nd4j.zeros(numberOfAgents, maxTaskNumPerAgent);
         INDArray utilitiesMatrix = Nd4j.zeros(numberOfAgents, maxTaskNumPerAgent);
-//        INDArray requirementsTensor = Nd4j.zeros(numberOfAgents, maxTaskNumPerAgent, resourceTypesNum);
-        INDArray resourcesMatrix = Nd4j.zeros(numberOfAgents, resourceTypesNum);
+        INDArray requirementsTensor = Nd4j.zeros(numberOfAgents, maxTaskNumPerAgent, maxResourceTypesNum);
+        INDArray resourcesMatrix = Nd4j.zeros(numberOfAgents, maxResourceTypesNum);
 
         for (int i = 0; i < numberOfAgents; i++) {
             AID aid = new AID(agentType + (i+1), AID.ISLOCALNAME);
@@ -585,9 +587,9 @@ public class DeepRLMasterAgent extends Agent {
             for (Task task : toDoAgentTasks.get(aid)) {
 //                tasksMatrix.putScalar(i, j, 1);
                 utilitiesMatrix.putScalar(i, j, task.utility);
-//                for (int k = 0; k < resourceTypesNum; k++) {
-//                    requirementsTensor.putScalar(i, j, k, task.requiredResources.get(resourceTypeValues[k]));
-//                }
+                for (int k = 0; k < resourceTypesNum; k++) {
+                    requirementsTensor.putScalar(i, j, k, task.requiredResources.get(resourceTypeValues[k]));
+                }
                 j++;
             }
             for (int k = 0; k < resourceTypesNum; k++) {
@@ -598,8 +600,8 @@ public class DeepRLMasterAgent extends Agent {
         }
 
 //        INDArray stateVector = Nd4j.hstack(tasksMatrix.ravel(), utilitiesMatrix.ravel(), requirementsTensor.ravel(), resourcesMatrix.ravel());
-//        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), requirementsTensor.ravel(), resourcesMatrix.ravel());
-        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), resourcesMatrix.ravel());
+        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), requirementsTensor.ravel(), resourcesMatrix.ravel());
+//        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), resourcesMatrix.ravel());
         INDArray reshapedInput = stateVector.reshape(1, stateVector.length());
         Observation observation = new Observation(reshapedInput);
 

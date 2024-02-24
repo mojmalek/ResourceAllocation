@@ -12,13 +12,12 @@ import java.util.*;
 
 public class SimEngResourceRatio implements SimEngineI {
 
-//    public static boolean inProcess;
-
     long parameter;
     String agentType;
     int maxTaskNumPerAgent;
     int maxRequestQuantity;
     int resourceTypesNum;
+    int maxResourceTypesNum;
 
 
     public SimEngResourceRatio(long parameter, String agentType, int maxTaskNumPerAgent, int maxRequestQuantity, int resourceTypesNum) {
@@ -30,7 +29,7 @@ public class SimEngResourceRatio implements SimEngineI {
     }
 
 
-    public SortedSet<Task> findTasks(Agent myAgent) {
+    public SortedSet<Task> findTasks(Agent myAgent, int episode) {
 
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();

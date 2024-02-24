@@ -323,6 +323,7 @@ public class ExpResourceRatio {
             for (long param = 7; param <= 15; param += 2) {
 
                 simulationEngine1 = new SimEngResourceRatio( param, agentType1, 4, 8, 2);
+                simulationEngine1.maxResourceTypesNum = 2;
 
                 String logFileMaster1 = "logs/" + "Master-" + agentType1 + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
 //                String logFileMaster2 = "logs/" + "Master-" + agentType2 + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
@@ -340,7 +341,7 @@ public class ExpResourceRatio {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster1, resultFileCen, resultFileDec, agentType1, simulationEngine1.maxTaskNumPerAgent, simulationEngine1.resourceTypesNum, trainedModelPath});
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster1, resultFileCen, resultFileDec, agentType1, simulationEngine1.maxTaskNumPerAgent, simulationEngine1.resourceTypesNum, simulationEngine1.maxResourceTypesNum, trainedModelPath});
                             agentController1.start();
 //                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileMaster2, resultFile2, agentType2});
 //                            agentController2.start();

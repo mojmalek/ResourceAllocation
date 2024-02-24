@@ -10,7 +10,7 @@ import org.jgrapht.graph.DefaultWeightedEdge;
 
 import java.util.*;
 
-public class SimEngDynamic implements SimEngineI {
+public class SimEngTask implements SimEngineI {
 
     long parameter;
     String agentType;
@@ -20,13 +20,7 @@ public class SimEngDynamic implements SimEngineI {
     int maxResourceTypesNum;
 
 
-    public SimEngDynamic(long parameter, String agentType) {
-        this.parameter = parameter;
-        this.agentType = agentType;
-    }
-
-
-    public SimEngDynamic(long parameter, String agentType, int maxTaskNumPerAgent, int maxRequestQuantity, int resourceTypesNum) {
+    public SimEngTask(long parameter, String agentType, int maxTaskNumPerAgent, int maxRequestQuantity, int resourceTypesNum) {
         this.parameter = parameter;
         this.agentType = agentType;
         this.maxTaskNumPerAgent = maxTaskNumPerAgent;
@@ -40,46 +34,35 @@ public class SimEngDynamic implements SimEngineI {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-//        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10",
-//                agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
-//        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
-//        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
         Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4");
 
-        int[] taskNums = new int[] {1, 2, maxTaskNumPerAgent};
-//        if( requesters.contains(myAgent.getLocalName())) {
-//            taskNums = new int[] {1, 2, maxTaskNumPerAgent};
-//        }
-        int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] requiredQuantities;
-        //ToDo: experiment with different utilities for different agents for evaluating the RL approach
-        long[] utilities = new long[] {4, 9, 16, 25};
-//        if( requesters.contains(myAgent.getLocalName())) {
-//            utilities = new long[] {4, 9, 16, 25};
-//        }
-        long quantity, utility;
+        int[] taskNums = new int[] {1, 2, 3, 4};
+        int numOfTasks;
+        if (parameter == 0) {
+            // in learning process
+            int index = episode % taskNums.length;
+            numOfTasks = taskNums[index];
+        } else {
+            numOfTasks = (int) parameter;
+        }
+
+        //TODO: experiment with different utilities for different agents for evaluating the RL approach
+        int myId = Integer.valueOf(myAgent.getLocalName().replace(agentType, ""));
+        long[] utilities = new long[] {5};
+        if( requesters.contains(myAgent.getLocalName())) {
+            utilities = new long[] {5};
+        }
+        long utility;
         for (int j = 0; j < numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i = 0; i < resourceTypesNum; i++) {
-//                if( requesters.contains(myAgent.getLocalName())) {
-                requiredQuantities = new long[]{1, 2, maxRequestQuantity/maxTaskNumPerAgent};
-//                } else {
-//                    requiredQuantities = new long[]{1, 2, maxRequestQuantity/maxTaskNumPerAgent};
-//                }
-                quantity = requiredQuantities[random.nextInt( requiredQuantities.length)];
-                if (quantity > 0) {
-                    requiredResources.put(resourceTypeValues[i], quantity);
-                }
+                requiredResources.put(resourceTypeValues[i], (long) (maxRequestQuantity/maxTaskNumPerAgent));
             }
             utility = utilities[random.nextInt( utilities.length)];
             String id = UUID.randomUUID().toString();
-            if (!requiredResources.isEmpty()) {
-                Task newTask = new Task(id, utility, 1, requiredResources, myAgent.getAID());
-                newTask.agentType = agentType;
-                tasks.add(newTask);
-            } else {
-//                System.out.println(" ");
-            }
+            Task newTask = new Task(id, utility, 1, requiredResources, myAgent.getAID());
+            newTask.agentType = agentType;
+            tasks.add(newTask);
         }
 
         return tasks;
@@ -91,29 +74,16 @@ public class SimEngDynamic implements SimEngineI {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        long[] quantities;
-        long[] lifetimes = new long[] {1};
-//        Set<String> offerers = Set.of(agentType + "21", agentType + "22", agentType + "23", agentType + "24", agentType + "25", agentType + "26", agentType + "27", agentType + "28", agentType + "29", agentType + "30",
-//                agentType + "31", agentType + "32", agentType + "33", agentType + "34", agentType + "35", agentType + "36", agentType + "37", agentType + "38", agentType + "39", agentType + "40");
-//        Set<String> offerers = Set.of(agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
-//        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
         Set<String> offerers = Set.of(agentType + "5", agentType + "6", agentType + "7", agentType + "8");
+
+        long[] lifetimes = new long[] {1};
         long quantity;
         long lifetime;
         for (int i = 0; i < resourceTypesNum; i++) {
             if( offerers.contains(myAgent.getLocalName())) {
-                if (parameter == 0) {
-                    // in learning process
-                    quantities = new long[]{7, 9, 11, 13, 15};
-                    int index = episode % quantities.length;
-                    quantity = quantities[index];
-                } else {
-                    quantity = parameter;
-                }
-
+                quantity = 11;
             } else {
-                quantities = new long[]{0, 1, 2};
-                quantity = quantities[random.nextInt( quantities.length)];
+                quantity = 1;
             }
 //          if (quantity > 0) {
             lifetime = lifetimes[random.nextInt( lifetimes.length)];

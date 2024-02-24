@@ -275,7 +275,7 @@ public class ExpResourceType {
 
         boolean loadGraph = true;
         int numberOfAgents = 8;
-        int numberOfEpisodes = 1000;
+        int numberOfEpisodes = 1;
 
         SimEngResourceType simulationEngine1, simulationEngine2;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -320,11 +320,10 @@ public class ExpResourceType {
 
             Integer[][] scaleFreeAdjacency = SimEngResourceType.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
-            for (long param = 0; param <= 0; param+=2) {
+            for (int param = 8; param <= 8; param += 2) {
 
-                simulationEngine1 = new SimEngResourceType( param, agentType1);
-                simulationEngine1.maxTaskNumPerAgent = 4;
-                simulationEngine1.maxRequestQuantity = 16;
+                simulationEngine1 = new SimEngResourceType( agentType1, 4, 8, param);
+                simulationEngine1.maxResourceTypesNum = 8;
 
                 String logFileMaster1 = "logs/" + "Master-" + agentType1 + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
 //                String logFileMaster2 = "logs/" + "Master-" + agentType2 + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
@@ -342,7 +341,7 @@ public class ExpResourceType {
                     AgentController agentController1, agentController2;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster1, resultFileCen, resultFileDec, agentType1, simulationEngine1.maxTaskNumPerAgent});
+                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster1, resultFileCen, resultFileDec, agentType1, simulationEngine1.maxTaskNumPerAgent, simulationEngine1.resourceTypesNum, simulationEngine1.maxResourceTypesNum, trainedModelPath});
                             agentController1.start();
 //                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileMaster2, resultFile2, agentType2});
 //                            agentController2.start();

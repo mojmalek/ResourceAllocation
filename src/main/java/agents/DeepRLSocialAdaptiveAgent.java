@@ -271,7 +271,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     void createOfferingNeuralNet() {
 
-        offeringReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 16, new DefaultRandom()));
+        offeringReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
 
         if (loadTrainedModel) {
             int myId = Integer.valueOf(this.getLocalName().replace(agentType, ""));
@@ -421,7 +421,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         expireTasks( myAgent);
 
-        SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent);
+        SortedSet<Task> newTasks = simulationEngine.findTasks( myAgent, episode);
         if (newTasks.size() > 0) {
             toDoTasks.addAll(newTasks);
             sendNewTasksToMasterAgent (newTasks, myAgent);
