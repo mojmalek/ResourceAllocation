@@ -54,7 +54,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     private int numberOfAgents;
     private long maxRequestQuantity;
     private long offeringStateVectorSize, confirmingStateVectorSize;
-    private int packageSize = 10;
+    private int packageSize;
 
     private Map<ResourceType, SortedSet<ResourceItem>> availableResources = new LinkedHashMap<>();
     private Map<ResourceType, SortedSet<ResourceItem>> expiredResources = new LinkedHashMap<>();
@@ -1250,9 +1250,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                     if (request.sender.equals(aid)) {
                         long cost;
                         for (long q = 1; q <= request.utilityFunction.size(); q++) {
-                            if (request.utilityFunction.get(q) == null) {
-                                System.out.println();
-                            }
                             long util = request.utilityFunction.get(q);
                             if (q <= availableQuantity) {
                                 cost = utilityOfResources(resourceType, availableQuantity) - utilityOfResources(resourceType, availableQuantity - q);
@@ -1318,10 +1315,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
     OfferingAction selectEpsilonGreedyOfferingAction(OfferingState state) {
 
-//        if (this.getLocalName().contains("9") && state.requests.size() == 1) {
-//            System.out.println();
-//        }
-
         OfferingAction selectedAction = null;
         Random random = new Random();
         double r = random.nextDouble();
@@ -1351,9 +1344,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 }
             }
         }
-//        if (selectedAction == null) {
-//            System.out.println();
-//        }
+
         return selectedAction;
     }
 
@@ -1389,9 +1380,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 }
             }
         }
-//        if (selectedAction == null) {
-//            System.out.println();
-//        }
+
         return selectedAction;
     }
 
@@ -1908,23 +1897,26 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         // The (original) requester pays the immediate transfer cost. When the request has been cascaded, any subsequent transfer cost is paid by the corresponding middle agent(s) who cascaded the request.
         // since we compute social welfare of all agents, we can incur the transfer cost locally
-        double transferCost = 0;
 
+        if (learning) {
+            int[] packageSizes = new int[]{1, 2, 3, 4, 5};
+            int index = episode % packageSizes.length;
+            packageSize = packageSizes[index];
+        }
+        double transferCost = 0;
         if (quantity > 0) {
             String providerName = neighbor.getLocalName();
             String providerId = providerName.replace(agentType, "");
             int i = Integer.valueOf(providerId);
             int distance = adjacency[i - 1];
 
-            long numberOfPackages;
-            if (quantity < packageSize) {
-                numberOfPackages = 1;
-            } else {
-                numberOfPackages = quantity / packageSize;
+            long numberOfPackages = quantity / packageSize;
+            if (quantity % packageSize > 0) {
+                numberOfPackages += 1;
             }
 
-//            transferCost = distance * numberOfPackages;
-            transferCost = distance * 1;
+            transferCost = distance * numberOfPackages;
+//            transferCost = distance * 1;
 
             //TODO: define transfer cost per resource type
             if (resourceType == ResourceType.A) {

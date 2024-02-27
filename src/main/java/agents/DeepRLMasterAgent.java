@@ -52,7 +52,7 @@ public class DeepRLMasterAgent extends Agent {
 
     private long totalUtil, totalTransferCost;
     private int numberOfEpisodes, episode, numberOfAgents, maxTaskNumPerAgent, resourceTypesNum, maxResourceTypesNum, masterStateVectorSize;
-    private int packageSize = 10;
+    private int packageSize;
 
     Integer[][] adjacency;
     Graph<String, DefaultWeightedEdge> graph;
@@ -468,25 +468,6 @@ public class DeepRLMasterAgent extends Agent {
 //            System.out.println( "Round: " + round + " selected manager: " + selectedManager.getLocalName() + " task util: " + selectedTask.utility + " transferCost: " + transferCost);
 
             MasterAction action = new MasterAction( selectedTask, selectedManager);
-
-//            double transferCost;
-//            double reward = 0;
-//            for (Task task : toDoAgentTasks.get(selectedManager)) {
-//                if (hasEnoughResources(task, agentAvailableResources)) {
-//                    transferCost = processTask(task);
-//                    doneTasks.add(task);
-//                    totalUtil += task.utility;
-//                    totalUtil -= (long) transferCost;
-//                    totalTransferCost += (long) transferCost;
-//                    reward += (double) task.utility;
-//                    reward -= transferCost;
-////                    System.out.println( "Round: " + round + " selected manager: " + selectedManager.getLocalName() + " task util: " + task.utility + " transferCost: " + transferCost);
-//                }
-//            }
-//            toDoTasks.removeAll(doneTasks);
-//            toDoAgentTasks.get(selectedManager).removeAll(doneTasks);
-//            MasterAction action = new MasterAction( selectedManager);
-
             MasterStateAction currentStateAction = new MasterStateAction (currentState, action);
 
             if (learning) {
@@ -886,20 +867,23 @@ public class DeepRLMasterAgent extends Agent {
 
     double computeTransferCost(AID taskManager, AID provider, long quantity, ResourceType resourceType) {
 
-        double transferCost = 0;
+        if (learning) {
+            int[] packageSizes = new int[]{1, 2, 3, 4, 5};
+            int index = episode % packageSizes.length;
+            packageSize = packageSizes[index];
+        }
 
+        double transferCost = 0;
         if (quantity > 0) {
             long distance = getDistance(taskManager, provider);
 
-            long numberOfPackages;
-            if (quantity < packageSize) {
-                numberOfPackages = 1;
-            } else {
-                numberOfPackages = (int) quantity / packageSize;
+            long numberOfPackages = quantity / packageSize;
+            if (quantity % packageSize > 0) {
+                numberOfPackages += 1;
             }
 
-//            transferCost = distance * numberOfPackages;
-            transferCost = distance * 1;
+            transferCost = distance * numberOfPackages;
+//            transferCost = distance * 1;
 
             //TODO: define transfer cost per resource type
             if (resourceType == ResourceType.A) {

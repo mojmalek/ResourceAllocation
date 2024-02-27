@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 
 public class ExpResourceRatio {
 
-//    public static boolean inProcess;
 
     public static void main(String[] args) {
         try {
