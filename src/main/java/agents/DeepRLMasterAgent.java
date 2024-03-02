@@ -103,6 +103,7 @@ public class DeepRLMasterAgent extends Agent {
             resourceTypesNum = (int) args[9];
             maxResourceTypesNum = (int) args[10];
             trainedModelPath = (String) args[11];
+            packageSize = (int) args[12];
         }
 
         shortestPathAlgorithm = new DijkstraShortestPath(graph);
@@ -867,11 +868,12 @@ public class DeepRLMasterAgent extends Agent {
 
     double computeTransferCost(AID taskManager, AID provider, long quantity, ResourceType resourceType) {
 
-        if (learning) {
-            int[] packageSizes = new int[]{1, 2, 3, 4, 5};
-            int index = episode % packageSizes.length;
-            packageSize = packageSizes[index];
-        }
+//        if (learning) {
+//            // only for ExpTransferCost
+//            int[] packageSizes = new int[]{1, 2, 3, 4, 5};
+//            int index = episode % packageSizes.length;
+//            packageSize = packageSizes[index];
+//        }
 
         double transferCost = 0;
         if (quantity > 0) {

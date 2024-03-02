@@ -72,7 +72,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     // reqId
     public Map<String, Set<Offer>> receivedOffers = new LinkedHashMap<>();
 
-    private long requestLifetime = 20;
+    private long requestLifetime = 40;
     private long minTimeToCascadeRequest = 0;
     private long minTimeToOffer = 0;
     private long requestTimeoutReduction = 1;
@@ -131,6 +131,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             agentType = (String) args[6];
             maxRequestQuantity = (int) args[7];
             trainedModelPath = (String) args[8];
+            packageSize = (int) args[9];
         }
 
         for (int i = 0; i < adjacency.length; i++) {
@@ -1898,11 +1899,13 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         // The (original) requester pays the immediate transfer cost. When the request has been cascaded, any subsequent transfer cost is paid by the corresponding middle agent(s) who cascaded the request.
         // since we compute social welfare of all agents, we can incur the transfer cost locally
 
-        if (learning) {
-            int[] packageSizes = new int[]{1, 2, 3, 4, 5};
-            int index = episode % packageSizes.length;
-            packageSize = packageSizes[index];
-        }
+//        if (learning) {
+//            // only for ExpTransferCost
+//            int[] packageSizes = new int[]{1, 2, 3, 4, 5};
+//            int index = episode % packageSizes.length;
+//            packageSize = packageSizes[index];
+//        }
+
         double transferCost = 0;
         if (quantity > 0) {
             String providerName = neighbor.getLocalName();
