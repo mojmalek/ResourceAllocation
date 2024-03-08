@@ -25,10 +25,10 @@ public class SimulationEngine {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10",
-                agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
+//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10",
+//                agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
 //        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
-//        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
+        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
 //        Set<String> requesters = Set.of( agentType + "1", agentType + "2", agentType + "3");
 
         int[] taskNums = new int[] {4};
@@ -90,10 +90,10 @@ public class SimulationEngine {
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         long[] quantities;
         long[] lifetimes = new long[] {1};
-        Set<String> offerers = Set.of(agentType + "21", agentType + "22", agentType + "23", agentType + "24", agentType + "25", agentType + "26", agentType + "27", agentType + "28", agentType + "29", agentType + "30",
-                agentType + "31", agentType + "32", agentType + "33", agentType + "34", agentType + "35", agentType + "36", agentType + "37", agentType + "38", agentType + "39", agentType + "40");
+//        Set<String> offerers = Set.of(agentType + "21", agentType + "22", agentType + "23", agentType + "24", agentType + "25", agentType + "26", agentType + "27", agentType + "28", agentType + "29", agentType + "30",
+//                agentType + "31", agentType + "32", agentType + "33", agentType + "34", agentType + "35", agentType + "36", agentType + "37", agentType + "38", agentType + "39", agentType + "40");
 //        Set<String> offerers = Set.of(agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
-//        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
+        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
 //        Set<String> offerers = Set.of(agentType + "4");
         long quantity;
         long lifetime;
@@ -176,7 +176,7 @@ public class SimulationEngine {
         Set<String> edges = new HashSet<>();
         for (int i = 0; i < numberOfAgents; i++) {
             for (int j = i + 1; j < numberOfAgents; j++) {
-                edges.add( String.valueOf(i) + j);
+                edges.add( i + "-" + j);
             }
         }
 
@@ -185,7 +185,7 @@ public class SimulationEngine {
             weight = weights[random.nextInt( weights.length)];
             adjacency[i][i+1] = weight;
             adjacency[i+1][i] = weight;
-            edges.remove(String.valueOf(i) + (i+1));
+            edges.remove(i + "-" + (i+1));
             numberOfEdges--;
         }
 
@@ -193,8 +193,9 @@ public class SimulationEngine {
         while (numberOfEdges > 0) {
             String[] edgeArray = edges.toArray(new String[edges.size()]);
             String edge = edgeArray[random.nextInt(edgeArray.length)];
-            int i = Character.getNumericValue(edge.charAt(0));
-            int j = Character.getNumericValue(edge.charAt(1));
+            String[] nodes = edge.split("-");
+            int i = Integer.parseInt(nodes[0]);
+            int j = Integer.parseInt(nodes[1]);
             weight = weights[random.nextInt( weights.length)];
             adjacency[i][j] = weight;
             adjacency[j][i] = weight;

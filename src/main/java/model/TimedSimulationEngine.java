@@ -182,7 +182,7 @@ public class TimedSimulationEngine {
         Set<String> edges = new HashSet<>();
         for (int i = 0; i < numberOfAgents; i++) {
             for (int j = i + 1; j < numberOfAgents; j++) {
-                edges.add( String.valueOf(i) + j);
+                edges.add( i + "-" + j);
             }
         }
 
@@ -191,7 +191,7 @@ public class TimedSimulationEngine {
             weight = weights[random.nextInt( weights.length)];
             adjacency[i][i+1] = weight;
             adjacency[i+1][i] = weight;
-            edges.remove(String.valueOf(i) + (i+1));
+            edges.remove(i + "-" + (i+1));
             numberOfEdges--;
         }
 
@@ -199,8 +199,9 @@ public class TimedSimulationEngine {
         while (numberOfEdges > 0) {
             String[] edgeArray = edges.toArray(new String[edges.size()]);
             String edge = edgeArray[random.nextInt(edgeArray.length)];
-            int i = Character.getNumericValue(edge.charAt(0));
-            int j = Character.getNumericValue(edge.charAt(1));
+            String[] nodes = edge.split("-");
+            int i = Integer.parseInt(nodes[0]);
+            int j = Integer.parseInt(nodes[1]);
             weight = weights[random.nextInt( weights.length)];
             adjacency[i][j] = weight;
             adjacency[j][i] = weight;

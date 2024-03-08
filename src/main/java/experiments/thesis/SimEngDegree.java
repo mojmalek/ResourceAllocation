@@ -10,8 +10,9 @@ import org.jgrapht.graph.DefaultWeightedEdge;
 
 import java.util.*;
 
-public class SimEngResourceType implements SimEngineI {
+public class SimEngDegree implements SimEngineI {
 
+    int numberOfAgents;
     String agentType;
     int maxTaskNumPerAgent;
     int maxRequestQuantity;
@@ -19,7 +20,8 @@ public class SimEngResourceType implements SimEngineI {
     int maxResourceTypesNum;
 
 
-    public SimEngResourceType(String agentType, int maxTaskNumPerAgent, int maxRequestQuantity, int resourceTypesNum) {
+    public SimEngDegree(int numberOfAgents, String agentType, int maxTaskNumPerAgent, int maxRequestQuantity, int resourceTypesNum) {
+        this.numberOfAgents = numberOfAgents;
         this.agentType = agentType;
         this.maxTaskNumPerAgent = maxTaskNumPerAgent;
         this.maxRequestQuantity = maxRequestQuantity;
@@ -32,61 +34,33 @@ public class SimEngResourceType implements SimEngineI {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-//        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10",
-//                agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
+
+        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
 //        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5", agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
-//        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
-        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4");
 
         int[] taskNums = new int[] {maxTaskNumPerAgent};
         if( requesters.contains(myAgent.getLocalName())) {
             taskNums = new int[] {maxTaskNumPerAgent};
         }
         int numOfTasks = taskNums[random.nextInt( taskNums.length)];
-        long[] requiredQuantities;
         //ToDo: experiment with different utilities for different agents for evaluating the RL approach
         int myId = Integer.valueOf(myAgent.getLocalName().replace(agentType, ""));
-        long[] utilities = new long[] {4, 9, 16, 25};
+        long[] utilities = new long[] {9, 16};
 //        if( requesters.contains(myAgent.getLocalName())) {
 //            utilities = new long[] {20};
 //        }
-        int[] nums = new int[]{2, 4, 6, 8};
-        if (resourceTypesNum == 0) {
-            // in learning process
-            int index = episode % nums.length;
-            resourceTypesNum = nums[index];
-        }
         long quantity, utility;
-        for (int j=0; j<numOfTasks; j++) {
+        for (int j = 0; j < numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
-            for (int i=0; i<resourceTypesNum; i++) {
-                if( requesters.contains(myAgent.getLocalName())) {
-                    if (resourceTypeValues[i] == ResourceType.A) {
-                        requiredQuantities = new long[]{maxRequestQuantity/maxTaskNumPerAgent};
-                    } else {
-                        requiredQuantities = new long[]{maxRequestQuantity/maxTaskNumPerAgent};
-                    }
-                } else {
-                    if (resourceTypeValues[i] == ResourceType.A) {
-                        requiredQuantities = new long[]{maxRequestQuantity/maxTaskNumPerAgent};
-                    } else {
-                        requiredQuantities = new long[]{maxRequestQuantity/maxTaskNumPerAgent};
-                    }
-                }
-                quantity = requiredQuantities[random.nextInt( requiredQuantities.length)];
-                if (quantity > 0) {
-                    requiredResources.put(resourceTypeValues[i], quantity);
-                }
+            for (int i = 0; i < resourceTypesNum; i++) {
+                quantity = 4;
+                requiredResources.put(resourceTypeValues[i], quantity);
             }
             utility = utilities[j];
             String id = UUID.randomUUID().toString();
-            if (!requiredResources.isEmpty()) {
-                Task newTask = new Task(id, utility, 1, requiredResources, myAgent.getAID());
-                newTask.agentType = agentType;
-                tasks.add(newTask);
-            } else {
-//                System.out.println(" ");
-            }
+            Task newTask = new Task(id, utility, 1, requiredResources, myAgent.getAID());
+            newTask.agentType = agentType;
+            tasks.add(newTask);
         }
 
         return tasks;
@@ -98,25 +72,17 @@ public class SimEngResourceType implements SimEngineI {
         Map<ResourceType, SortedSet<ResourceItem>> resources = new LinkedHashMap<>();
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-//        Set<String> offerers = Set.of(agentType + "21", agentType + "22", agentType + "23", agentType + "24", agentType + "25", agentType + "26", agentType + "27", agentType + "28", agentType + "29", agentType + "30",
-//                agentType + "31", agentType + "32", agentType + "33", agentType + "34", agentType + "35", agentType + "36", agentType + "37", agentType + "38", agentType + "39", agentType + "40");
+
+        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
 //        Set<String> offerers = Set.of(agentType + "11", agentType + "12", agentType + "13", agentType + "14", agentType + "15", agentType + "16", agentType + "17", agentType + "18", agentType + "19", agentType + "20");
-//        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
-        Set<String> offerers = Set.of(agentType + "5", agentType + "6", agentType + "7", agentType + "8");
+
         long[] lifetimes = new long[] {1};
-        int[] nums = new int[]{2, 4, 6, 8};
-        if (resourceTypesNum == 0) {
-            // in learning process
-            int index = episode % nums.length;
-            resourceTypesNum = nums[index];
-        }
-        long quantity;
-        long lifetime;
+        long quantity, lifetime;
         for (int i = 0; i < resourceTypesNum; i++) {
             if( offerers.contains(myAgent.getLocalName())) {
-                quantity = 11;
+                quantity = 7;
             } else {
-                quantity = 1;
+                quantity = 3;
             }
 //          if (quantity > 0) {
             lifetime = lifetimes[random.nextInt( lifetimes.length)];
@@ -232,49 +198,20 @@ public class SimEngResourceType implements SimEngineI {
     }
 
 
-//    public Integer[][] computeDistances(Integer[][] socialNetwork) {
-//
-//        Integer[][] distances = new Integer[socialNetwork.length][socialNetwork.length];
-//
-//        for (int i=0; i<socialNetwork.length; i++) {
-//            for (int j=0; j<socialNetwork[i].length; j++) {
-//                if (distances[i][j] == null) {
-//                    if (socialNetwork[i][j] == null) {
-//                        distances[i][j] = computeShortestDistance(socialNetwork, i, j);
-//                    } else {
-//                        // when there is an edge, we consider it as the selected path even if it is not the shortest path
-//                        distances[i][j] = socialNetwork[i][j];
-//                    }
-//                }
-//            }
-//        }
-//
-//        return distances;
-//    }
+    public static Graph<String, DefaultWeightedEdge> generateGraphFromAdjacencyMatrix(Integer[][] adjacency, Graph<String, DefaultWeightedEdge> graph, int numberOfAgents) {
 
+        for (int i = 1; i <= numberOfAgents; i++) {
+            graph.addVertex("" + i);
+        }
+        for (int i = 1; i <= numberOfAgents; i++) {
+            for (int j = i + 1; j <= numberOfAgents; j++) {
+                if (adjacency[i-1][j-1] != null) {
+                    graph.addEdge("" + i, "" + j);
+                }
+            }
+        }
 
-//    int computeShortestDistance( Integer[][] socialNetwork, int source, int destination) {
-//
-//        int shortestDistance = Integer.MAX_VALUE;
-//        Map<Integer, Integer> distancesToSource = new HashMap<>();
-//        Map<Integer, Integer> previousVisit = new HashMap<>();
-//        Set<Integer> visited = new HashSet<>();
-//        Set<Integer> unvisited = new HashSet<>();
-//
-//        for (int i=0; i<socialNetwork.length; i++) {
-//            distancesToSource.put(i, Integer.MAX_VALUE);
-//            unvisited.add( i);
-//        }
-//
-//        distancesToSource.put(source, 0);
-//        visited.add( source);
-//        unvisited.remove(source);
-//
-//        while( unvisited.isEmpty() == false) {
-//
-//        }
-//
-//        return shortestDistance;
-//    }
+        return graph;
+    }
 
 }
