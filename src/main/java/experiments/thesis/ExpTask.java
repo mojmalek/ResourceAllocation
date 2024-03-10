@@ -317,7 +317,7 @@ public class ExpTask {
                 writer.close();
             }
 
-            Integer[][] scaleFreeAdjacency = SimEngResourceRatio.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
+            Integer[][] scaleFreeAdjacency = SimEngTask.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
             for (long param = 1; param <= 4; param += 1) {
 

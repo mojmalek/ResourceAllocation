@@ -7,7 +7,6 @@ import jade.wrapper.AgentController;
 import jade.wrapper.ContainerController;
 import jade.wrapper.StaleProxyException;
 import org.jgrapht.Graph;
-import org.jgrapht.generate.CompleteGraphGenerator;
 import org.jgrapht.generate.ScaleFreeGraphGenerator;
 import org.jgrapht.generate.WattsStrogatzGraphGenerator;
 import org.jgrapht.graph.DefaultWeightedEdge;
@@ -28,7 +27,7 @@ import java.util.*;
 import java.util.function.Supplier;
 
 
-public class ExpTransferCost {
+public class ExpCascading {
 
 
     public static void main(String[] args) {
@@ -39,116 +38,6 @@ public class ExpTransferCost {
 //            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
-        }
-    }
-
-
-    public static void completeSim() throws StaleProxyException {
-
-        int numberOfAgents = 8;
-        int numberOfRounds = 2000;
-//        long duration = 600000;
-//        long currentTime, endTime;
-        SimEngDynamic simulationEngine1, simulationEngine2;
-        Set<AgentController> agentControllers = new HashSet<>();
-
-        String agentType1 = "Complete-NoCas-RL-A";
-        String agentType2 = "Complete-NoCas-A";
-
-//        String resultFileName1 = "logs/results/" + agentType1 + "-" + new Date() + ".txt";
-        String resultFileName2 = "logs/results/" + agentType2 + "-" + new Date() + ".txt";
-
-        for (long param = 8; param <= 8; param+=2) {
-//            logResults(resultFileName1, "");
-//            logResults(resultFileName1, "param = " + param);
-//            logResults(resultFileName1, "");
-//            logResults(resultFileName2, "");
-//            logResults(resultFileName2, "param = " + param);
-//            logResults(resultFileName2, "");
-            simulationEngine1 = new SimEngDynamic( param, agentType1);
-            simulationEngine2 = new SimEngDynamic( param, agentType2);
-            for (int exp = 1; exp <= 1; exp++) {
-//                String logFileNameMaster1 = "logs/" + "Master-" + agentType1 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameMaster2 = "logs/" + "Master-" + agentType2 + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-//                String logFileNameAll1 = "logs/" + "All-" + agentType1  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-                String logFileNameAll2 = "logs/" + "All-" + agentType2  + "-param=" + param + "-exp" + exp + "-" + new Date() + ".txt";
-
-                Runtime rt = Runtime.instance();
-                Profile profile = new ProfileImpl();
-                profile.setParameter(Profile.MAIN_HOST, "localhost");
-//              profile.setParameter(Profile.GUI, "true");
-                ContainerController containerController = rt.createMainContainer(profile);
-
-                Supplier<String> vSupplier = new Supplier<String>() {
-                    private int id = 1;
-                    @Override
-                    public String get() {
-                        return "" + id++;
-                    }
-                };
-
-                Graph<String, DefaultWeightedEdge> completeGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-                // Complete graph
-                CompleteGraphGenerator<String, DefaultWeightedEdge> completeGraphGenerator = new CompleteGraphGenerator<>(numberOfAgents);
-                completeGraphGenerator.generateGraph(completeGraph);
-
-                System.out.println("Complete:");
-                Iterator<String> iter2 = new DepthFirstIterator<>(completeGraph);
-                while (iter2.hasNext()) {
-                    String vertex = iter2.next();
-                    System.out.println(vertex + " is connected to: " + completeGraph.edgesOf(vertex).toString());
-                }
-
-                Integer[][] completeAdjacency = simulationEngine1.generateAdjacencyMatrixFromGraph(completeGraph, numberOfAgents);
-
-                System.out.println("Agent social network adjacency matrix: ");
-                System.out.print("{");
-                for (int i = 0; i < completeAdjacency.length; i++) {
-                    System.out.print("{");
-                    for (int j = 0; j < completeAdjacency[i].length; j++) {
-                        if (completeAdjacency[i][j] == null) {
-                            System.out.print("null, ");
-                        } else {
-                            System.out.print(completeAdjacency[i][j] + ", ");
-                        }
-                    }
-                    System.out.println("}");
-                }
-                System.out.print("}");
-                System.out.println();
-
-                agentControllers.clear();
-//                currentTime = System.currentTimeMillis();
-//                endTime = currentTime + duration;
-                for (int i = 0; i <= numberOfAgents; i++) {
-                    AgentController agentController1, agentController2;
-                    try {
-                        if (i == 0) {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, endTime, completeGraph, completeAdjacency, logFileNameMaster1, resultFileName1, agentType1});
-//                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, completeAdjacency, logFileNameMaster2, resultFileName2, agentType2});
-                            agentController2.start();
-                        } else {
-//                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, endTime, completeAdjacency[i - 1], logFileNameAll1, simulationEngine1, true, agentType1});
-//                            agentController1.start();
-                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.RLNeighborAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, completeAdjacency[i - 1], logFileNameAll2, simulationEngine2, agentType2});
-                            agentController2.start();
-                        }
-//                        agentControllers.add( agentController1);
-                        agentControllers.add( agentController2);
-                    } catch (StaleProxyException e) {
-                        e.printStackTrace();
-                    }
-                }
-
-//                while (currentTime < endTime + 1500) {
-//                    currentTime = System.currentTimeMillis();
-//                }
-//                for( AgentController agentController : agentControllers) {
-//                    agentController.kill();
-//                }
-//                containerController.kill();
-            }
         }
     }
 
@@ -273,21 +162,21 @@ public class ExpTransferCost {
     public static void scaleFreeSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         int numberOfEpisodes = 100;
+        int packageSize = 20;
 
-        SimEngTransferCost simulationEngine1, simulationEngine2;
+        SimEngCascading simEngCascading;
         List<AgentController> agentControllers = new ArrayList<>();
 
-        String agentType1 = "ScaleFree-A";
-//        String agentType2 = "ScaleFree-NoCas-A";
+        String agentType = "ScaleFree-A";
 
-        String resultFileCen = "results/" + agentType1 + "-" + new Date() + "-CEN.txt";
-        String resultFileDec = "results/" + agentType1 + "-" + new Date() + "-DEC.txt";
+        String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
+        String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 5; exp++) {
+        for (int exp = 1; exp <= 10; exp++) {
 
-            String trainedModelPath = "trained_models/transferCost" + numberOfAgents + "scaleFree" + exp;
+            String trainedModelPath = "trained_models/cascading" + numberOfAgents + "scaleFree" + exp;
 
             logResults(resultFileCen, "");
             logResults(resultFileDec, "");
@@ -317,17 +206,15 @@ public class ExpTransferCost {
                 writer.close();
             }
 
-            Integer[][] scaleFreeAdjacency = SimEngTransferCost.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
+            Integer[][] scaleFreeAdjacency = SimEngCascading.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
-            for (int packageSize = 1; packageSize <= 5; packageSize += 1) {
+            for (long param = 3; param <= 11; param += 2) {
 
-                simulationEngine1 = new SimEngTransferCost( agentType1, 2, 10, 2);
-                simulationEngine1.maxResourceTypesNum = 2;
+                simEngCascading = new SimEngCascading( param, agentType, 4, 20, 2);
+                simEngCascading.maxResourceTypesNum = 2;
 
-                String logFileMaster1 = "logs/" + "Master-" + agentType1 + "-exp" + exp + "-param=" + packageSize + "-" + new Date() + ".txt";
-//                String logFileMaster2 = "logs/" + "Master-" + agentType2 + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
-                String logFileAll1 = "logs/" + "All-" + agentType1 + "-exp" + exp + "-param=" + packageSize + "-" + new Date() + ".txt";
-//                String logFileAll2 = "logs/" + "All-" + agentType2 + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
+                String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
+                String logFileAll = "logs/" + "All-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
 
                 Runtime rt = Runtime.instance();
                 Profile profile = new ProfileImpl();
@@ -337,21 +224,16 @@ public class ExpTransferCost {
 
                 agentControllers.clear();
                 for (int i = 0; i <= numberOfAgents; i++) {
-                    AgentController agentController1, agentController2;
+                    AgentController agentController;
                     try {
                         if (i == 0) {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster1, resultFileCen, resultFileDec, agentType1, simulationEngine1.maxTaskNumPerAgent, simulationEngine1.resourceTypesNum, simulationEngine1.maxResourceTypesNum, trainedModelPath, packageSize});
-                            agentController1.start();
-//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfRounds, scaleFreeGraph, scaleFreeAdjacency, logFileMaster2, resultFile2, agentType2});
-//                            agentController2.start();
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngCascading.maxTaskNumPerAgent, simEngCascading.resourceTypesNum, simEngCascading.maxResourceTypesNum, trainedModelPath, packageSize});
+                            agentController.start();
                         } else {
-                            agentController1 = containerController.createNewAgent(agentType1 + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, scaleFreeAdjacency[i - 1], logFileAll1, simulationEngine1, agentType1, simulationEngine1.maxRequestQuantity, trainedModelPath, packageSize});
-                            agentController1.start();
-//                            agentController2 = containerController.createNewAgent(agentType2 + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfRounds, scaleFreeAdjacency[i - 1], logFileAll2, simulationEngine2, agentType2});
-//                            agentController2.start();
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, scaleFreeAdjacency[i - 1], logFileAll, simEngCascading, agentType, simEngCascading.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController.start();
                         }
-                        agentControllers.add( agentController1);
-//                        agentControllers.add( agentController2);
+                        agentControllers.add( agentController);
                     } catch (StaleProxyException e) {
                         e.printStackTrace();
                     }

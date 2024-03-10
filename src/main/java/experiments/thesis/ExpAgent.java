@@ -319,7 +319,7 @@ public class ExpAgent {
                     writer.close();
                 }
 
-                Integer[][] scaleFreeAdjacency = SimEngResourceRatio.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
+                Integer[][] scaleFreeAdjacency = SimEngAgent.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
                 simulationEngine1 = new SimEngAgent( numberOfAgents, agentType1, 2, 4, 2);
                 simulationEngine1.maxResourceTypesNum = 2;
