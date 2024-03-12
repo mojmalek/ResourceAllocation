@@ -123,7 +123,7 @@ public class SimulationEngine {
     }
 
 
-    public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, String agentName) {
+    private SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, String agentName) {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
         String id;
@@ -135,7 +135,7 @@ public class SimulationEngine {
     }
 
 
-    public Integer[][] generateRandomAdjacencyMatrix(int numberOfAgents, double connectivity) {
+    public static Integer[][] generateRandomAdjacencyMatrix(int numberOfAgents, double connectivity) {
 
         Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
         Random random = new Random();
@@ -165,7 +165,7 @@ public class SimulationEngine {
     }
 
 
-    public Integer[][] generateRandomAdjacencyMatrix2(int numberOfAgents, int numberOfEdges) {
+    public static Integer[][] generateRandomAdjacencyMatrix2(int numberOfAgents, int numberOfEdges) {
 
         Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
         Random random = new Random();
@@ -207,7 +207,7 @@ public class SimulationEngine {
     }
 
 
-    public Integer[][] generateAdjacencyMatrixFromGraph (Graph<String, DefaultWeightedEdge > graph, int numberOfAgents) {
+    public static Integer[][] generateAdjacencyMatrixFromGraph(Graph<String, DefaultWeightedEdge> graph, int numberOfAgents) {
 
         Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
 
@@ -226,49 +226,20 @@ public class SimulationEngine {
     }
 
 
-//    public Integer[][] computeDistances(Integer[][] socialNetwork) {
-//
-//        Integer[][] distances = new Integer[socialNetwork.length][socialNetwork.length];
-//
-//        for (int i=0; i<socialNetwork.length; i++) {
-//            for (int j=0; j<socialNetwork[i].length; j++) {
-//                if (distances[i][j] == null) {
-//                    if (socialNetwork[i][j] == null) {
-//                        distances[i][j] = computeShortestDistance(socialNetwork, i, j);
-//                    } else {
-//                        // when there is an edge, we consider it as the selected path even if it is not the shortest path
-//                        distances[i][j] = socialNetwork[i][j];
-//                    }
-//                }
-//            }
-//        }
-//
-//        return distances;
-//    }
+    public static Graph<String, DefaultWeightedEdge> generateGraphFromAdjacencyMatrix(Integer[][] adjacency, Graph<String, DefaultWeightedEdge> graph, int numberOfAgents) {
 
+        for (int i = 1; i <= numberOfAgents; i++) {
+            graph.addVertex("" + i);
+        }
+        for (int i = 1; i <= numberOfAgents; i++) {
+            for (int j = i + 1; j <= numberOfAgents; j++) {
+                if (adjacency[i-1][j-1] != null) {
+                    graph.addEdge("" + i, "" + j);
+                }
+            }
+        }
 
-//    int computeShortestDistance( Integer[][] socialNetwork, int source, int destination) {
-//
-//        int shortestDistance = Integer.MAX_VALUE;
-//        Map<Integer, Integer> distancesToSource = new HashMap<>();
-//        Map<Integer, Integer> previousVisit = new HashMap<>();
-//        Set<Integer> visited = new HashSet<>();
-//        Set<Integer> unvisited = new HashSet<>();
-//
-//        for (int i=0; i<socialNetwork.length; i++) {
-//            distancesToSource.put(i, Integer.MAX_VALUE);
-//            unvisited.add( i);
-//        }
-//
-//        distancesToSource.put(source, 0);
-//        visited.add( source);
-//        unvisited.remove(source);
-//
-//        while( unvisited.isEmpty() == false) {
-//
-//        }
-//
-//        return shortestDistance;
-//    }
+        return graph;
+    }
 
 }

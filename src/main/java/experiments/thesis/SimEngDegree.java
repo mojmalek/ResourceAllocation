@@ -95,7 +95,7 @@ public class SimEngDegree implements SimEngineI {
     }
 
 
-    public SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, String agentName) {
+    private SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, String agentName) {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
         String id;
@@ -104,114 +104,6 @@ public class SimEngDegree implements SimEngineI {
             resourceItems.add(new ResourceItem (id, resourceType, lifeTime));
         }
         return resourceItems;
-    }
-
-
-    public Integer[][] generateRandomAdjacencyMatrix(int numberOfAgents, double connectivity) {
-
-        Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
-        Random random = new Random();
-        int[] weights = new int[] {1};
-        int weight;
-
-        // first connect each agent to its next
-        for (int i = 0; i < numberOfAgents-1; i++) {
-            weight = weights[random.nextInt( weights.length)];
-            adjacency[i][i+1] = weight;
-            adjacency[i+1][i] = weight;
-        }
-
-        // then consider connecting more agents based on the degree of connectivity
-        for (int i = 0; i < numberOfAgents-1; i++) {
-            for (int j = i+2; j < numberOfAgents; j++) {
-                double r = random.nextDouble();
-                if (r < connectivity) {
-                    weight = weights[random.nextInt( weights.length)];
-                    adjacency[i][j] = weight;
-                    adjacency[j][i] = weight;
-                }
-            }
-        }
-
-        return adjacency;
-    }
-
-
-    public Integer[][] generateRandomAdjacencyMatrix2(int numberOfAgents, int numberOfEdges) {
-
-        Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
-        Random random = new Random();
-        int[] weights = new int[] {1};
-        int weight;
-
-        // all possible edges
-        Set<String> edges = new HashSet<>();
-        for (int i = 0; i < numberOfAgents; i++) {
-            for (int j = i + 1; j < numberOfAgents; j++) {
-                edges.add( i + "-" + j);
-            }
-        }
-
-        // first connect each agent to its next
-        for (int i = 0; i < numberOfAgents-1; i++) {
-            weight = weights[random.nextInt( weights.length)];
-            adjacency[i][i+1] = weight;
-            adjacency[i+1][i] = weight;
-            edges.remove(i + "-" + (i+1));
-            numberOfEdges--;
-        }
-
-        // then randomly add more edges
-        while (numberOfEdges > 0) {
-            String[] edgeArray = edges.toArray(new String[edges.size()]);
-            String edge = edgeArray[random.nextInt(edgeArray.length)];
-            String[] nodes = edge.split("-");
-            int i = Integer.parseInt(nodes[0]);
-            int j = Integer.parseInt(nodes[1]);
-            weight = weights[random.nextInt( weights.length)];
-            adjacency[i][j] = weight;
-            adjacency[j][i] = weight;
-            edges.remove(edge);
-            numberOfEdges--;
-        }
-
-        return adjacency;
-    }
-
-
-    public static Integer[][] generateAdjacencyMatrixFromGraph(Graph<String, DefaultWeightedEdge> graph, int numberOfAgents) {
-
-        Integer[][] adjacency = new Integer[numberOfAgents][numberOfAgents];
-
-        for (int i = 1; i <= numberOfAgents; i++) {
-            for (int j = i + 1; j <= numberOfAgents; j++) {
-                DefaultWeightedEdge edge = graph.getEdge(""+i, ""+j);
-                if (edge != null) {
-//                    System.out.println(graph.getEdgeWeight(edge));
-                    adjacency[i-1][j-1] = (int) graph.getEdgeWeight(edge);
-                    adjacency[j-1][i-1] = (int) graph.getEdgeWeight(edge);
-                }
-            }
-        }
-
-        return adjacency;
-    }
-
-
-    public static Graph<String, DefaultWeightedEdge> generateGraphFromAdjacencyMatrix(Integer[][] adjacency, Graph<String, DefaultWeightedEdge> graph, int numberOfAgents) {
-
-        for (int i = 1; i <= numberOfAgents; i++) {
-            graph.addVertex("" + i);
-        }
-        for (int i = 1; i <= numberOfAgents; i++) {
-            for (int j = i + 1; j <= numberOfAgents; j++) {
-                if (adjacency[i-1][j-1] != null) {
-                    graph.addEdge("" + i, "" + j);
-                }
-            }
-        }
-
-        return graph;
     }
 
 }
