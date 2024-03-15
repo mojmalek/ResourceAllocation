@@ -262,8 +262,7 @@ public class ExpAgent {
                     }
                 };
 
-                int numberOfEdges = degree * numberOfAgents / 2;
-                Integer[][] randomAdjacency = SimulationEngine.generateRandomAdjacencyMatrix2(numberOfAgents, numberOfEdges);
+                Integer[][] randomAdjacency;
                 Graph<String, DefaultWeightedEdge> randomGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
                 String graphFileName = "graphs/" + numberOfAgents + "random" + "-d" + degree + "-" + exp;
                 if (loadGraph) {
@@ -271,18 +270,18 @@ public class ExpAgent {
                     Reader reader = new FileReader(graphFileName);
                     importer.importGraph(randomGraph, reader);
                     reader.close();
+                    randomAdjacency = SimulationEngine.generateAdjacencyMatrixFromGraph(randomGraph, numberOfAgents);
                 } else {
-//                    RandomRegularGraphGenerator<String, DefaultWeightedEdge> randomGraphGenerator = new RandomRegularGraphGenerator<>(numberOfAgents, degree);
-//                    randomGraphGenerator.generateGraph(randomGraph);
+//                RandomRegularGraphGenerator<String, DefaultWeightedEdge> randomGraphGenerator = new RandomRegularGraphGenerator<>(numberOfAgents, degree);
+//                randomGraphGenerator.generateGraph(randomGraph);
+                    int numberOfEdges = degree * numberOfAgents / 2;
+                    randomAdjacency = SimulationEngine.generateRandomAdjacencyMatrix2(numberOfAgents, numberOfEdges);
                     randomGraph = SimulationEngine.generateGraphFromAdjacencyMatrix(randomAdjacency, randomGraph, numberOfAgents);
-
                     GraphExporter<String, DefaultWeightedEdge> exporter = new DOTExporter<>();
                     Writer writer = new FileWriter(graphFileName);
                     exporter.exportGraph(randomGraph, writer);
                     writer.close();
                 }
-
-//                Integer[][] randomAdjacency = SimEngDegree.generateAdjacencyMatrixFromGraph(randomGraph, numberOfAgents);
 
                 simEngAgent = new SimEngAgent( numberOfAgents, agentType, 2, 4, 2);
                 simEngAgent.maxResourceTypesNum = 2;

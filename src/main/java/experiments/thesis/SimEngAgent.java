@@ -5,8 +5,6 @@ import model.ResourceItem;
 import model.ResourceType;
 import model.SimEngineI;
 import model.Task;
-import org.jgrapht.Graph;
-import org.jgrapht.graph.DefaultWeightedEdge;
 
 import java.util.*;
 
