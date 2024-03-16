@@ -123,8 +123,8 @@ public class DeepRLMasterAgent extends Agent {
                 alpha = 0.000001;
             }
 //            masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
-            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
-//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
+//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
+            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
             createNeuralNet();
             scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
             if (numberOfEpisodes == 5000) {
@@ -569,12 +569,14 @@ public class DeepRLMasterAgent extends Agent {
             for (Task task : toDoAgentTasks.get(aid)) {
 //                tasksMatrix.putScalar(i, j, 1);
                 utilitiesMatrix.putScalar(i, j, task.utility);
-                for (int k = 0; k < resourceTypesNum; k++) {
-                    requirementsTensor.putScalar(i, j, k, task.requiredResources.get(resourceTypeValues[k]));
+                for (int k = 0; k < maxResourceTypesNum; k++) {
+                    if (task.requiredResources.containsKey(resourceTypeValues[k])) {
+                        requirementsTensor.putScalar(i, j, k, task.requiredResources.get(resourceTypeValues[k]));
+                    }
                 }
                 j++;
             }
-            for (int k = 0; k < resourceTypesNum; k++) {
+            for (int k = 0; k < maxResourceTypesNum; k++) {
                 if (agentAvailableResources.get(aid).containsKey(resourceTypeValues[k])) {
                     resourcesMatrix.putScalar(i, k, agentAvailableResources.get(aid).get(resourceTypeValues[k]).size());
                 }
@@ -582,8 +584,8 @@ public class DeepRLMasterAgent extends Agent {
         }
 
 //        INDArray stateVector = Nd4j.hstack(tasksMatrix.ravel(), utilitiesMatrix.ravel(), requirementsTensor.ravel(), resourcesMatrix.ravel());
-        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), requirementsTensor.ravel(), resourcesMatrix.ravel());
-//        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), resourcesMatrix.ravel());
+//        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), requirementsTensor.ravel(), resourcesMatrix.ravel());
+        INDArray stateVector = Nd4j.hstack(utilitiesMatrix.ravel(), resourcesMatrix.ravel());
         INDArray reshapedInput = stateVector.reshape(1, stateVector.length());
         Observation observation = new Observation(reshapedInput);
 
