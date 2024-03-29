@@ -18,12 +18,6 @@ public class SimEngDynamic implements SimEngineI {
     int maxResourceTypesNum;
 
 
-    public SimEngDynamic(long parameter, String agentType) {
-        this.parameter = parameter;
-        this.agentType = agentType;
-    }
-
-
     public SimEngDynamic(long parameter, String agentType, int maxTaskNumPerAgent, int maxRequestQuantity, int resourceTypesNum) {
         this.parameter = parameter;
         this.agentType = agentType;

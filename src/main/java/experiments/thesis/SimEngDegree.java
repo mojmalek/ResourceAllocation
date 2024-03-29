@@ -51,7 +51,7 @@ public class SimEngDegree implements SimEngineI {
         for (int j = 0; j < numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i = 0; i < resourceTypesNum; i++) {
-                quantity = 4;
+                quantity = 2;
                 requiredResources.put(resourceTypeValues[i], quantity);
             }
             utility = utilities[j];
@@ -78,9 +78,9 @@ public class SimEngDegree implements SimEngineI {
         long quantity, lifetime;
         for (int i = 0; i < resourceTypesNum; i++) {
             if( offerers.contains(myAgent.getLocalName())) {
-                quantity = 7;
+                quantity = 5;
             } else {
-                quantity = 3;
+                quantity = 1;
             }
 //          if (quantity > 0) {
             lifetime = lifetimes[random.nextInt( lifetimes.length)];

@@ -73,7 +73,7 @@ public class ExpCascading {
             };
 
             Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + exp;
+            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + "-d" + degree + "-" + exp;
             if (loadGraph) {
                 GraphImporter<String, DefaultWeightedEdge> importer = new DOTImporter<>();
                 Reader reader = new FileReader(graphFileName);
@@ -248,7 +248,7 @@ public class ExpCascading {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 10; exp++) {
+        for (int exp = 6; exp <= 10; exp++) {
 
             String trainedModelPath = "trained_models/cascading" + numberOfAgents + "random" + exp;
 

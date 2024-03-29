@@ -55,13 +55,13 @@ public class ExpDegree {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (degree = 2; degree <= 6; degree += 1) {
+        for (degree = 2; degree <= 8; degree += 2) {
 
             logResults(resultFileCen, "");
             logResults(resultFileDec, "");
 
-            simEngDegree = new SimEngDegree( numberOfAgents, agentType, 2, 10, 4);
-            simEngDegree.maxResourceTypesNum = 4;
+            simEngDegree = new SimEngDegree( numberOfAgents, agentType, 2, 10, 2);
+            simEngDegree.maxResourceTypesNum = 2;
 
             for (int exp = 1; exp <= 10; exp++) {
 
@@ -151,13 +151,13 @@ public class ExpDegree {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (degree = 2; degree <= 6; degree += 1) {
+        for (degree = 2; degree <= 8; degree += 2) {
 
             logResults(resultFileCen, "");
             logResults(resultFileDec, "");
 
-            simEngDegree = new SimEngDegree( numberOfAgents, agentType, 2, 10, 4);
-            simEngDegree.maxResourceTypesNum = 4;
+            simEngDegree = new SimEngDegree( numberOfAgents, agentType, 2, 10, 2);
+            simEngDegree.maxResourceTypesNum = 2;
 
             for (int exp = 1; exp <= 10; exp++) {
 

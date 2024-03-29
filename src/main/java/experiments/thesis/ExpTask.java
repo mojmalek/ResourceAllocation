@@ -73,7 +73,7 @@ public class ExpTask {
             };
 
             Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + exp;
+            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + "-d" + degree + "-" + exp;
             if (loadGraph) {
                 GraphImporter<String, DefaultWeightedEdge> importer = new DOTImporter<>();
                 Reader reader = new FileReader(graphFileName);

@@ -73,7 +73,7 @@ public class ExpResourceType {
             };
 
             Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + exp;
+            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + "-d" + degree + "-" + exp;
             if (loadGraph) {
                 GraphImporter<String, DefaultWeightedEdge> importer = new DOTImporter<>();
                 Reader reader = new FileReader(graphFileName);
@@ -186,7 +186,7 @@ public class ExpResourceType {
 
             Integer[][] scaleFreeAdjacency = SimulationEngine.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
-            for (int param = 8; param <= 8; param += 2) {
+            for (int param = 2; param <= 8; param += 2) {
 
                 simEngResourceType = new SimEngResourceType( agentType, 4, 8, param);
                 simEngResourceType.maxResourceTypesNum = 8;

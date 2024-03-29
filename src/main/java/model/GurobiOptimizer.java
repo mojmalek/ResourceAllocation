@@ -128,16 +128,16 @@ public class GurobiOptimizer {
 
             // Display results
             System.out.println("Objective Value: " + model.get(GRB.DoubleAttr.ObjVal));
-            for (int j = 0; j < numTasks; j++) {
-                System.out.println("Task " + (j + 1) + ": " + y[j].get(GRB.DoubleAttr.X));
-            }
-            for (int i = 0; i < numAgents; i++) {
-                for (int j = 0; j < numTasks; j++) {
-                    for (int k = 0; k < numResourceTypes; k++) {
-                        System.out.println("Agent " + (i + 1) + " for Task " + (j + 1) + " with Resource: " + (k + 1) + " x: " + x[i][j][k].get(GRB.DoubleAttr.X) + " xPositive: " + xPositive[i][j][k].get(GRB.DoubleAttr.X));
-                    }
-                }
-            }
+//            for (int j = 0; j < numTasks; j++) {
+//                System.out.println("Task " + (j + 1) + ": " + y[j].get(GRB.DoubleAttr.X));
+//            }
+//            for (int i = 0; i < numAgents; i++) {
+//                for (int j = 0; j < numTasks; j++) {
+//                    for (int k = 0; k < numResourceTypes; k++) {
+//                        System.out.println("Agent " + (i + 1) + " for Task " + (j + 1) + " with Resource: " + (k + 1) + " x: " + x[i][j][k].get(GRB.DoubleAttr.X) + " xPositive: " + xPositive[i][j][k].get(GRB.DoubleAttr.X));
+//                    }
+//                }
+//            }
 
             objectiveValue = model.get(GRB.DoubleAttr.ObjVal);
 

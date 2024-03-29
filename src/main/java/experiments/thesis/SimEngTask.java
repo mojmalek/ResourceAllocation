@@ -50,11 +50,12 @@ public class SimEngTask implements SimEngineI {
         if( requesters.contains(myAgent.getLocalName())) {
             utilities = new long[] {5};
         }
-        long utility;
+        long quantity, utility;
         for (int j = 0; j < numOfTasks; j++) {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i = 0; i < resourceTypesNum; i++) {
-                requiredResources.put(resourceTypeValues[i], (long) (maxRequestQuantity/maxTaskNumPerAgent));
+                quantity = 2;
+                requiredResources.put(resourceTypeValues[i], quantity);
             }
             utility = utilities[random.nextInt( utilities.length)];
             String id = UUID.randomUUID().toString();

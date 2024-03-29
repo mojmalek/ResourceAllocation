@@ -123,8 +123,8 @@ public class DeepRLMasterAgent extends Agent {
                 alpha = 0.000001;
             }
 //            masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
-//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
-            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
+            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
+//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
             createNeuralNet();
             scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
             if (numberOfEpisodes == 5000) {
@@ -504,7 +504,7 @@ public class DeepRLMasterAgent extends Agent {
             int hl1 = firstHiddenLayerSize(outputNum);
             // Hidden Layer 2: Around half of the previous hidden layer
             int hl2 = hl1 / 2;
-//            int hl3 = hl2 / 2;
+            int hl3 = hl2 / 2;
             MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                     .seed(123)
                     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
@@ -523,13 +523,13 @@ public class DeepRLMasterAgent extends Agent {
                             .nOut(hl2)
                             .activation(Activation.RELU)
                             .build())
-//                    .layer(new DenseLayer.Builder()
-//                            .nIn(hl2)
-//                            .nOut(hl3)
-//                            .activation(Activation.RELU)
-//                            .build())
-                    .layer( new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
+                    .layer(new DenseLayer.Builder()
                             .nIn(hl2)
+                            .nOut(hl3)
+                            .activation(Activation.RELU)
+                            .build())
+                    .layer( new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
+                            .nIn(hl3)
                             .nOut(outputNum)
                             .activation(Activation.IDENTITY)
                             .build())

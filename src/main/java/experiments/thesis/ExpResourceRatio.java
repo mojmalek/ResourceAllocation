@@ -73,7 +73,7 @@ public class ExpResourceRatio {
             };
 
             Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + exp;
+            String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + "-d" + degree + "-" + exp;
             if (loadGraph) {
                 GraphImporter<String, DefaultWeightedEdge> importer = new DOTImporter<>();
                 Reader reader = new FileReader(graphFileName);
@@ -286,7 +286,7 @@ public class ExpResourceRatio {
 
             for (long param = 7; param <= 15; param += 2) {
 
-                simEngResourceRatio = new SimEngResourceRatio( param, agentType, 4, 8, 2);
+                simEngResourceRatio = new SimEngResourceRatio( param, agentType, 4, 10, 2);
                 simEngResourceRatio.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";

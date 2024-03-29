@@ -46,7 +46,7 @@ public class ExpAgent {
         boolean loadGraph = true;
         int numberOfEpisodes = 1;
         int packageSize = 20;
-        int degree = 2;
+        int degree;
 
         SimEngAgent simEngAgent;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -57,6 +57,20 @@ public class ExpAgent {
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
         for (int numberOfAgents = 8; numberOfAgents <= 40; numberOfAgents += 8) {
+
+            if (numberOfAgents == 8) {
+                degree = 2;
+            } else if (numberOfAgents == 16) {
+                degree = 4;
+            } else if (numberOfAgents == 24) {
+                degree = 6;
+            } else if (numberOfAgents == 32) {
+                degree = 8;
+            } else if (numberOfAgents == 40) {
+                degree = 10;
+            } else {
+                degree = 2;
+            }
 
             logResults(resultFileCen, "");
             logResults(resultFileDec, "");
@@ -74,7 +88,7 @@ public class ExpAgent {
                 };
 
                 Graph<String, DefaultWeightedEdge> smallWorldGraph = new SimpleWeightedGraph<>(vSupplier, SupplierUtil.createDefaultWeightedEdgeSupplier());
-                String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + exp;
+                String graphFileName = "graphs/" + numberOfAgents + "smallWorld" + "-d" + degree + "-" + exp;
                 if (loadGraph) {
                     GraphImporter<String, DefaultWeightedEdge> importer = new DOTImporter<>();
                     Reader reader = new FileReader(graphFileName);
@@ -235,7 +249,7 @@ public class ExpAgent {
         boolean loadGraph = true;
         int numberOfEpisodes = 1;
         int packageSize = 20;
-        int degree = 2;
+        int degree;
 
         SimEngAgent simEngAgent;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -246,6 +260,20 @@ public class ExpAgent {
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
         for (int numberOfAgents = 8; numberOfAgents <= 40; numberOfAgents += 8) {
+
+            if (numberOfAgents == 8) {
+                degree = 2;
+            } else if (numberOfAgents == 16) {
+                degree = 4;
+            } else if (numberOfAgents == 24) {
+                degree = 6;
+            } else if (numberOfAgents == 32) {
+                degree = 8;
+            } else if (numberOfAgents == 40) {
+                degree = 10;
+            } else {
+                degree = 2;
+            }
 
             logResults(resultFileCen, "");
             logResults(resultFileDec, "");

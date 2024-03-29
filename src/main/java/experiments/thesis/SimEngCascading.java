@@ -56,9 +56,7 @@ public class SimEngCascading implements SimEngineI {
             Map<ResourceType, Long> requiredResources = new LinkedHashMap<>();
             for (int i = 0; i < resourceTypesNum; i++) {
                 quantity = 2;
-                if (quantity > 0) {
-                    requiredResources.put(resourceTypeValues[i], quantity);
-                }
+                requiredResources.put(resourceTypeValues[i], quantity);
             }
             utility = utilities[j];
             String id = UUID.randomUUID().toString();
