@@ -44,10 +44,10 @@ public class ExpDynamic {
     public static void smallWorldSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         int numberOfEpisodes = 1000;
         int packageSize = 20;
-        int degree = 2;
+        int degree = 4;
 
         SimEngDynamic simEngDynamic;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -57,7 +57,7 @@ public class ExpDynamic {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 5; exp++) {
+        for (int exp = 1; exp <= 1; exp++) {
 
             String trainedModelPath = "trained_models/dynamic" + numberOfAgents + "smallWorld" + exp;
 
@@ -93,7 +93,7 @@ public class ExpDynamic {
 
             for (long param = 7; param <= 15; param += 2) {
 
-                simEngDynamic = new SimEngDynamic( param, agentType, 4, 16, 2);
+                simEngDynamic = new SimEngDynamic( param, agentType, 4, 8, 2);
                 simEngDynamic.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
@@ -140,7 +140,7 @@ public class ExpDynamic {
     public static void scaleFreeSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         int numberOfEpisodes = 1000;
         int packageSize = 20;
 
@@ -188,7 +188,7 @@ public class ExpDynamic {
 
             for (long param = 7; param <= 15; param += 2) {
 
-                simEngDynamic = new SimEngDynamic( param, agentType, 4, 16, 2);
+                simEngDynamic = new SimEngDynamic( param, agentType, 4, 8, 2);
                 simEngDynamic.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
@@ -235,10 +235,10 @@ public class ExpDynamic {
     public static void randomSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         int numberOfEpisodes = 1000;
         int packageSize = 20;
-        int degree = 2;
+        int degree = 4;
 
         SimEngDynamic simEngDynamic;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -286,7 +286,7 @@ public class ExpDynamic {
 
             for (long param = 7; param <= 15; param += 2) {
 
-                simEngDynamic = new SimEngDynamic( param, agentType, 4, 16, 2);
+                simEngDynamic = new SimEngDynamic( param, agentType, 4, 8, 2);
                 simEngDynamic.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";

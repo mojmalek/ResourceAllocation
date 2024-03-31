@@ -123,8 +123,8 @@ public class DeepRLMasterAgent extends Agent {
                 alpha = 0.000001;
             }
 //            masterStateVectorSize = 2 * numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
-            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
-//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
+//            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
+            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
             createNeuralNet();
             scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
             if (numberOfEpisodes == 5000) {
