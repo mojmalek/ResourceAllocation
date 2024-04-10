@@ -30,7 +30,7 @@ public class SimEngTransferCost implements SimEngineI {
         SortedSet<Task> tasks = new TreeSet<>(new Task.taskComparator());
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
-        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4");
+        Set<String> requesters = Set.of(agentType + "1", agentType + "2", agentType + "3", agentType + "4", agentType + "5");
 
         int[] taskNums = new int[] {maxTaskNumPerAgent};
         if( requesters.contains(myAgent.getLocalName())) {
@@ -67,7 +67,7 @@ public class SimEngTransferCost implements SimEngineI {
         Random random = new Random();
         ResourceType[] resourceTypeValues = ResourceType.getValues();
         long[] lifetimes = new long[] {1};
-        Set<String> offerers = Set.of(agentType + "5", agentType + "6", agentType + "7", agentType + "8");
+        Set<String> offerers = Set.of(agentType + "6", agentType + "7", agentType + "8", agentType + "9", agentType + "10");
         long quantity;
         long lifetime;
         for (int i = 0; i < resourceTypesNum; i++) {

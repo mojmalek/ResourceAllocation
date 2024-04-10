@@ -44,10 +44,10 @@ public class ExpTransferCost {
     public static void smallWorldSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         int numberOfEpisodes = 100;
         int packageSize;
-        int degree = 2;
+        int degree = 4;
 
         SimEngTransferCost simEngTransferCost;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -57,7 +57,7 @@ public class ExpTransferCost {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 5; exp++) {
+        for (int exp = 1; exp <= 1; exp++) {
 
             String trainedModelPath = "trained_models/transferCost" + numberOfAgents + "smallWorld" + exp;
 
@@ -93,7 +93,7 @@ public class ExpTransferCost {
 
             for (packageSize = 1; packageSize <= 5; packageSize += 1) {
 
-                simEngTransferCost = new SimEngTransferCost( agentType, 2, 10, 2);
+                simEngTransferCost = new SimEngTransferCost( agentType, 2, 8, 2);
                 simEngTransferCost.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + packageSize + "-" + new Date() + ".txt";
@@ -140,7 +140,7 @@ public class ExpTransferCost {
     public static void scaleFreeSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         int numberOfEpisodes = 100;
         int packageSize;
 
@@ -188,7 +188,7 @@ public class ExpTransferCost {
 
             for (packageSize = 1; packageSize <= 5; packageSize += 1) {
 
-                simEngTransferCost = new SimEngTransferCost( agentType, 2, 10, 2);
+                simEngTransferCost = new SimEngTransferCost( agentType, 2, 8, 2);
                 simEngTransferCost.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + packageSize + "-" + new Date() + ".txt";
@@ -235,10 +235,10 @@ public class ExpTransferCost {
     public static void randomSim() throws StaleProxyException, IOException {
 
         boolean loadGraph = true;
-        int numberOfAgents = 8;
+        int numberOfAgents = 10;
         int numberOfEpisodes = 100;
         int packageSize;
-        int degree = 2;
+        int degree = 4;
 
         SimEngTransferCost simEngTransferCost;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -286,7 +286,7 @@ public class ExpTransferCost {
 
             for (packageSize = 1; packageSize <= 5; packageSize += 1) {
 
-                simEngTransferCost = new SimEngTransferCost( agentType, 2, 10, 2);
+                simEngTransferCost = new SimEngTransferCost( agentType, 2, 8, 2);
                 simEngTransferCost.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + packageSize + "-" + new Date() + ".txt";
