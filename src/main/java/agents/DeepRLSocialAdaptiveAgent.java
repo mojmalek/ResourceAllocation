@@ -27,7 +27,6 @@ import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.rng.DefaultRandom;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.io.*;
@@ -83,20 +82,20 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     private int errorCount;
 
     private double offeringEpsilon = 1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
-    private double offeringAlpha = 0.1; // Learning rate
+    private double offeringAlpha = 0.0001; // Learning rate
     private final double offeringGamma = 0.95; // Discount factor - 0 looks in the near future, 1 looks in the distant future
     private double confirmingEpsilon = 1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
-    private double confirmingAlpha = 0.1; // Learning rate
+    private double confirmingAlpha = 0.0001; // Learning rate
     private final double confirmingGamma = 0.95; // Discount factor - 0 looks in the near future, 1 looks in the distant future
 
     private double offeringEpsilonDecayRate;
     private final double offeringMinimumEpsilon = 0.1;
-    private final double offeringAlphaDecayRate = 0.5;
-    private final double offeringMinimumAlpha = 0.000001;
+    private final double offeringAlphaDecayRate = 0.75;
+    private final double offeringMinimumAlpha = 0.00000001;
     private double confirmingEpsilonDecayRate;
     private final double confirmingMinimumEpsilon = 0.1;
-    private final double confirmingAlphaDecayRate = 0.5;
-    private final double confirmingMinimumAlpha = 0.000001;
+    private final double confirmingAlphaDecayRate = 0.75;
+    private final double confirmingMinimumAlpha = 0.00000001;
 
     private boolean cascading = true;
     private boolean learning = false;
@@ -158,8 +157,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             confirmingStateVectorSize = 1 + maxRequestQuantity + neighbors.size() * maxRequestQuantity;
             createOfferingNeuralNet();
             createConfirmingNeuralNet();
-            offeringScheduler = new ReduceLROnPlateau(100, offeringAlphaDecayRate, offeringMinimumAlpha, Double.MAX_VALUE);
-            confirmingScheduler = new ReduceLROnPlateau(100, confirmingAlphaDecayRate, confirmingMinimumAlpha, Double.MAX_VALUE);
+            offeringScheduler = new ReduceLROnPlateau(500, offeringAlphaDecayRate, offeringMinimumAlpha, Double.MAX_VALUE);
+            confirmingScheduler = new ReduceLROnPlateau(500, confirmingAlphaDecayRate, confirmingMinimumAlpha, Double.MAX_VALUE);
             if (numberOfEpisodes == 5000) {
                 offeringEpsilonDecayRate = 0.9995;
                 confirmingEpsilonDecayRate = 0.9995;
@@ -291,7 +290,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
                     .activation(Activation.RELU)
                     .weightInit(WeightInit.XAVIER)
-                    .updater(new Adam(offeringAlpha))
+//                    .updater(new Adam(offeringAlpha))
                     .l2(0.001)
                     .list()
                     .layer(new DenseLayer.Builder()
@@ -346,7 +345,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
                     .activation(Activation.RELU)
                     .weightInit(WeightInit.XAVIER)
-                    .updater(new Adam(confirmingAlpha))
+//                    .updater(new Adam(confirmingAlpha))
                     .l2(0.001)
                     .list()
                     .layer(new DenseLayer.Builder()
@@ -402,17 +401,21 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         // At the end of the episode
 
-//        if (offeringAlpha > offeringMinimumAlpha && offeringEpsilon == offeringMinimumEpsilon) {
-        if (offeringAlpha > offeringMinimumAlpha && offeringEpsilon < 0.5) {
-            double currentScore = offeringPolicyNetwork.score();
-            offeringAlpha = offeringScheduler.adjustLearningRate(currentScore, offeringAlpha);
+        logLearningScore(this.getLocalName(), "Offering LearningRate: " + offeringPolicyNetwork.getLearningRate(1));
+        double offeringScore = offeringPolicyNetwork.score();
+        logLearningScore(this.getLocalName(), "Offering Score: " + offeringScore);
+
+        if (offeringAlpha > offeringMinimumAlpha) {
+            offeringAlpha = offeringScheduler.adjustLearningRate(offeringScore, offeringAlpha);
             offeringPolicyNetwork.setLearningRate(offeringAlpha);
         }
 
-//        if (confirmingAlpha > confirmingMinimumAlpha && confirmingEpsilon == confirmingMinimumEpsilon) {
-        if (confirmingAlpha > confirmingMinimumAlpha && confirmingEpsilon < 0.5) {
-            double currentScore = confirmingPolicyNetwork.score();
-            confirmingAlpha = confirmingScheduler.adjustLearningRate(currentScore, confirmingAlpha);
+        logLearningScore(this.getLocalName(), "Confirming LearningRate: " + confirmingPolicyNetwork.getLearningRate(1));
+        double confirmingScore = confirmingPolicyNetwork.score();
+        logLearningScore(this.getLocalName(), "Confirming Score: " + confirmingScore);
+
+        if (confirmingAlpha > confirmingMinimumAlpha) {
+            confirmingAlpha = confirmingScheduler.adjustLearningRate(confirmingScore, confirmingAlpha);
             confirmingPolicyNetwork.setLearningRate(confirmingAlpha);
         }
     }
@@ -2645,6 +2648,18 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 //                System.err.println("Error writing file..." + e.getMessage());
 //            }
 //        }
+    }
+
+    protected void logLearningScore(String agentId, String msg) {
+
+        try {
+            PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter(agentLogFile, true)));
+            out.println(agentId + " Episode: " + episode + " " + msg);
+            out.println();
+            out.close();
+        } catch (IOException e) {
+            System.err.println("Error writing file..." + e.getMessage());
+        }
     }
 
 }

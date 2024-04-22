@@ -33,8 +33,8 @@ public class ExpResourceRatio {
     public static void main(String[] args) {
         try {
             smallWorldSim();
-//            scaleFreeSim();
-//            randomSim();
+            scaleFreeSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -57,7 +57,7 @@ public class ExpResourceRatio {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 5; exp++) {
+        for (int exp = 1; exp <= 1; exp++) {
 
             String trainedModelPath = "trained_models/resourceRatio" + numberOfAgents + "smallWorld" + exp;
 
@@ -286,7 +286,7 @@ public class ExpResourceRatio {
 
             for (long param = 7; param <= 15; param += 2) {
 
-                simEngResourceRatio = new SimEngResourceRatio( param, agentType, 4, 10, 2);
+                simEngResourceRatio = new SimEngResourceRatio( param, agentType, 4, 8, 2);
                 simEngResourceRatio.maxResourceTypesNum = 2;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";

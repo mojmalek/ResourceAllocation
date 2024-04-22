@@ -33,8 +33,8 @@ public class ExpTask {
     public static void main(String[] args) {
         try {
             smallWorldSim();
-//            scaleFreeSim();
-//            randomSim();
+            scaleFreeSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -57,7 +57,7 @@ public class ExpTask {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 5; exp++) {
+        for (int exp = 1; exp <= 1; exp++) {
 
             String trainedModelPath = "trained_models/task" + numberOfAgents + "smallWorld" + exp;
 

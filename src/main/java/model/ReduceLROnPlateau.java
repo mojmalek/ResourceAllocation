@@ -17,7 +17,7 @@ public class ReduceLROnPlateau {
     }
 
     public double adjustLearningRate(double currentScore, double currentLr) {
-        if (currentScore < bestValue) { // monitoring loss
+        if (currentScore < bestValue && currentScore > 0 ) { // monitoring loss
             bestValue = currentScore;
             wait = 0;
         } else {

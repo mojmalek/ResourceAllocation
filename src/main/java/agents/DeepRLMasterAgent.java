@@ -62,13 +62,13 @@ public class DeepRLMasterAgent extends Agent {
     private Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentExpiredResources = new LinkedHashMap<>();
 
     private double epsilon = 1; // With a small probability of epsilon, we choose to explore, i.e., not to exploit what we have learned so far
-    private double alpha = 0.1; // Learning rate
+    private double alpha = 0.0001; // Learning rate
     private final double gamma = 0.95; // Discount factor - 0 looks in the near future, 1 looks in the distant future
 
     private double epsilonDecayRate;
     private final double minimumEpsilon = 0.1;
-    private final double alphaDecayRate = 0.5;
-    private final double minimumAlpha = 0.000001;
+    private final double alphaDecayRate = 0.75;
+    private final double minimumAlpha = 0.00000001;
 
     private boolean cascading = true;
     private boolean learning = false;
@@ -126,7 +126,7 @@ public class DeepRLMasterAgent extends Agent {
             masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum + numberOfAgents * maxTaskNumPerAgent * maxResourceTypesNum;
 //            masterStateVectorSize = numberOfAgents * maxTaskNumPerAgent + numberOfAgents * maxResourceTypesNum;
             createNeuralNet();
-            scheduler = new ReduceLROnPlateau(100, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
+            scheduler = new ReduceLROnPlateau(500, alphaDecayRate, minimumAlpha, Double.MAX_VALUE);
             if (numberOfEpisodes == 5000) {
                 epsilonDecayRate = 0.9995;
             } else if (numberOfEpisodes == 10000) {
@@ -219,8 +219,7 @@ public class DeepRLMasterAgent extends Agent {
 
         // At the end of the episode
 
-//        if (alpha > minimumAlpha && epsilon == minimumEpsilon) {
-        if (alpha > minimumAlpha && epsilon < 0.5) {
+        if (alpha > minimumAlpha) {
             double currentScore = policyNetwork.score();
             alpha = scheduler.adjustLearningRate(currentScore, alpha);
             policyNetwork.setLearningRate(alpha);
@@ -510,7 +509,7 @@ public class DeepRLMasterAgent extends Agent {
                     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
                     .activation(Activation.RELU)
                     .weightInit(WeightInit.XAVIER)
-                    .updater(new Adam(alpha))
+//                    .updater(new Adam(alpha))
                     .l2(0.001)
                     .list()
                     .layer(new DenseLayer.Builder()

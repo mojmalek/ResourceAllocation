@@ -33,8 +33,8 @@ public class ExpResourceType {
     public static void main(String[] args) {
         try {
             smallWorldSim();
-//            scaleFreeSim();
-//            randomSim();
+            scaleFreeSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -45,7 +45,7 @@ public class ExpResourceType {
 
         boolean loadGraph = true;
         int numberOfAgents = 8;
-        int numberOfEpisodes = 1;
+        int numberOfEpisodes = 100;
         int packageSize = 20;
         int degree = 2;
 
@@ -57,7 +57,7 @@ public class ExpResourceType {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 5; exp++) {
+        for (int exp = 1; exp <= 1; exp++) {
 
             String trainedModelPath = "trained_models/resourceType" + numberOfAgents + "smallWorld" + exp;
 
@@ -141,7 +141,7 @@ public class ExpResourceType {
 
         boolean loadGraph = true;
         int numberOfAgents = 8;
-        int numberOfEpisodes = 1;
+        int numberOfEpisodes = 100;
         int packageSize = 20;
 
         SimEngResourceType simEngResourceType;
@@ -236,7 +236,7 @@ public class ExpResourceType {
 
         boolean loadGraph = true;
         int numberOfAgents = 8;
-        int numberOfEpisodes = 1;
+        int numberOfEpisodes = 100;
         int packageSize = 20;
         int degree = 2;
 

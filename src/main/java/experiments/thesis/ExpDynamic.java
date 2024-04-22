@@ -33,8 +33,8 @@ public class ExpDynamic {
     public static void main(String[] args) {
         try {
             smallWorldSim();
-//            scaleFreeSim();
-//            randomSim();
+            scaleFreeSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
