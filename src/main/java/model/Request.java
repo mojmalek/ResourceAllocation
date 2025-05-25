@@ -19,7 +19,7 @@ public class Request {
     public AID originalSender;
     public Set<Integer> previousReceivers;
     public Set<Integer> allReceivers;
-    // id, lifetime
+    // id, lifetime/managerId
     public Map<String, Long> reservedItems;
     public long timeSent;
     public long timeout;

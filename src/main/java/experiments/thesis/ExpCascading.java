@@ -33,8 +33,8 @@ public class ExpCascading {
     public static void main(String[] args) {
         try {
             smallWorldSim();
-//            scaleFreeSim();
-//            randomSim();
+            scaleFreeSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -47,7 +47,7 @@ public class ExpCascading {
         int numberOfAgents = 10;
         int numberOfEpisodes = 100;
         int packageSize = 20;
-        int degree = 2;
+        int degree = 4;
 
         SimEngCascading simEngCascading;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -57,7 +57,7 @@ public class ExpCascading {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 10; exp++) {
+        for (int exp = 1; exp <= 20; exp++) {
 
             String trainedModelPath = "trained_models/cascading" + numberOfAgents + "smallWorld" + exp;
 
@@ -91,10 +91,10 @@ public class ExpCascading {
 
             Integer[][] smallWorldAdjacency = SimulationEngine.generateAdjacencyMatrixFromGraph(smallWorldGraph, numberOfAgents);
 
-            for (long param = 3; param <= 11; param += 2) {
+            for (long param = 4; param <= 16; param += 2) {
 
-                simEngCascading = new SimEngCascading( param, agentType, 4, 20, 2);
-                simEngCascading.maxResourceTypesNum = 2;
+                simEngCascading = new SimEngCascading( param, agentType, 4, 20, 1);
+                simEngCascading.maxResourceTypesNum = 1;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
                 String logFileAll = "logs/" + "All-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
@@ -113,7 +113,7 @@ public class ExpCascading {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngCascading.maxTaskNumPerAgent, simEngCascading.resourceTypesNum, simEngCascading.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, smallWorldAdjacency[i - 1], logFileAll, simEngCascading, agentType, simEngCascading.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency[i - 1], logFileAll, simEngCascading, agentType, simEngCascading.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
@@ -152,7 +152,7 @@ public class ExpCascading {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 10; exp++) {
+        for (int exp = 1; exp <= 20; exp++) {
 
             String trainedModelPath = "trained_models/cascading" + numberOfAgents + "scaleFree" + exp;
 
@@ -186,10 +186,10 @@ public class ExpCascading {
 
             Integer[][] scaleFreeAdjacency = SimulationEngine.generateAdjacencyMatrixFromGraph(scaleFreeGraph, numberOfAgents);
 
-            for (long param = 3; param <= 11; param += 2) {
+            for (long param = 4; param <= 16; param += 2) {
 
-                simEngCascading = new SimEngCascading( param, agentType, 4, 20, 2);
-                simEngCascading.maxResourceTypesNum = 2;
+                simEngCascading = new SimEngCascading( param, agentType, 4, 20, 1);
+                simEngCascading.maxResourceTypesNum = 1;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
                 String logFileAll = "logs/" + "All-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
@@ -208,7 +208,7 @@ public class ExpCascading {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngCascading.maxTaskNumPerAgent, simEngCascading.resourceTypesNum, simEngCascading.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, scaleFreeAdjacency[i - 1], logFileAll, simEngCascading, agentType, simEngCascading.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency[i - 1], logFileAll, simEngCascading, agentType, simEngCascading.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
@@ -238,7 +238,7 @@ public class ExpCascading {
         int numberOfAgents = 10;
         int numberOfEpisodes = 100;
         int packageSize = 20;
-        int degree = 2;
+        int degree = 4;
 
         SimEngCascading simEngCascading;
         List<AgentController> agentControllers = new ArrayList<>();
@@ -248,7 +248,7 @@ public class ExpCascading {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 6; exp <= 10; exp++) {
+        for (int exp = 1; exp <= 20; exp++) {
 
             String trainedModelPath = "trained_models/cascading" + numberOfAgents + "random" + exp;
 
@@ -284,10 +284,10 @@ public class ExpCascading {
                 writer.close();
             }
 
-            for (long param = 3; param <= 11; param += 2) {
+            for (long param = 4; param <= 16; param += 2) {
 
-                simEngCascading = new SimEngCascading( param, agentType, 4, 20, 2);
-                simEngCascading.maxResourceTypesNum = 2;
+                simEngCascading = new SimEngCascading( param, agentType, 4, 20, 1);
+                simEngCascading.maxResourceTypesNum = 1;
 
                 String logFileMaster = "logs/" + "Master-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
                 String logFileAll = "logs/" + "All-" + agentType + "-exp" + exp + "-param=" + param + "-" + new Date() + ".txt";
@@ -306,7 +306,7 @@ public class ExpCascading {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngCascading.maxTaskNumPerAgent, simEngCascading.resourceTypesNum, simEngCascading.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, randomAdjacency[i - 1], logFileAll, simEngCascading, agentType, simEngCascading.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency[i - 1], logFileAll, simEngCascading, agentType, simEngCascading.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);

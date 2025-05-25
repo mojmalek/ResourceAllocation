@@ -15,9 +15,9 @@ public class Offer {
     public long quantity;
     public ResourceType resourceType;
     public Map<Long, Long> costFunction;
-    // id, lifetime
+    // id, lifetime/managerId
     public Map<String, Long> offeredItems;
-    // id, lifetime
+    // id, lifetime/managerId
     public Map<String, Long> reservedItems;
     public AID sender;
     public AID receiver;

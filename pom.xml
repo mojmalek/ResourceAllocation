@@ -64,11 +64,11 @@
             <artifactId>rl4j-core</artifactId>
             <version>1.0.0-M1.1</version>
         </dependency>
-        <dependency>
-            <groupId>com.tilab.jade</groupId>
-            <artifactId>jade</artifactId>
-            <version>4.6.0</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.tilab.jade</groupId>-->
+<!--            <artifactId>jade</artifactId>-->
+<!--            <version>4.6.0</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-core</artifactId>
@@ -95,16 +95,16 @@
             <version>1.1.1</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.gurobi</groupId>
-            <artifactId>gurobi</artifactId>
-            <version>10.02</version>
-            <scope>system</scope>
-<!--        on Linux -->
-<!--            <systemPath>/opt/gurobi1002/linux64/lib/gurobi.jar</systemPath>-->
-<!--        on Mac -->
-        <systemPath>/Library/gurobi1002/macos_universal2/lib/gurobi.jar</systemPath>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.gurobi</groupId>-->
+<!--            <artifactId>gurobi</artifactId>-->
+<!--            <version>10.02</version>-->
+<!--            <scope>system</scope>-->
+<!--&lt;!&ndash;        on Linux &ndash;&gt;-->
+<!--&lt;!&ndash;            <systemPath>/opt/gurobi1002/linux64/lib/gurobi.jar</systemPath>&ndash;&gt;-->
+<!--&lt;!&ndash;        on Mac &ndash;&gt;-->
+<!--        <systemPath>/Library/gurobi1002/macos_universal2/lib/gurobi.jar</systemPath>-->
+<!--        </dependency>-->
 
     </dependencies>
 

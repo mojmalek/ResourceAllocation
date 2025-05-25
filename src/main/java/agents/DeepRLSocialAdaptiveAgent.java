@@ -19,6 +19,10 @@ import org.deeplearning4j.rl4j.experience.StateActionRewardState;
 import org.deeplearning4j.rl4j.learning.sync.ExpReplay;
 import org.deeplearning4j.rl4j.observation.Observation;
 import org.deeplearning4j.util.ModelSerializer;
+import org.jgrapht.Graph;
+import org.jgrapht.alg.interfaces.ShortestPathAlgorithm;
+import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
+import org.jgrapht.graph.DefaultWeightedEdge;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -39,16 +43,19 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     private boolean debugMode = false;
     private String logFileAll, agentLogFile;
     private String agentType;
+    private String myId;
     private String trainedModelPath;
 
     private Integer[] adjacency;
+    Graph<String, DefaultWeightedEdge> graph;
+    ShortestPathAlgorithm shortestPathAlgorithm;
     private ArrayList<AID> neighbors = new ArrayList<>();
     private Map<AID, ProtocolPhase> neighborsPhases = new LinkedHashMap<>();
 
     private SortedSet<Task> toDoTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> blockedTasks = new TreeSet<>(new Task.taskComparator());
     private SortedSet<Task> doneTasks = new TreeSet<>(new Task.taskComparator());
-    private long totalUtil;
+    private long totalUtil, totalTransferCost;
     private int numberOfEpisodes, episode;
     private int numberOfAgents;
     private long maxRequestQuantity;
@@ -122,8 +129,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         Object[] args = getArguments();
         if (args != null && args.length > 0) {
             numberOfAgents = (int) args[0];
-            int myId = (int) args[1];
-            numberOfEpisodes = (int) args[2];
+            numberOfEpisodes = (int) args[1];
+            graph = (Graph) args[2];
             adjacency = (Integer[]) args[3];
             logFileAll = (String) args[4];
             simulationEngine = (SimEngineI) args[5];
@@ -132,6 +139,9 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             trainedModelPath = (String) args[8];
             packageSize = (int) args[9];
         }
+
+        myId = this.getLocalName().replace(agentType, "");
+        shortestPathAlgorithm = new DijkstraShortestPath(graph);
 
         for (int i = 0; i < adjacency.length; i++) {
             if (adjacency[i] != null) {
@@ -184,7 +194,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             protected void onTick() {
                 episode = this.getTickCount();
                 if (episode <= numberOfEpisodes) {
-                    if( myAgent.getLocalName().equals(agentType + "1") && episode % 100 == 0) {
+                    if( myId.equals("1") && episode % 100 == 0) {
                         System.out.println(myAgent.getLocalName() + " Episode: " + episode);
                     }
                     findTasks(myAgent);
@@ -199,7 +209,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
                 if (episode == numberOfEpisodes + 1) {
                     if (learning) {
-                        int myId = Integer.valueOf(myAgent.getLocalName().replace(agentType, ""));
                         try {
                             offeringPolicyNetwork.save(new File(trainedModelPath + "_offering_" + myId + ".zip"));
                         } catch (IOException e) {
@@ -274,7 +283,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         offeringReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
 
         if (loadTrainedModel) {
-            int myId = Integer.valueOf(this.getLocalName().replace(agentType, ""));
             try {
                 offeringPolicyNetwork = ModelSerializer.restoreMultiLayerNetwork(trainedModelPath + "_offering_" + myId + ".zip");
             } catch (IOException e) {
@@ -329,7 +337,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         confirmingReplayMemoryExperienceHandler = new ReplayMemoryExperienceHandler( new ExpReplay(100000, 32, new DefaultRandom()));
 
         if (loadTrainedModel) {
-            int myId = Integer.valueOf(this.getLocalName().replace(agentType, ""));
             try {
                 confirmingPolicyNetwork = ModelSerializer.restoreMultiLayerNetwork(trainedModelPath + "_confirming_" + myId + ".zip");
             } catch (IOException e) {
@@ -774,18 +781,33 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 //            System.out.println("===Performing Tasks===");
 //        }
 
+        Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources = new LinkedHashMap<>();
+        for (var entry : availableResources.entrySet()) {
+            for (ResourceItem item : entry.getValue()) {
+                if (agentAvailableResources.containsKey( item.getManager()) == false) {
+                    agentAvailableResources.put(item.getManager(), new LinkedHashMap<>());
+                }
+                if (agentAvailableResources.get(item.getManager()).containsKey( item.getType()) == false) {
+                    agentAvailableResources.get(item.getManager()).put(item.getType(), new TreeSet<>(new ResourceItem.resourceItemComparator()));
+                }
+                agentAvailableResources.get(item.getManager()).get(item.getType()).add(item);
+            }
+        }
+
         int count = 0;
         SortedSet<Task> doneTasksNow = new TreeSet<>(new Task.taskComparator());
         // Greedy algorithm: tasks are sorted by utility in toDoTasks
         for (Task task : toDoTasks) {
             if (hasEnoughResources(task, availableResources)) {
-                processTask(task);
+                double transferCost = processTask(task, agentAvailableResources);
                 doneTasksNow.add(task);
                 boolean check = doneTasks.add(task);
                 if (check == false) {
                     logErr(this.getLocalName(), "in performTasks");
                 }
                 totalUtil += task.utility;
+                totalUtil -= (long) transferCost;
+                totalTransferCost += (long) transferCost;
                 count += 1;
             }
         }
@@ -826,17 +848,81 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     }
 
 
-    void processTask (Task task) {
+    double processTask (Task task, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
+
+        long allocatedQuantity, transferredQuantity;
+        double transferCost = 0;
 
         for (var requiredResource : task.requiredResources.entrySet()) {
-            SortedSet<ResourceItem> resourceItems = availableResources.get(requiredResource.getKey());
-            for (int i = 0; i < requiredResource.getValue(); i++) {
-                ResourceItem item = resourceItems.first();
-                resourceItems.remove(item);
-                totalConsumedResources++;
-//                logInf( this.getLocalName(), "consumed resource item with id: " + item.getId());
+            allocatedQuantity = allocateResource (this.getAID(), requiredResource.getKey(), requiredResource.getValue(), 0, agentAvailableResources);
+            while (allocatedQuantity < requiredResource.getValue()) {
+                AID selectedProvider = selectBestProvider (requiredResource.getKey(), agentAvailableResources);
+                transferredQuantity = allocateResource (selectedProvider, requiredResource.getKey(), requiredResource.getValue(), allocatedQuantity, agentAvailableResources);
+                transferCost += computeTransferCost (selectedProvider, transferredQuantity, requiredResource.getKey());
+                allocatedQuantity += transferredQuantity;
             }
         }
+
+        return transferCost;
+    }
+
+
+    AID selectBestProvider(ResourceType resourceType, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
+
+        // should be deterministic
+        // select the provider with the shortest distance
+
+        Set<AID> potentialProviders = new HashSet<>();
+        for (AID aid : agentAvailableResources.keySet()) {
+            if (agentAvailableResources.get(aid).containsKey(resourceType)) {
+                if (agentAvailableResources.get(aid).get(resourceType).size() > 0) {
+                    potentialProviders.add(aid);
+                }
+            }
+        }
+
+        AID selectedProvider = null;
+        String selectedId;
+        String id;
+        long minDistance = Long.MAX_VALUE;
+        long distance;
+        for (AID aid : potentialProviders) {
+            id = aid.getLocalName().replace(agentType, "");
+            distance = getDistance(aid);
+            if (distance < minDistance) {
+                minDistance = distance;
+                selectedProvider = aid;
+            } else if (distance == minDistance) {
+                selectedId = selectedProvider.getLocalName().replace(agentType, "");
+                if (Integer.valueOf(id) < Integer.valueOf(selectedId)) {
+                    selectedProvider = aid;
+                }
+            }
+        }
+
+        return selectedProvider;
+    }
+
+
+    long allocateResource (AID selectedProvider, ResourceType resourceType, long requiredQuantity, long preAllocatedQuantity, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
+
+        long availableQuantity = 0;
+        if (agentAvailableResources.containsKey(selectedProvider)) {
+            if (agentAvailableResources.get(selectedProvider).containsKey(resourceType)) {
+                availableQuantity = agentAvailableResources.get(selectedProvider).get(resourceType).size();
+            }
+        }
+        long allocatedQuantity = Math.min(requiredQuantity - preAllocatedQuantity, availableQuantity);
+
+        for (int i=0; i<allocatedQuantity; i++) {
+            ResourceItem item = agentAvailableResources.get(selectedProvider).get(resourceType).first();
+            agentAvailableResources.get(selectedProvider).get(resourceType).remove((item));
+            availableResources.get(resourceType).remove(item);
+            totalConsumedResources++;
+//                logInf( this.getLocalName(), "consumed resource item with id: " + item.getId());
+        }
+
+        return allocatedQuantity;
     }
 
 
@@ -1406,7 +1492,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         Map<String, Long> reservedItems = new LinkedHashMap<>();
         for (long q=0; q<reservedQuantity; q++) {
             ResourceItem item = availableItems.first();
-            reservedItems.put(item.getId(), item.getExpiryTime());
+            long managerId = Long.valueOf(item.getManager().getLocalName().replace(agentType, ""));
+            reservedItems.put(item.getId(), managerId);
             availableItems.remove( item);
             totalConsumedResources++;
 //            logInf( this.getLocalName(), "reserved resource item with id: " + item.getId());
@@ -1532,7 +1619,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         for (long q=0; q<offerQuantity; q++) {
             ResourceItem item = availableItems.first();
-            offeredItems.put(item.getId(), item.getExpiryTime());
+            long managerId = Long.valueOf(item.getManager().getLocalName().replace(agentType, ""));
+            offeredItems.put(item.getId(), managerId);
             availableItems.remove( item);
             totalConsumedResources++;
 //            logInf( this.getLocalName(), "offered resource item with id: " + item.getId() + " to " + requester.getLocalName());
@@ -1716,9 +1804,12 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             SortedSet<ResourceItem> itemsInOffer;
             for (var offer : offerQuantities.entrySet()) {
                 // create a sorted set of offered items
+                //TODO: sort by distance to resource manager
                 itemsInOffer = new TreeSet<>(new ResourceItem.resourceItemComparator());
-                for (var itemIdLifetime : offer.getKey().offeredItems.entrySet()) {
-                    itemsInOffer.add(new ResourceItem(itemIdLifetime.getKey(), offer.getKey().resourceType, itemIdLifetime.getValue()));
+                for (var itemIdManagerId : offer.getKey().offeredItems.entrySet()) {
+                    AID resourceManager = new AID(agentType + itemIdManagerId.getValue(), AID.ISLOCALNAME);
+                    //TODO: remove hard-coded expiry time
+                    itemsInOffer.add(new ResourceItem(itemIdManagerId.getKey(), offer.getKey().resourceType, 1, resourceManager));
                 }
                 Iterator<ResourceItem> itr = itemsInOffer.iterator();
                 long q=1;
@@ -1728,7 +1819,8 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                         logErr(this.getLocalName(), "duplicated resource item with id: " + item.getId());
                         logErr(this.getLocalName(), "offeredItems.containsKey(item.getId())");
                     }
-                    offeredItems.put(item.getId(), item.getExpiryTime());
+                    long managerId = Long.valueOf(item.getManager().getLocalName().replace(agentType, ""));
+                    offeredItems.put(item.getId(), managerId);
                     q++;
 //                    logInf( this.getLocalName(), "cascaded offered resource item with id: " + item.getId() + " to " + cascadedRequest.sender.getLocalName());
                 }
@@ -1768,9 +1860,9 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     void restoreReservedItems (Request cascadedRequest) {
         // create a sorted set of reserved items
         SortedSet<ResourceItem> reserevedItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
-        for (var offeredItem : cascadedRequest.reservedItems.entrySet()) {
-            reserevedItems.add(new ResourceItem(offeredItem.getKey(), cascadedRequest.resourceType, offeredItem.getValue()));
-//            logInf( this.getLocalName(), "(restoreReservedItems) restored resource item with id: " + offeredItem.getKey());
+        for (var reservedItem : cascadedRequest.reservedItems.entrySet()) {
+            reserevedItems.add(new ResourceItem(reservedItem.getKey(), cascadedRequest.resourceType, 1, this.getAID()));
+//            logInf( this.getLocalName(), "(restoreReservedItems) restored resource item with id: " + reservedItem.getKey());
         }
         availableResources.get(cascadedRequest.resourceType).addAll(reserevedItems);
         totalConsumedResources -= reserevedItems.size();
@@ -1875,10 +1967,13 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
             for (var offerQuantity : selectedOffersForReq.getValue().entrySet()) {
                 confirmedItems = new LinkedHashMap<>();
                 long q=1;
-                for (var item : offerQuantity.getKey().offeredItems.entrySet()) {
+                for (var itemIdManagerId : offerQuantity.getKey().offeredItems.entrySet()) {
                     if (q <= offerQuantity.getValue()) {
-                        availableResources.get(offerQuantity.getKey().resourceType).add(new ResourceItem(item.getKey(), offerQuantity.getKey().resourceType, item.getValue()));
-                        confirmedItems.put(item.getKey(), item.getValue());
+                        AID resourceManager = new AID(agentType + itemIdManagerId.getValue(), AID.ISLOCALNAME);
+                        //TODO: remove hard-coded expiry time
+                        availableResources.get(offerQuantity.getKey().resourceType).add(
+                                new ResourceItem(itemIdManagerId.getKey(), offerQuantity.getKey().resourceType, 1, resourceManager));
+                        confirmedItems.put(itemIdManagerId.getKey(), itemIdManagerId.getValue());
                         q++;
                         totalReceivedResources++;
 //                        logInf( this.getLocalName(), "received resource item (in offer) with id: " + item.getKey());
@@ -1887,8 +1982,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                     }
                 }
                 confirmedOfferedItems.put(offerQuantity.getKey(), confirmedItems);
-                double transferCost = computeTransferCost(offerQuantity.getKey().sender, confirmedItems.size(), offerQuantity.getKey().resourceType);
-                totalUtil -= transferCost;
             }
             confirmedOfferedItemsForAllRequests.put(selectedOffersForReq.getKey(), confirmedOfferedItems);
         }
@@ -1897,10 +1990,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
     }
 
 
-    double computeTransferCost(AID neighbor, long quantity, ResourceType resourceType) {
-
-        // The (original) requester pays the immediate transfer cost. When the request has been cascaded, any subsequent transfer cost is paid by the corresponding middle agent(s) who cascaded the request.
-        // since we compute social welfare of all agents, we can incur the transfer cost locally
+    double computeTransferCost(AID provider, long quantity, ResourceType resourceType) {
 
 //        if (learning) {
 //            // only for ExpTransferCost
@@ -1911,10 +2001,7 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
         double transferCost = 0;
         if (quantity > 0) {
-            String providerName = neighbor.getLocalName();
-            String providerId = providerName.replace(agentType, "");
-            int i = Integer.valueOf(providerId);
-            int distance = adjacency[i - 1];
+            long distance = getDistance(provider);
 
             long numberOfPackages = quantity / packageSize;
             if (quantity % packageSize > 0) {
@@ -1933,6 +2020,29 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
         }
 
         return transferCost;
+    }
+
+
+    long getDistance(AID provider) {
+
+        long distance = 0;
+        String providerId = provider.getLocalName().replace(agentType, "");
+        int j = Integer.valueOf(providerId);
+
+        if (adjacency[j-1] == null) {
+            try {
+                distance = (long) shortestPathAlgorithm.getPathWeight (myId, providerId);
+            } catch (Exception e) {
+                System.out.println("Exception: incurTransferCost " + e.getMessage());
+            }
+        } else {
+            // when there is an edge, we consider it as the selected path even if it is not the shortest path
+            distance = adjacency[j-1];
+        }
+
+//        System.out.println("task manager: " + taskManagerId + " provider: " + providerId + " distance: " + distance);
+
+        return distance;
     }
 
 
@@ -2291,8 +2401,6 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
                 logInf(this.getLocalName(), "cascaded confirmation with quantity " + items.getValue().size() + " for offerId  " + items.getKey().id + " for " + items.getKey().resourceType.name() + " to " + items.getKey().sender.getLocalName());
             }
             sendConfirmation (items.getKey().id, items.getKey().sender, items.getKey().resourceType, items.getValue().size(), items.getValue());
-            double transferCost = computeTransferCost( items.getKey().sender, items.getValue().size(), items.getKey().resourceType);
-            totalUtil -= transferCost;
         }
     }
 
@@ -2308,11 +2416,11 @@ public class DeepRLSocialAdaptiveAgent extends Agent {
 
          if (confirmQuantity < sentOffer.quantity) {
              logInf( this.getLocalName(), "restoreOfferedResources for offerId " + sentOffer.id + " offerQuan " + sentOffer.quantity + " confirmQuan " + confirmQuantity);
-            for (var offeredItem : sentOffer.reservedItems.entrySet()) {
-                if (confirmQuantity == 0 || confirmedItems.containsKey(offeredItem.getKey()) == false) {
-                    availableResources.get(sentOffer.resourceType).add( new ResourceItem(offeredItem.getKey(), sentOffer.resourceType, offeredItem.getValue()));
+            for (var reservedItem : sentOffer.reservedItems.entrySet()) {
+                if (confirmQuantity == 0 || confirmedItems.containsKey(reservedItem.getKey()) == false) {
+                    availableResources.get(sentOffer.resourceType).add( new ResourceItem(reservedItem.getKey(), sentOffer.resourceType, 1, this.getAID()));
                     totalConsumedResources--;
-//                    logInf( this.getLocalName(), "(restoreOfferedResources) restored resource item with id: " + offeredItem.getKey());
+//                    logInf( this.getLocalName(), "(restoreOfferedResources) restored resource item with id: " + reservedItem.getKey());
                 }
             }
         }

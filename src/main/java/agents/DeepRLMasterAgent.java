@@ -704,9 +704,7 @@ public class DeepRLMasterAgent extends Agent {
         double transferCost = 0;
         Set<AID> providers;
         for (var requiredResource : task.requiredResources.entrySet()) {
-            allocatedQuantity = 0;
-            transferredQuantity = allocateResource (task.manager, requiredResource.getKey(), requiredResource.getValue(), allocatedQuantity, agentAvailableResources);
-            allocatedQuantity += transferredQuantity;
+            allocatedQuantity = allocateResource (task.manager, requiredResource.getKey(), requiredResource.getValue(), 0, agentAvailableResources);
             providers = new HashSet<>();
             providers.add(task.manager);
             while (allocatedQuantity < requiredResource.getValue()) {
@@ -732,9 +730,7 @@ public class DeepRLMasterAgent extends Agent {
         double transferCost = 0;
         Set<AID> providers;
         for (var requiredResource : task.requiredResources.entrySet()) {
-            allocatedQuantity = 0;
-            transferredQuantity = allocateResource (task.manager, requiredResource.getKey(), requiredResource.getValue(), allocatedQuantity, agentAvailableResourcesCopy);
-            allocatedQuantity += transferredQuantity;
+            allocatedQuantity = allocateResource (task.manager, requiredResource.getKey(), requiredResource.getValue(), 0, agentAvailableResourcesCopy);
             providers = new HashSet<>();
             providers.add(task.manager);
             while (allocatedQuantity < requiredResource.getValue()) {
@@ -850,20 +846,20 @@ public class DeepRLMasterAgent extends Agent {
     }
 
 
-    long allocateResource (AID selectedProvider, ResourceType resourceType, long requiredQuantity, long allocatedQuantity, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
+    long allocateResource (AID selectedProvider, ResourceType resourceType, long requiredQuantity, long preAllocatedQuantity, Map<AID, Map<ResourceType, SortedSet<ResourceItem>>> agentAvailableResources) {
 
         long availableQuantity = 0;
         if (agentAvailableResources.get(selectedProvider).containsKey(resourceType)) {
             availableQuantity = agentAvailableResources.get(selectedProvider).get(resourceType).size();
         }
-        long transferredQuantity = Math.min(requiredQuantity - allocatedQuantity, availableQuantity);
+        long allocatedQuantity = Math.min(requiredQuantity - preAllocatedQuantity, availableQuantity);
 
-        for (int i=0; i<transferredQuantity; i++) {
+        for (int i=0; i<allocatedQuantity; i++) {
             ResourceItem item = agentAvailableResources.get(selectedProvider).get(resourceType).first();
             agentAvailableResources.get(selectedProvider).get(resourceType).remove((item));
         }
 
-        return transferredQuantity;
+        return allocatedQuantity;
     }
 
 

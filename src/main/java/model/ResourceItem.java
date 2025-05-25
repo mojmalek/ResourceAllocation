@@ -38,6 +38,10 @@ public class ResourceItem {
         return expiryTime;
     }
 
+    public AID getManager() {
+        return manager;
+    }
+
     public void setExpiryTime(long expiryTime) {
         this.expiryTime = expiryTime;
     }
@@ -47,7 +51,7 @@ public class ResourceItem {
         return "ResourceItem{" +
                 "id='" + id + '\'' +
                 ", type=" + type +
-                ", lifetime=" + expiryTime +
+                ", manager=" + manager.getLocalName() +
                 '}';
     }
 
