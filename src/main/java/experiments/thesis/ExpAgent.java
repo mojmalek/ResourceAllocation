@@ -33,8 +33,8 @@ public class ExpAgent {
     public static void main(String[] args) {
         try {
             smallWorldSim();
-//            scaleFreeSim();
-//            randomSim();
+            scaleFreeSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -126,7 +126,7 @@ public class ExpAgent {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngAgent.maxTaskNumPerAgent, simEngAgent.resourceTypesNum, simEngAgent.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, smallWorldAdjacency[i - 1], logFileAll, simEngAgent, agentType, simEngAgent.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency[i - 1], logFileAll, simEngAgent, agentType, simEngAgent.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
@@ -220,7 +220,7 @@ public class ExpAgent {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngAgent.maxTaskNumPerAgent, simEngAgent.resourceTypesNum, simEngAgent.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, scaleFreeAdjacency[i - 1], logFileAll, simEngAgent, agentType, simEngAgent.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency[i - 1], logFileAll, simEngAgent, agentType, simEngAgent.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
@@ -331,7 +331,7 @@ public class ExpAgent {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngAgent.maxTaskNumPerAgent, simEngAgent.resourceTypesNum, simEngAgent.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, randomAdjacency[i - 1], logFileAll, simEngAgent, agentType, simEngAgent.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency[i - 1], logFileAll, simEngAgent, agentType, simEngAgent.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);

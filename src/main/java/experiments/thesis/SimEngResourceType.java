@@ -118,7 +118,7 @@ public class SimEngResourceType implements SimEngineI {
             }
 //          if (quantity > 0) {
             lifetime = lifetimes[random.nextInt( lifetimes.length)];
-            SortedSet<ResourceItem> items = findResourceItems(resourceTypeValues[i], lifetime, quantity, myAgent.getLocalName());
+            SortedSet<ResourceItem> items = findResourceItems(resourceTypeValues[i], lifetime, quantity, myAgent);
             resources.put(resourceTypeValues[i], items);
 //          }
         }
@@ -127,13 +127,13 @@ public class SimEngResourceType implements SimEngineI {
     }
 
 
-    private SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, String agentName) {
+    private SortedSet<ResourceItem> findResourceItems( ResourceType resourceType, long lifeTime, long quantity, Agent myAgent) {
 
         SortedSet<ResourceItem> resourceItems = new TreeSet<>(new ResourceItem.resourceItemComparator());
         String id;
         for (long i=0; i<quantity; i++) {
-            id = UUID.randomUUID().toString() + '-' + agentName;
-            resourceItems.add(new ResourceItem (id, resourceType, lifeTime));
+            id = UUID.randomUUID().toString() + '-' + myAgent.getLocalName();
+            resourceItems.add(new ResourceItem (id, resourceType, lifeTime, myAgent.getAID()));
         }
         return resourceItems;
     }

@@ -57,7 +57,7 @@ public class ExpResourceRatio {
         String resultFileCen = "results/" + agentType + "-" + new Date() + "-CEN.txt";
         String resultFileDec = "results/" + agentType + "-" + new Date() + "-DEC.txt";
 
-        for (int exp = 1; exp <= 1; exp++) {
+        for (int exp = 1; exp <= 5; exp++) {
 
             String trainedModelPath = "trained_models/resourceRatio" + numberOfAgents + "smallWorld" + exp;
 
@@ -113,7 +113,7 @@ public class ExpResourceRatio {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngResourceRatio.maxTaskNumPerAgent, simEngResourceRatio.resourceTypesNum, simEngResourceRatio.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, smallWorldAdjacency[i - 1], logFileAll, simEngResourceRatio, agentType, simEngResourceRatio.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency[i - 1], logFileAll, simEngResourceRatio, agentType, simEngResourceRatio.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
@@ -208,7 +208,7 @@ public class ExpResourceRatio {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngResourceRatio.maxTaskNumPerAgent, simEngResourceRatio.resourceTypesNum, simEngResourceRatio.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, scaleFreeAdjacency[i - 1], logFileAll, simEngResourceRatio, agentType, simEngResourceRatio.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, scaleFreeGraph, scaleFreeAdjacency[i - 1], logFileAll, simEngResourceRatio, agentType, simEngResourceRatio.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
@@ -306,7 +306,7 @@ public class ExpResourceRatio {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency, logFileMaster, resultFileCen, resultFileDec, agentType, simEngResourceRatio.maxTaskNumPerAgent, simEngResourceRatio.resourceTypesNum, simEngResourceRatio.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, randomAdjacency[i - 1], logFileAll, simEngResourceRatio, agentType, simEngResourceRatio.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency[i - 1], logFileAll, simEngResourceRatio, agentType, simEngResourceRatio.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);

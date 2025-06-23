@@ -32,7 +32,7 @@ public class ExpDegree {
     public static void main(String[] args) {
         try {
             smallWorldSim();
-//            randomSim();
+            randomSim();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -111,7 +111,7 @@ public class ExpDegree {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency, logFileMaster1, resultFileCen, resultFileDec, agentType, simEngDegree.maxTaskNumPerAgent, simEngDegree.resourceTypesNum, simEngDegree.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, smallWorldAdjacency[i - 1], logFileAll1, simEngDegree, agentType, simEngDegree.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, smallWorldGraph, smallWorldAdjacency[i - 1], logFileAll1, simEngDegree, agentType, simEngDegree.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
@@ -209,7 +209,7 @@ public class ExpDegree {
                             agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLMasterAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency, logFileMaster1, resultFileCen, resultFileDec, agentType, simEngDegree.maxTaskNumPerAgent, simEngDegree.resourceTypesNum, simEngDegree.maxResourceTypesNum, trainedModelPath, packageSize});
                             agentController.start();
                         } else {
-                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, i, numberOfEpisodes, randomAdjacency[i - 1], logFileAll1, simEngDegree, agentType, simEngDegree.maxRequestQuantity, trainedModelPath, packageSize});
+                            agentController = containerController.createNewAgent(agentType + i, "agents.DeepRLSocialAdaptiveAgent", new Object[]{numberOfAgents, numberOfEpisodes, randomGraph, randomAdjacency[i - 1], logFileAll1, simEngDegree, agentType, simEngDegree.maxRequestQuantity, trainedModelPath, packageSize});
                             agentController.start();
                         }
                         agentControllers.add( agentController);
